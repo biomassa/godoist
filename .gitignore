@@ -1,0 +1,19 @@
+# Build output
+/godoist
+*.test
+*.out
+
+# Never commit secrets or local account data
+config.toml
+.env
+*.env
+sync.json
+state.toml
+
+# AI assistant files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+.claude-work/
+.mcp.json
+AGENTS.md
