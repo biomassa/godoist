@@ -24,6 +24,13 @@ var Colors = map[string]string{
 	"taupe":       "#8F7A69",
 }
 
+// ColorNames lists the Todoist colors in the order of the Todoist color picker.
+var ColorNames = []string{
+	"berry_red", "red", "orange", "yellow", "olive_green", "lime_green", "green",
+	"mint_green", "teal", "sky_blue", "light_blue", "blue", "grape", "violet",
+	"lavender", "magenta", "salmon", "charcoal", "grey", "taupe",
+}
+
 // ColorHex returns the hex for a Todoist color name, defaulting to charcoal.
 func ColorHex(name string) string {
 	if h, ok := Colors[name]; ok {

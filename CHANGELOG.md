@@ -35,9 +35,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drag a task to a sidebar project or a section header to move it.
 - An empty line before sidebar groups, before section headers, and under the title of each task list. Section headers use the project color.
 - Unit tests for the mouse handling.
+- Find and replace in the inline editor (`ctrl+f`): a box at the top of the editor with find, replace, and match case. `enter` finds the next match, `ctrl+r` replaces the current match, and `ctrl+a` replaces all. An empty replace field removes the matches. All matches are highlighted, and the box shows "3 of 7". Replace all is one undo step.
+- Sub-tasks in Today, Upcoming, All tasks, labels, and filters: nested under their parents, collapsed by default, expanded with `z` or a click. A due sub-task brings in its parent (gray, expanded). Each view keeps its expanded tasks locally.
+- The inline editor opens with `enter` in the reader, with `E`, or with a double-click on the note text. The reader shows the hint "enter or E · edit this note".
+- Headings in the reader and the editor are full-width bars, colored by level.
+- Markdown reader in notebook view: headings without `#` marks, `☐` / `☑` checkboxes, terminal hyperlinks, and syntax colors for fenced code. `tab` moves between the checkboxes of a note, and `space` or a click changes one.
+- Inline markdown editor in notebook view (`E`): the source with live styles, autosave one second after the last change and on `esc`, the save state in the pane title, list continuation, `ctrl+b` / `ctrl+i` / `ctrl+k` / `ctrl+t`, word moves, and undo and redo.
+- Sub-tasks: `A` on a task adds a sub-task (Todoist parses the text). `>` indents a task under the task above it, and `<` outdents it.
+- Manual task order: `[` and `]` move a task among its siblings. At the edge of a section, a top-level task goes into the next section. In All tasks, this works for tasks without a due date.
+- Collapse with `z` for sections, tasks with sub-tasks, and sub-projects. The state is saved in Todoist. `▾` and `▸` markers show it, and a click on a marker toggles it.
+- Multi-select: `s`, `S`, `ctrl`+click, and `shift`+click. Bulk complete, due date, priority, move, labels (with `[~]` for partial labels), and delete. One `ctrl+z` opens again the one-time tasks of a bulk completion.
+- Labels group in the sidebar with a label view grouped by project. Label management: add, rename, color, favorite, reorder, and delete.
+- Completed view: the tasks completed in the last 30 days, grouped by project. `x` opens a task again.
+- Projects in the sidebar: `A` adds a project (name, then a color picker with a sub-project option), `e` renames, `C` changes the color, `*` adds to or removes from Favorites, `[` and `]` move it among its siblings, and `Delete` or `Backspace` deletes or archives it. Right-click opens a project menu. The Inbox is protected.
+- All tasks view at the end of the sidebar: all tasks grouped by project, dated tasks first by due date.
+- Confirmations open a dialog with buttons. The action button is selected first. The arrows, `tab`, and `h`/`l` select a button, `enter` pushes it, the button keys and a click also work, and `esc` closes the dialog.
+- The sidebar starts with the Inbox. The sidebar and the details pane start with an empty line.
 - Task deletion: `Delete` or `Backspace` on a task, or "Delete" in the right-click menu. It asks y/n first.
 - Sections: `A` adds a section after the section under the cursor. With the cursor on a section header, `e` renames it, `[` and `]` move it, and `Delete` or `Backspace` deletes it and its tasks after a y/n prompt with the task count. Right-click on a header opens a section menu.
-- Two bottom lines: the key legend, and the last operation with the sync state. Legend items that do not fit on the first line go to the free space on the second line.
+- Two bottom lines: the key legend, and the last operation with the sync state. Legend items that do not fit on the first line start the second line, and the status follows them.
 - Long hints in the date dialog, the pickers, and the details pane wrap to a second line.
 - Key hints in the bottom bar for the focused pane, in each input, and in each picker.
 - Built-in multi-line editor with `ctrl+s` to save. `ctrl+e` opens the text in `$VISUAL` or `$EDITOR`.

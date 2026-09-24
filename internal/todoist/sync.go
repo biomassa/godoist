@@ -65,6 +65,16 @@ func (c *Client) Sync(ctx context.Context, s *SyncState) error {
 		func(t Task) bool { return t.IsDeleted || t.Checked })
 	s.Comments = merge(s.Comments, resp.Notes, func(n Comment) string { return n.ID },
 		func(n Comment) bool { return n.IsDeleted })
+	// An incremental sync sends a changed label with "order": null. Keep the known order.
+	oldOrder := map[string]int{}
+	for _, l := range s.Labels {
+		oldOrder[l.ID] = l.Order
+	}
+	for i := range resp.Labels {
+		if resp.Labels[i].Order == 0 {
+			resp.Labels[i].Order = oldOrder[resp.Labels[i].ID]
+		}
+	}
 	s.Labels = merge(s.Labels, resp.Labels, func(l Label) string { return l.ID },
 		func(l Label) bool { return l.IsDeleted })
 	if resp.User != nil { // an incremental sync sends the user only after a change

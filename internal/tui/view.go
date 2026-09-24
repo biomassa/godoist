@@ -107,6 +107,8 @@ func (m Model) render() string {
 		return lipgloss.JoinHorizontal(lipgloss.Top, nav,
 			box(st(hexText).Bold(true).Render("Help"), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
 			"\n" + m.bottomBar()
+	case m.note != nil && !m.wide():
+		mid = box(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
 	case m.pick != nil && !m.wide():
 		mid = m.pickerBox(midW, h)
 	case m.edit != nil && !m.wide():
@@ -119,6 +121,8 @@ func (m Model) render() string {
 
 	panes := []string{nav, mid}
 	switch {
+	case detW > 0 && m.note != nil:
+		panes = append(panes, box(m.noteTitle(), m.noteLines(detW-2, h), detW, fg(hexAccent)))
 	case detW > 0 && m.pick != nil:
 		panes = append(panes, m.pickerBox(detW, h))
 	case detW > 0 && m.edit != nil:
@@ -243,6 +247,9 @@ func (m Model) navLines(w, h int) []string {
 		}
 		base := lipgloss.NewStyle()
 		nameHex := hexText
+		if n.kind == vkLabelHint {
+			nameHex = hexDim
+		}
 		if i == m.navCur {
 			if m.focus == paneNav {
 				base = base.Background(c(tint(n.color)))
@@ -259,7 +266,11 @@ func (m Model) navLines(w, h int) []string {
 			}
 			count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
 		}
-		left := base.Render(" "+strings.Repeat("  ", n.depth)) +
+		mark := ""
+		if n.hasKids {
+			mark = base.Foreground(c(hexMuted)).Render(collapseMark(n.collapsed))
+		}
+		left := base.Render(" "+strings.Repeat("  ", n.depth)) + mark +
 			base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
 		nameW := w - lipgloss.Width(left) - lipgloss.Width(count) - 1
 		name := base.Foreground(c(nameHex)).Render(trunc(n.name, nameW))
@@ -283,7 +294,8 @@ func (m Model) taskTitle() string {
 			n++
 		}
 	}
-	t := st(fg(cur.color)).Bold(true).Render(cur.glyph+" "+cur.name) + st(hexMuted).Render(fmt.Sprintf(" %d", n))
+	t := st(fg(cur.color)).Bold(true).Render(cur.glyph+" "+cur.name) + st(hexMuted).Render(fmt.Sprintf(" %d", n)) +
+		m.selectionTitle()
 	if m.notesMode() {
 		t += st(hexMuted).Render(" · notebook")
 	}
@@ -303,7 +315,8 @@ func (m Model) taskLines(w, h int) []string {
 		return padLines([]string{"", "  " + st(hexMuted).Render(msg)}, w, h)
 	}
 	cur := m.currentNav()
-	crossProject := cur != nil && cur.kind != vkProject
+	// Views that group tasks by project have project headers, so rows need no project badge.
+	crossProject := cur != nil && cur.kind != vkProject && cur.kind != vkAll && cur.kind != vkLabel && cur.kind != vkCompleted
 	notes := m.notesMode()
 	now := time.Now()
 
@@ -328,15 +341,22 @@ func (m Model) taskLines(w, h int) []string {
 			indent := "    " + strings.Repeat("  ", r.depth)
 			lines = append(lines, pad(base.Render(indent)+base.Foreground(c(hexMuted)).Render(trunc(r.preview, w-len(indent)-1)), w, base))
 		case notes:
-			lines = append(lines, m.noteLine(r, w, base, i == m.rowCur))
+			lines = append(lines, m.selectedLook(m.noteLine(r, w, base, i == m.rowCur), r, i, w))
 		default:
-			lines = append(lines, m.taskLine(r, w, base, crossProject, now))
+			lines = append(lines, m.selectedLook(m.taskLine(r, w, base, crossProject, now), r, i, w))
 		}
 	}
 	if len(m.rows) == 0 || (len(lines) == 0 && h > 1) {
 		msg := "Nothing here · a to add a task"
-		if m.notesMode() {
+		switch {
+		case m.notesMode():
 			msg = "No notes · a to add a note"
+		case cur != nil && cur.kind == vkLabelHint:
+			msg = "No labels yet · A in the sidebar adds one"
+		case cur != nil && cur.kind == vkCompleted && m.completedLoading:
+			msg = "Loading completed tasks…"
+		case cur != nil && cur.kind == vkCompleted:
+			msg = fmt.Sprintf("No tasks completed in the last %d days", completedDays)
 		}
 		if m.find != "" {
 			msg = "No matches · esc to clear"
@@ -374,8 +394,37 @@ func (m Model) editorBox(w, h int) string {
 }
 
 // headerLine renders a section or day header with a count and a rule.
+// selectedLook draws a selected task row inverted (reverse video). On the cursor row it is
+// also bold and has a ▸ in the left margin.
+func (m Model) selectedLook(line string, r row, i, w int) string {
+	if r.task == nil || !m.isSelected(r.task.ID) {
+		return line
+	}
+	text := []rune(ansi.Strip(line))
+	style := lipgloss.NewStyle().Reverse(true)
+	if i == m.rowCur {
+		style = style.Bold(true)
+		if len(text) > 0 {
+			text[0] = '▸'
+		}
+	}
+	return pad(style.Render(string(text)), w, style)
+}
+
+// collapseMark is the ▾ (expanded) or ▸ (collapsed) marker of an item that can collapse.
+func collapseMark(collapsed bool) string {
+	if collapsed {
+		return "▸ "
+	}
+	return "▾ "
+}
+
 func headerLine(r row, w int, base lipgloss.Style) string {
-	name := base.Foreground(c(r.headerHex)).Bold(true).Render(" " + trunc(r.header, w-8))
+	mark := ""
+	if r.hasKids {
+		mark = collapseMark(r.collapsed)
+	}
+	name := base.Foreground(c(r.headerHex)).Bold(true).Render(" " + mark + trunc(r.header, w-10))
 	count := ""
 	if r.count > 0 {
 		count = base.Foreground(c(hexMuted)).Render(fmt.Sprintf(" %d", r.count))
@@ -389,8 +438,14 @@ func headerLine(r row, w int, base lipgloss.Style) string {
 func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, now time.Time) string {
 	t := r.task
 	prio := t.UIPriority()
-	left := base.Render(" "+strings.Repeat("  ", r.depth)) +
-		base.Foreground(c(priorityHex[prio])).Render("○") + base.Render(" ")
+	circle := base.Foreground(c(priorityHex[prio])).Render("○")
+	if r.done {
+		circle = base.Foreground(c(hexToday)).Render("✓")
+	}
+	left := base.Render(" "+strings.Repeat("  ", r.depth)) + circle + base.Render(" ")
+	if r.hasKids {
+		left += base.Foreground(c(hexMuted)).Render(collapseMark(r.collapsed))
+	}
 
 	// The meta items are in display order. If the line is too narrow, the item with the
 	// lowest keep value goes first.
@@ -399,30 +454,37 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 		keep int
 	}
 	var meta []item
-	dimS := base.Foreground(c(hexMuted))
-	for _, l := range t.Labels {
-		meta = append(meta, item{base.Foreground(c(hexTomorrow)).Render("@" + l), 1})
-	}
-	if strings.TrimSpace(t.Description) != "" {
-		meta = append(meta, item{dimS.Render("≡"), 2})
-	}
-	if n := len(m.snap.Comments[t.ID]); n > 0 {
-		meta = append(meta, item{dimS.Render(fmt.Sprintf("✎%d", n)), 3})
-	}
-	if t.Due != nil {
-		d := todoist.FormatDue(t.Due, now)
-		if t.Due.IsRecurring {
-			d += " ↻"
+	if r.done { // a completed task shows only when it was completed
+		meta = append(meta, item{base.Foreground(c(hexMuted)).Render(completedLabel(t.CompletedAt, now)), 5})
+	} else {
+		if r.collapsed && r.hidden > 0 {
+			meta = append(meta, item{base.Foreground(c(hexMuted)).Render(fmt.Sprintf("%d", r.hidden)), 4})
 		}
-		meta = append(meta, item{base.Foreground(c(dueHex(t.Due, now))).Render(d), 5})
-	}
-	if crossProject {
-		if p := m.projects[t.ProjectID]; p != nil {
-			name := p.Name
-			if s := m.sections[t.Section()]; s != nil {
-				name += "/" + s.Name
+		dimS := base.Foreground(c(hexMuted))
+		for _, l := range t.Labels {
+			meta = append(meta, item{base.Foreground(c(hexTomorrow)).Render("@" + l), 1})
+		}
+		if strings.TrimSpace(t.Description) != "" {
+			meta = append(meta, item{dimS.Render("≡"), 2})
+		}
+		if n := len(m.snap.Comments[t.ID]); n > 0 {
+			meta = append(meta, item{dimS.Render(fmt.Sprintf("✎%d", n)), 3})
+		}
+		if t.Due != nil {
+			d := todoist.FormatDue(t.Due, now)
+			if t.Due.IsRecurring {
+				d += " ↻"
 			}
-			meta = append(meta, item{base.Foreground(c(fg(todoist.ColorHex(p.Color)))).Render("# " + trunc(name, 20)), 4})
+			meta = append(meta, item{base.Foreground(c(dueHex(t.Due, now))).Render(d), 5})
+		}
+		if crossProject && r.depth == 0 { // sub-tasks are in the project of their root
+			if p := m.projects[t.ProjectID]; p != nil {
+				name := p.Name
+				if s := m.sections[t.Section()]; s != nil {
+					name += "/" + s.Name
+				}
+				meta = append(meta, item{base.Foreground(c(fg(todoist.ColorHex(p.Color)))).Render("# " + trunc(name, 20)), 4})
+			}
 		}
 	}
 	var right string
@@ -448,7 +510,11 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 		}
 		meta = append(meta[:drop], meta[drop+1:]...)
 	}
-	content := base.Foreground(c(hexText)).Render(trunc(plain(t.Content), contentW))
+	contentHex := hexText
+	if r.done || r.pulled {
+		contentHex = hexMuted
+	}
+	content := base.Foreground(c(contentHex)).Render(trunc(plain(t.Content), contentW))
 	gap := w - lipgloss.Width(left) - lipgloss.Width(content) - lipgloss.Width(right)
 	return left + content + base.Render(strings.Repeat(" ", max(0, gap))) + right
 }
@@ -518,6 +584,8 @@ func legendKey(label string) string {
 		return "ctrl+s"
 	case "^e":
 		return "ctrl+e"
+	case "^b", "^i", "^k", "^t", "^y", "^f", "^r", "^a":
+		return "ctrl+" + label[1:]
 	case "enter", "esc", "tab", "space":
 		return label
 	case "del":
@@ -533,6 +601,10 @@ func legendKey(label string) string {
 func (m Model) legendKeys() [][2]string {
 	var keys [][2]string
 	switch {
+	case m.note != nil && m.note.search != nil:
+		keys = [][2]string{{"enter", "next"}, {"shift+enter", "previous"}, {"^r", "replace"}, {"^a", "replace all"}, {"tab", "next field"}, {"esc", "close"}}
+	case m.note != nil:
+		keys = [][2]string{{"esc", "done"}, {"^f", "find"}, {"^b", "bold"}, {"^i", "italic"}, {"^k", "link"}, {"^t", "checkbox"}, {"^z", "undo"}, {"^y", "redo"}, {"alt+←/→", "word"}}
 	case m.cal != nil:
 		keys = [][2]string{{"tab", "text / calendar / time"}, {"enter", "save"}, {"esc", "cancel"}}
 	case m.menu != nil:
@@ -547,14 +619,28 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"^s", "save"}, {"esc", "cancel"}, {"^e", "$EDITOR"}}
 	case m.focus == paneDetail:
 		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
+	case m.focus == paneNav && m.inLabels() && m.navLabel() == nil:
+		keys = [][2]string{{"A", "new label"}, {"j/k", "move"}}
+	case m.focus == paneNav && m.navLabel() != nil:
+		keys = [][2]string{{"A", "new label"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {"del", "delete"}, {"enter", "open"}}
+	case m.focus == paneNav && m.navProject() != nil && !m.navProject().InboxProject:
+		keys = [][2]string{{"A", "new project"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {"z", "collapse"}, {"del", "delete/archive"}, {"a", "add task"}, {"v", "notes view"}, {"enter", "open"}}
 	case m.focus == paneNav:
-		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"tab", "next pane"}, {"a", "add"}, {"v", "notes view"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
+		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
 	case m.headerSection() != nil:
-		keys = [][2]string{{"a", "add task here"}, {"A", "new section"}, {"e", "rename section"}, {"[", "move up"}, {"]", "move down"}, {"del", "delete section"}}
+		keys = [][2]string{{"a", "add task here"}, {"A", "new section"}, {"e", "rename section"}, {"[", "move up"}, {"]", "move down"}, {"z", "collapse"}, {"del", "delete section"}}
+	case m.inCompleted():
+		keys = [][2]string{{"x", "reopen"}, {"enter", "details"}, {"j/k", "move"}}
+	case len(m.selectedTasks()) > 0:
+		keys = [][2]string{{"x", "complete all"}, {"t", "due"}, {"1-4", "priority"}, {"m", "move"}, {"@", "labels"}, {"del", "delete all"}, {"s", "select"}, {"S", "range"}, {"esc", "clear"}}
+	case m.notesMode() && m.focus == paneDetail && m.noteChecks() > 0:
+		keys = [][2]string{{"enter", "edit note"}, {"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "comments"}, {"h", "back"}}
+	case m.notesMode() && m.focus == paneDetail:
+		keys = [][2]string{{"enter", "edit note"}, {"j/k", "comments"}, {"c", "comment"}, {"h", "back"}}
 	case m.notesMode():
-		keys = [][2]string{{"a", "new note"}, {"E", "write"}, {"e", "rename"}, {"c", "comment"}, {"v", "tasks view"}, {"/", "find"}}
+		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "section"}, {"x", "done"}, {"e", "rename"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "rename"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.edit == nil && m.focus != paneDetail {
@@ -566,7 +652,13 @@ func (m Model) legendKeys() [][2]string {
 		}
 	}
 	if m.confirm != nil {
-		keys = [][2]string{{"y", "yes"}, {"n", "no"}}
+		keys = [][2]string{{"←/→", "select"}, {"enter", "push"}}
+		for _, b := range m.confirm.buttons {
+			if b.key != "esc" {
+				keys = append(keys, [2]string{b.key, strings.ToLower(b.label)})
+			}
+		}
+		keys = append(keys, [2]string{"esc", "close"})
 	}
 	if m.inputMode == inputFind {
 		keys = [][2]string{{"enter", "keep the find"}, {"esc", "clear the find"}}
@@ -610,7 +702,7 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 		n++
 	}
 
-	// Line 2, left: the find input, the y/n prompt, or the last operation.
+	// Line 2: the sync state at the right.
 	sync := st(hexDim).Render("synced " + m.st.SyncedAt.Format("15:04") + " ")
 	switch {
 	case m.pending > 0:
@@ -618,26 +710,39 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 	case m.syncing > 0:
 		sync = st(hexTomorrow).Render("syncing… ")
 	}
-	var left string
-	switch {
-	case m.inputMode == inputFind:
-		left = m.input.View()
-	case m.confirm != nil:
-		left = " " + st(hexOverdue).Bold(true).Render(m.confirm.prompt)
-	case m.status != "" && m.statusErr:
-		left = " " + st(hexOverdue).Render("✗ "+m.status)
-	case m.status != "":
-		left = " " + st(hexToday).Render("✓ ") + st(hexText).Render(m.status)
-	}
 	room := m.width - lipgloss.Width(sync) - 1
-	left = trunc(left, room)
+	if m.inputMode == inputFind {
+		line2 := trunc(m.input.View(), room)
+		gap := m.width - lipgloss.Width(line2) - lipgloss.Width(sync)
+		return pad(line1, m.width, lipgloss.NewStyle()) + "\n" + line2 + strings.Repeat(" ", max(0, gap)) + sync, hits
+	}
+	var status string
+	switch {
+	case m.status != "" && m.statusErr:
+		status = st(hexOverdue).Render("✗ " + m.status)
+	case m.status != "":
+		status = st(hexToday).Render("✓ ") + st(hexText).Render(m.status)
+	}
+	// The status keeps some room after the keys: 30 cells, or 50 for an error.
+	reserve := 0
+	if status != "" {
+		reserve = min(lipgloss.Width(status), 30) + 3
+		if m.statusErr {
+			reserve = min(lipgloss.Width(status), 50) + 3
+		}
+	}
 
-	// Line 2, middle: the legend items that did not fit on line 1, if there is room.
-	x = lipgloss.Width(left) + 3
+	// Line 2 starts with the legend items that did not fit on line 1, at column 1
+	// under "? help". The status follows them.
+	x = 1
 	var rest string
 	for i := n; i < len(parts); i++ {
 		w := lipgloss.Width(parts[i])
-		if x+w > room-1 {
+		extra := w
+		if rest != "" {
+			extra += 3
+		}
+		if x+extra > room-reserve {
 			break
 		}
 		if rest != "" {
@@ -650,9 +755,12 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 		rest += parts[i]
 		x += w
 	}
-	line2 := left
-	if rest != "" {
-		line2 += "   " + rest
+	line2 := " " + rest
+	if status != "" {
+		if rest != "" {
+			line2 += "   "
+		}
+		line2 += trunc(status, max(0, room-lipgloss.Width(line2)))
 	}
 	gap := m.width - lipgloss.Width(line2) - lipgloss.Width(sync)
 	line2 += strings.Repeat(" ", max(0, gap)) + sync
@@ -686,13 +794,41 @@ func helpSections() [][]string {
 			k("@", "labels picker"),
 			k("m", "move to a project or section"),
 			k("c", "add a comment"),
+			k("A", "add a sub-task (on a task)"),
+			k("> / <", "indent / outdent"),
+			k("[ / ]", "move up / down (crosses sections)"),
+			k("z", "collapse / expand sub-tasks"),
+			k("s / S", "select / select a range"),
+			k("", "then x t 1–4 m @ del act on all · esc clears"),
 			k("del", "delete the task (asks first)")},
+		{h("Labels (sidebar)"),
+			k("A", "new label"),
+			k("e / C", "rename / change the color"),
+			k("* · [ ]", "favorite · move up / down"),
+			k("del", "delete (asks)")},
+		{h("Projects (sidebar)"),
+			k("A", "new project: name, color, sub-project"),
+			k("e / C", "rename / change the color"),
+			k("*", "add to / remove from Favorites"),
+			k("[ / ]", "move up / down among its siblings"),
+			k("z", "collapse / expand sub-projects"),
+			k("del", "delete or archive (asks)"),
+			k("right-click", "project menu")},
 		{h("Sections (cursor on a header)"),
 			k("A", "new section after the cursor's section"),
 			k("e", "rename the section"),
 			k("[ / ]", "move the section up / down"),
+			k("z", "collapse / expand the section"),
 			k("del", "delete the section and its tasks"),
 			k("right-click", "section menu")},
+		{h("Notebook view"),
+			k("E", "edit the note inline (saves by itself)"),
+			k("^b ^i ^k", "bold · italic · link"),
+			k("^t", "checkbox on the line"),
+			k("^f", "find and replace"),
+			k("^z / ^y", "undo / redo in the editor"),
+			k("tab", "reader: next checkbox · space toggles"),
+			k("esc", "leave the editor")},
 		{h("Details pane"),
 			k("j / k", "select a comment"),
 			k("e / d", "edit / delete the selected comment"),

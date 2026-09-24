@@ -15,6 +15,9 @@ const ModeNotes = "notes"
 // State is the content of the state file.
 type State struct {
 	ProjectModes map[string]string `toml:"project_modes"` // project ID → "notes"
+	// OverviewOpen is the expanded state of tasks with sub-tasks in the overviews
+	// (Today, Upcoming, All tasks, labels, filters): view name → task ID → expanded.
+	OverviewOpen map[string]map[string]bool `toml:"overview_open"`
 }
 
 // Path is $XDG_STATE_HOME/godoist/state.toml, defaulting to ~/.local/state.

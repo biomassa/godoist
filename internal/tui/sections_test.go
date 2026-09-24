@@ -38,7 +38,7 @@ func TestRenameSection(t *testing.T) {
 
 func TestDeleteSectionAsks(t *testing.T) {
 	m := send(t, onHeader(t), key("delete"))
-	if m.confirm == nil || !strings.Contains(m.confirm.prompt, "1 task") {
+	if m.confirm == nil || !strings.Contains(m.confirm.text, "1 task") {
 		t.Fatalf("confirm = %+v, want a prompt with the task count", m.confirm)
 	}
 	m = send(t, m, key("y"))
@@ -78,7 +78,7 @@ func TestDeleteTaskAsks(t *testing.T) {
 	m := openWork(t)
 	x := m.layout().mid.x + 10
 	m = send(t, m, click(x, 2), release(x, 2), key("delete"))
-	if m.confirm == nil || !strings.Contains(m.confirm.prompt, "alpha") {
+	if m.confirm == nil || !strings.Contains(m.confirm.text, "alpha") {
 		t.Fatalf("confirm = %+v, want a prompt for alpha", m.confirm)
 	}
 	m = send(t, m, key("n"))

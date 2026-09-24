@@ -52,7 +52,8 @@ const (
 // calDialog is the date dialog: a text field that Todoist parses, a month calendar,
 // and a time field. Tab from a changed text parses it once and moves the calendar there.
 type calDialog struct {
-	taskID     string
+	taskIDs    []string
+	rules      map[string][2]string // recurring tasks: ID → {rule, lang}
 	title      string
 	text       textinput.Model
 	origText   string
@@ -65,9 +66,8 @@ type calDialog struct {
 	cleared    bool      // "No date" is selected
 	parsing    bool
 	saving     bool
-	askRecur   bool // waiting for o or r after enter on a recurring task
-	recurring  bool
-	rule, lang string // the repeat rule of the task
+	askRecur   bool   // waiting for o or r after enter on a recurring task
+	recurring  bool   // at least one task repeats
 	note       string // parse result or error, under the text
 	noteErr    bool
 }
@@ -95,7 +95,38 @@ func monthOf(t time.Time) time.Time {
 
 // openCalendar opens the date dialog for t with text in the text field.
 func (m *Model) openCalendar(t *todoist.Task, text string) tea.Cmd {
-	c := &calDialog{taskID: t.ID, title: "Due date · " + plain(t.Content), origText: text, lastParsed: text}
+	return m.openCalendarWith([]*todoist.Task{t}, text)
+}
+
+// openCalendarFor opens the date dialog for several tasks. The text field has the due
+// string if all tasks have the same one.
+func (m *Model) openCalendarFor(ts []*todoist.Task) tea.Cmd {
+	text := ""
+	if ts[0].Due != nil {
+		text = ts[0].Due.String
+	}
+	for _, t := range ts[1:] {
+		if t.Due == nil || t.Due.String != text {
+			text = ""
+		}
+	}
+	return m.openCalendarWith(ts, text)
+}
+
+// openCalendarWith opens the date dialog for ts. The calendar starts on the first task's day.
+func (m *Model) openCalendarWith(ts []*todoist.Task, text string) tea.Cmd {
+	t := ts[0]
+	title := "Due date · " + plain(t.Content)
+	if len(ts) > 1 {
+		title = fmt.Sprintf("Due date · %d tasks", len(ts))
+	}
+	c := &calDialog{taskIDs: joinIDs(ts), rules: map[string][2]string{}, title: title, origText: text, lastParsed: text}
+	for _, x := range ts {
+		if x.Due != nil && x.Due.IsRecurring {
+			c.recurring = true
+			c.rules[x.ID] = [2]string{x.Due.String, x.Due.Lang}
+		}
+	}
 	c.text = textinput.New()
 	c.text.Prompt = " "
 	c.text.Placeholder = "fri 9am · every mon · jan 15 · no date"
@@ -114,9 +145,6 @@ func (m *Model) openCalendar(t *todoist.Task, text string) tea.Cmd {
 		if hasTime {
 			c.timeIn.SetValue(due.Format("15:04"))
 		}
-	}
-	if t.Due != nil && t.Due.IsRecurring {
-		c.recurring, c.rule, c.lang = true, t.Due.String, t.Due.Lang
 	}
 	c.month = monthOf(c.day)
 	m.cal = c
@@ -341,9 +369,9 @@ func (m Model) saveCalendar() (tea.Model, tea.Cmd) {
 		if text == "" {
 			text = "no date"
 		}
-		return m.calSave(func(ctx context.Context) (string, error) { return dueByText(ctx, m.client, c.taskID, text) })
+		return m.calSave(func(ctx context.Context) (string, error) { return dueByTextAll(ctx, m.client, c.taskIDs, text) })
 	case c.cleared:
-		return m.calSave(func(ctx context.Context) (string, error) { return dueByText(ctx, m.client, c.taskID, "no date") })
+		return m.calSave(func(ctx context.Context) (string, error) { return dueByTextAll(ctx, m.client, c.taskIDs, "no date") })
 	}
 	if _, _, _, ok := parseClock(c.timeIn.Value()); !ok {
 		c.note, c.noteErr = "the time must look like 9:30 or 21:00, or be empty for all day", true
@@ -369,16 +397,42 @@ func (m Model) saveCalDate(keepRepeat bool) (tea.Model, tea.Cmd) {
 		label += fmt.Sprintf(" %02d:%02d", h, mi)
 		fields = map[string]any{"due_datetime": date}
 	}
-	client, id, rule, lang := m.client, c.taskID, c.rule, c.lang
-	if keepRepeat {
-		return m.calSave(func(ctx context.Context) (string, error) {
-			return "Moved this occurrence to " + label + " · repeats " + rule, client.MoveOccurrence(ctx, id, date, rule, lang)
-		})
-	}
+	client, ids, rules := m.client, c.taskIDs, c.rules
 	return m.calSave(func(ctx context.Context) (string, error) {
-		_, err := client.UpdateTask(ctx, id, fields)
-		return "Due → " + label, err
+		for _, id := range ids {
+			if r, ok := rules[id]; ok && keepRepeat {
+				if err := client.MoveOccurrence(ctx, id, date, r[0], r[1]); err != nil {
+					return "", err
+				}
+				continue
+			}
+			if _, err := client.UpdateTask(ctx, id, fields); err != nil {
+				return "", err
+			}
+		}
+		switch {
+		case len(ids) > 1:
+			return fmt.Sprintf("Due → %s for %d task(s)", label, len(ids)), nil
+		case keepRepeat:
+			return "Moved this occurrence to " + label + " · repeats " + rules[ids[0]][0], nil
+		}
+		return "Due → " + label, nil
 	})
+}
+
+// dueByTextAll sends one due string for all tasks.
+func dueByTextAll(ctx context.Context, client *todoist.Client, ids []string, text string) (string, error) {
+	var msg string
+	for _, id := range ids {
+		var err error
+		if msg, err = dueByText(ctx, client, id, text); err != nil {
+			return "", err
+		}
+	}
+	if len(ids) > 1 {
+		msg = fmt.Sprintf("%s for %d task(s)", msg, len(ids))
+	}
+	return msg, nil
 }
 
 // dueByText sends a due string for Todoist to parse. "no date" removes the date.
@@ -557,6 +611,9 @@ func (m Model) calBox() string {
 	hintHex := hexDim
 	if cd.askRecur {
 		hint, hintHex = "recurring task · o moves this occurrence and keeps the repeat · r replaces the repeat · esc cancel", hexOverdue
+		if len(cd.taskIDs) > 1 {
+			hint = "recurring tasks · o moves their occurrences and keeps the repeats · r replaces the repeats · esc cancel"
+		}
 	}
 	for i, l := range wrapHint(hint, hintHex, inner-1) {
 		if i < 2 {

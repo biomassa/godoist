@@ -206,6 +206,101 @@ func (c *Client) syncCommand(ctx context.Context, typ string, args map[string]an
 	return nil
 }
 
+// AddProject creates a project. parentID can be empty for a top-level project.
+func (c *Client) AddProject(ctx context.Context, name, color, parentID string) (Project, error) {
+	body := map[string]string{"name": name, "color": color}
+	if parentID != "" {
+		body["parent_id"] = parentID
+	}
+	var p Project
+	err := c.do(ctx, http.MethodPost, "/projects", nil, body, &p)
+	return p, err
+}
+
+// UpdateProject sets project fields, e.g. {"name": "…"}, {"color": "teal"}, {"is_favorite": true}.
+func (c *Client) UpdateProject(ctx context.Context, id string, fields map[string]any) error {
+	return c.do(ctx, http.MethodPost, "/projects/"+url.PathEscape(id), nil, fields, nil)
+}
+
+// DeleteProject deletes a project with all of its sections, tasks, and sub-projects.
+func (c *Client) DeleteProject(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/projects/"+url.PathEscape(id), nil, nil, nil)
+}
+
+// ArchiveProject archives a project. Its tasks stay, and Todoist can unarchive it.
+func (c *Client) ArchiveProject(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodPost, "/projects/"+url.PathEscape(id)+"/archive", nil, nil, nil)
+}
+
+// ReorderProjects gives sibling projects the order of ids (the first gets 1).
+func (c *Client) ReorderProjects(ctx context.Context, ids []string) error {
+	list := make([]map[string]any, len(ids))
+	for i, id := range ids {
+		list[i] = map[string]any{"id": id, "child_order": i + 1}
+	}
+	return c.syncCommand(ctx, "project_reorder", map[string]any{"projects": list})
+}
+
+// MoveToParent makes a task a sub-task of parentID, at the end of its sub-tasks.
+func (c *Client) MoveToParent(ctx context.Context, id, parentID string) error {
+	return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/move", nil, map[string]string{"parent_id": parentID}, nil)
+}
+
+// ReorderTasks gives sibling tasks the order of ids (the first gets 1).
+func (c *Client) ReorderTasks(ctx context.Context, ids []string) error {
+	list := make([]map[string]any, len(ids))
+	for i, id := range ids {
+		list[i] = map[string]any{"id": id, "child_order": i + 1}
+	}
+	return c.syncCommand(ctx, "item_reorder", map[string]any{"items": list})
+}
+
+// SetCollapsed saves the collapsed state of a task, a section, or a project.
+// kind is "tasks", "sections", or "projects".
+func (c *Client) SetCollapsed(ctx context.Context, kind, id string, collapsed bool) error {
+	return c.do(ctx, http.MethodPost, "/"+kind+"/"+url.PathEscape(id), nil, map[string]any{"is_collapsed": collapsed}, nil)
+}
+
+// CompletedTasks returns the tasks completed between since and until, newest first.
+func (c *Client) CompletedTasks(ctx context.Context, since, until time.Time) ([]Task, error) {
+	q := url.Values{"since": {since.UTC().Format(time.RFC3339)}, "until": {until.UTC().Format(time.RFC3339)}, "limit": {"200"}}
+	var all []Task
+	for {
+		var p struct {
+			Items      []Task  `json:"items"`
+			NextCursor *string `json:"next_cursor"`
+		}
+		if err := c.do(ctx, http.MethodGet, "/tasks/completed/by_completion_date", q, nil, &p); err != nil {
+			return nil, err
+		}
+		all = append(all, p.Items...)
+		if p.NextCursor == nil || *p.NextCursor == "" {
+			return all, nil
+		}
+		q.Set("cursor", *p.NextCursor)
+	}
+}
+
+// UpdateLabel sets label fields, e.g. {"name": "…"}, {"color": "teal"}, {"is_favorite": true}.
+// A new name also changes the label on its tasks.
+func (c *Client) UpdateLabel(ctx context.Context, id string, fields map[string]any) error {
+	return c.do(ctx, http.MethodPost, "/labels/"+url.PathEscape(id), nil, fields, nil)
+}
+
+// DeleteLabel deletes a label and removes it from its tasks.
+func (c *Client) DeleteLabel(ctx context.Context, id string) error {
+	return c.do(ctx, http.MethodDelete, "/labels/"+url.PathEscape(id), nil, nil, nil)
+}
+
+// ReorderLabels gives the labels the order of ids (the first gets 1).
+func (c *Client) ReorderLabels(ctx context.Context, ids []string) error {
+	m := map[string]int{}
+	for i, id := range ids {
+		m[id] = i + 1
+	}
+	return c.syncCommand(ctx, "label_update_orders", map[string]any{"id_order_mapping": m})
+}
+
 // AddSection creates a section at the end of a project.
 func (c *Client) AddSection(ctx context.Context, projectID, name string) (Section, error) {
 	var s Section

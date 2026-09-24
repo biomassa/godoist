@@ -13,11 +13,15 @@ import (
 // testModel returns a 130x30 model with fake data. Writes make commands but the
 // tests do not run them, so no request goes to the API.
 //
-// Sidebar rows: 0 Today, 1 Upcoming, 2 space, 3 Inbox, 4 space, 5 "My Projects", 6 work.
+// Sidebar rows: 0 space, 1 Inbox, 2 space, 3 Today, 4 Upcoming, 5 space, 6 "My Projects",
+// 7 work, 8 space, 9 "Labels", 10 @home, 11 space, 12 All tasks, 13 Completed.
+// Row r is at y = r+1.
 // Rows of the work project: 0 spacer, 1 alpha, 2 beta (recurring), 3 spacer, 4 "urgent" header,
 // 5 gamma, 6 spacer, 7 "later" header (empty). Row r is at y = r+1.
 func testModel(t *testing.T) Model {
 	t.Helper()
+	// Keep the tests away from the user's state file.
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	sec := "s1"
 	st := todoist.SyncState{
 		Token: "test",
@@ -25,12 +29,13 @@ func testModel(t *testing.T) Model {
 			{ID: "inbox", Name: "Inbox", InboxProject: true, Color: "charcoal"},
 			{ID: "p1", Name: "work", Color: "green", ChildOrder: 1},
 		},
+		Labels: []todoist.Label{{ID: "l1", Name: "home", Color: "blue", Order: 1}},
 		Sections: []todoist.Section{
 			{ID: "s1", ProjectID: "p1", Name: "urgent", SectionOrder: 1},
 			{ID: "s2", ProjectID: "p1", Name: "later", SectionOrder: 2},
 		},
 		Tasks: []todoist.Task{
-			{ID: "t1", ProjectID: "p1", Content: "alpha", Priority: 1, ChildOrder: 1},
+			{ID: "t1", ProjectID: "p1", Content: "alpha", Priority: 1, ChildOrder: 1, Labels: []string{"home"}},
 			{ID: "t2", ProjectID: "p1", Content: "beta", Priority: 1, ChildOrder: 2,
 				Due: &todoist.Due{Date: "2030-01-01", String: "every day", IsRecurring: true}},
 			{ID: "t3", ProjectID: "p1", SectionID: &sec, Content: "gamma", Priority: 1, ChildOrder: 1},
@@ -59,7 +64,7 @@ func motion(x, y int) tea.Msg     { return tea.MouseMotionMsg{X: x, Y: y, Button
 
 // openWork clicks the "work" project in the sidebar.
 func openWork(t *testing.T) Model {
-	m := send(t, testModel(t), click(5, 7))
+	m := send(t, testModel(t), click(5, 8))
 	if cur := m.currentNav(); cur == nil || cur.projectID != "p1" {
 		t.Fatalf("sidebar click did not open the work project: %+v", cur)
 	}
@@ -174,7 +179,7 @@ func TestDragToSection(t *testing.T) {
 func TestDragToSidebarProject(t *testing.T) {
 	m := openWork(t)
 	x := m.layout().mid.x + 10
-	m = send(t, m, click(x, 2), motion(x-20, 3), motion(5, 4), release(5, 4))
+	m = send(t, m, click(x, 2), motion(x-20, 3), motion(5, 2), release(5, 2))
 	if m.pending != 1 || !strings.Contains(m.status, "#Inbox") {
 		t.Errorf("pending = %d status = %q, want a move to Inbox", m.pending, m.status)
 	}

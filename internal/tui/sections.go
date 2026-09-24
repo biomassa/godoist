@@ -42,7 +42,7 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 	if cur == nil || cur.kind != vkProject {
 		return m, nil, false
 	}
-	if key == "A" {
+	if key == "A" && m.currentTask() == nil { // A on a task adds a sub-task instead
 		next := m.openDialog(inputAddSection, "")
 		return m, next, true
 	}
@@ -63,15 +63,15 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 			}
 		}
 		id, name, client := s.ID, s.Name, m.client
-		prompt := fmt.Sprintf("Delete section “%s”? It has no tasks. y/n", name)
+		text := fmt.Sprintf("Delete section “%s”? It has no tasks.", name)
 		if n > 0 {
-			prompt = fmt.Sprintf("Delete section “%s” and its %d task(s)? This cannot be undone. y/n", name, n)
+			text = fmt.Sprintf("Delete section “%s” and its %d task(s)? This cannot be undone.", name, n)
 		}
-		m.confirm = &confirmPrompt{prompt: prompt, run: func(m *Model) tea.Cmd {
+		m.confirm = yesNo("Delete section", text, "Delete", func(m *Model) tea.Cmd {
 			return m.simpleWrite("Deleted section “"+name+"”", func(ctx context.Context) error {
 				return client.DeleteSection(ctx, id)
 			})
-		}}
+		})
 		return m, nil, true
 	case "[", "]":
 		d := -1
@@ -79,6 +79,9 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 			d = 1
 		}
 		next := m.moveSection(s, d)
+		return m, next, true
+	case "z":
+		next := m.toggleSectionCollapse(s)
 		return m, next, true
 	}
 	return m, nil, false

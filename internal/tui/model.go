@@ -31,6 +31,10 @@ const (
 	vkUpcoming
 	vkProject
 	vkFilter
+	vkAll       // all tasks, grouped by project
+	vkLabel     // tasks with one label, grouped by project
+	vkCompleted // tasks completed in the last 30 days, grouped by project
+	vkLabelHint // the "A adds a label" line when there are no labels
 )
 
 // pane identifies a focusable pane.
@@ -54,6 +58,11 @@ const (
 	inputRename
 	inputAddSection
 	inputRenameSection
+	inputAddProject
+	inputRenameProject
+	inputAddSubtask
+	inputAddLabel
+	inputRenameLabel
 )
 
 // navItem is a sidebar row. A row with a header is a label and the cursor skips it.
@@ -67,6 +76,9 @@ type navItem struct {
 	count     int
 	countHex  string
 	depth     int
+	labelID   string // vkLabel
+	hasKids   bool   // a project with sub-projects
+	collapsed bool   // its sub-projects are hidden
 }
 
 // row is a line in the task pane: a group header, a task, or a note's preview line.
@@ -80,12 +92,11 @@ type row struct {
 	depth     int
 	preview   string // non-empty: preview line under a note (never selected on its own)
 	spacer    bool   // an empty line before a header (never selected)
-}
-
-// confirmPrompt is a y/n question in the bottom bar. run executes on "y".
-type confirmPrompt struct {
-	prompt string
-	run    func(m *Model) tea.Cmd
+	hasKids   bool   // a task with sub-tasks, or a section header with tasks
+	collapsed bool   // its sub-tasks or its tasks are hidden
+	hidden    int    // the number of hidden tasks when collapsed
+	done      bool   // a completed task (Completed view)
+	pulled    bool   // an overview parent that is only there because of its sub-tasks
 }
 
 type (
@@ -106,7 +117,11 @@ type (
 		retryMode inputMode
 		retryText string
 	}
-	autoSyncMsg struct{}
+	autoSyncMsg  struct{}
+	completedMsg struct {
+		tasks []todoist.Task
+		err   error
+	}
 )
 
 // Model is the state of the TUI.
@@ -139,6 +154,7 @@ type Model struct {
 
 	detOff int // details pane scroll
 	comCur int // selected comment in the details pane, -1 = none
+	chkCur int // selected checkbox of the note in the reader, -1 = none
 
 	filterQuery    string
 	filterTasks    []todoist.Task
@@ -147,6 +163,8 @@ type Model struct {
 	find           string
 	targetID       string // task that inputRename changes
 	targetSection  string // section that inputRenameSection changes
+	targetProject  string // project that inputRenameProject changes
+	targetLabel    string // label that inputRenameLabel changes
 
 	input     textinput.Model // bottom-bar input (find)
 	dlg       textarea.Model  // dialog input (all other text inputs)
@@ -154,17 +172,23 @@ type Model struct {
 
 	editor textarea.Model
 	edit   *editSession
+	note   *noteEditor // inline markdown editor of notebook view
 	pick   *picker
 
-	confirm   *confirmPrompt
-	cal       *calDialog // date dialog
-	menu      *ctxMenu   // right-click menu
-	drag      *dragState // task that the user drags with the mouse
-	lastClick clickInfo
+	confirm *confirmPrompt
+	cal     *calDialog // date dialog
+
+	completed        []todoist.Task // Completed view, last 30 days
+	completedLoading bool
+	selected         map[string]bool // multi-select: task IDs
+	lastMark         string          // the task that s or a click marked last, for ranges
+	menu             *ctxMenu        // right-click menu
+	drag             *dragState      // task that the user drags with the mouse
+	lastClick        clickInfo
 
 	status    string
 	statusErr bool
-	closed    []string // undo stack of completed task IDs
+	closed    [][]string // undo stack: each entry is the one-time tasks of one completion
 
 	md *mdCache
 }
@@ -173,7 +197,7 @@ type Model struct {
 func New(client *todoist.Client, token string) Model {
 	ti := textinput.New()
 	ti.CharLimit = 500
-	m := Model{client: client, token: token, input: ti, comCur: -1, md: newMDCache()}
+	m := Model{client: client, token: token, input: ti, comCur: -1, chkCur: -1, md: newMDCache()}
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
 	if st := cache.Load(token); st.Token != "" {
@@ -261,10 +285,25 @@ func (m *Model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isE
 // Update handles a message. If the task under the cursor changes, the details pane goes back to the top.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	prev := m.currentTaskID()
+	prevView := ""
+	if cur := m.currentNav(); cur != nil {
+		prevView = navKey(*cur)
+	}
 	nm, cmd := m.update(msg)
 	mm := nm.(Model)
 	if mm.currentTaskID() != prev {
-		mm.detOff, mm.comCur = 0, -1
+		mm.detOff, mm.comCur, mm.chkCur = 0, -1, -1
+	}
+	if cur := mm.currentNav(); cur != nil && navKey(*cur) != prevView {
+		if mm.clearSelection() {
+			mm.setStatus("selection cleared", false)
+		}
+		if cur.kind == vkCompleted {
+			cmd = tea.Batch(cmd, mm.loadCompleted())
+		}
+	}
+	if _, ok := msg.(syncMsg); ok {
+		mm.pruneSelection()
 	}
 	mm.fixScroll()
 	return mm, cmd
@@ -374,6 +413,31 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case calParsedMsg:
 		return m.calParsed(msg)
 
+	case noteTickMsg:
+		return m.noteTick(msg)
+
+	case noteSavedMsg:
+		return m.noteSaved(msg)
+
+	case tea.PasteMsg:
+		if m.note != nil {
+			m.note.push(false)
+			m.note.insertText(msg.Content)
+			return m, m.note.changed()
+		}
+
+	case completedMsg:
+		m.completedLoading = false
+		if msg.err != nil {
+			m.setStatus("could not load completed tasks: "+msg.err.Error(), true)
+			return m, nil
+		}
+		m.completed = msg.tasks
+		if cur := m.currentNav(); cur != nil && cur.kind == vkCompleted {
+			m.buildRows(false)
+		}
+		return m, nil
+
 	case calSavedMsg:
 		return m.calSaved(msg)
 
@@ -402,17 +466,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateMenu(msg)
 		case m.pick != nil:
 			return m.updatePicker(msg)
+		case m.note != nil:
+			return m.updateNoteEditor(msg)
 		case m.edit != nil:
 			return m.updateEditor(msg)
 		case m.confirm != nil:
-			c := m.confirm
-			m.confirm = nil
-			if msg.String() == "y" || msg.String() == "Y" {
-				next := c.run(&m)
-				return m, next
-			}
-			m.setStatus("cancelled", false)
-			return m, nil
+			return m.answerConfirm(msg.String())
 		case m.inputMode != inputNone:
 			return m.updateInput(msg)
 		}
@@ -471,6 +530,21 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, next
 		case inputAddSection:
 			next := m.addSection(val)
+			return m, next
+		case inputAddProject:
+			next := m.startNewProject(val)
+			return m, next
+		case inputAddSubtask:
+			next := m.addSubtask(val)
+			return m, next
+		case inputAddLabel:
+			next := m.addLabel(val)
+			return m, next
+		case inputRenameLabel:
+			next := m.renameLabel(val)
+			return m, next
+		case inputRenameProject:
+			next := m.renameProject(val)
 			return m, next
 		case inputRenameSection:
 			next := m.renameSection(val)
@@ -712,7 +786,7 @@ func (m *Model) startDue() tea.Cmd {
 
 // setPriority sets p1 to p4 on the task under the cursor.
 func (m *Model) setPriority(p int) tea.Cmd {
-	t := m.currentTask()
+	t := m.taskByID(m.currentTaskID())
 	if t == nil {
 		return nil
 	}
@@ -806,11 +880,17 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.setStatus("syncing…", false)
 		next := m.startSync()
 		return m, next
-	case "tab":
-		m.cycleFocus(1)
-		return m, nil
-	case "shift+tab":
-		m.cycleFocus(-1)
+	case "tab", "shift+tab":
+		// In the reader of a note with checkboxes, tab moves between the checkboxes.
+		d := 1
+		if key == "shift+tab" {
+			d = -1
+		}
+		if m.noteChecks() > 0 {
+			m.moveCheck(d)
+			return m, nil
+		}
+		m.cycleFocus(d)
 		return m, nil
 	case "a":
 		mode := inputAdd
@@ -859,6 +939,20 @@ func (m *Model) clearFilter() {
 }
 
 func (m Model) navKeys(key string) (tea.Model, tea.Cmd) {
+	if nm, cmd, ok := m.labelKeys(key); ok {
+		return nm, cmd
+	}
+	if key == "z" {
+		if p := m.navProject(); p != nil && m.nav[m.navCur].hasKids {
+			next := m.toggleProjectCollapse(p)
+			return m, next
+		}
+		m.setStatus("this item has no sub-projects", false)
+		return m, nil
+	}
+	if nm, cmd, ok := m.projectKeys(key); ok {
+		return nm, cmd
+	}
 	switch key {
 	case "esc":
 		if m.inFilterView() {
@@ -879,7 +973,20 @@ func (m Model) navKeys(key string) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
+	if key == "esc" && m.clearSelection() {
+		m.setStatus("selection cleared", false)
+		return m, nil
+	}
+	if nm, cmd, ok := m.completedKeys(key); ok {
+		return nm, cmd
+	}
 	if nm, cmd, ok := m.sectionKeys(key); ok {
+		return nm, cmd
+	}
+	if nm, cmd, ok := m.selectionKeys(key); ok {
+		return nm, cmd
+	}
+	if nm, cmd, ok := m.orderKeys(key); ok {
 		return nm, cmd
 	}
 	if m.currentTask() == nil && taskKey(key) {
@@ -932,6 +1039,10 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 		next := m.startRename()
 		return m, next
 	case "E":
+		if m.notesMode() { // notebook view: the inline markdown editor
+			next := m.openNoteEditor()
+			return m, next
+		}
 		if t := m.currentTask(); t != nil {
 			next := m.openEditor(editDescription, t.ID, "", editTitleFor(t, m.notesMode()), t.Description)
 			return m, next
@@ -950,6 +1061,21 @@ func taskKey(key string) bool {
 }
 
 func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
+	if key == "space" && m.noteChecks() > 0 {
+		if m.chkCur < 0 {
+			m.setStatus("tab selects a checkbox", false)
+			return m, nil
+		}
+		next := m.toggleNoteCheck(m.chkCur)
+		return m, next
+	}
+	if (key == "j" || key == "k") && m.chkCur >= 0 {
+		m.chkCur = -1 // j/k go back to the comments
+	}
+	if key == "enter" && m.notesMode() && m.comCur < 0 {
+		next := m.openNoteEditor()
+		return m, next
+	}
 	if nm, cmd, ok := m.propertyKeys(key); ok {
 		return nm, cmd
 	}
@@ -1005,6 +1131,10 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		next := m.startRename()
 		return m, next
 	case "E":
+		if m.notesMode() {
+			next := m.openNoteEditor()
+			return m, next
+		}
 		if t != nil {
 			next := m.openEditor(editDescription, t.ID, "", editTitleFor(t, m.notesMode()), t.Description)
 			return m, next
@@ -1012,10 +1142,10 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 	case "d":
 		if t != nil && m.comCur >= 0 && m.comCur < len(comments) {
 			id, client := comments[m.comCur].ID, m.client
-			m.confirm = &confirmPrompt{prompt: "Delete this comment? y/n", run: func(m *Model) tea.Cmd {
+			m.confirm = yesNo("Delete comment", "Delete this comment? This cannot be undone.", "Delete", func(m *Model) tea.Cmd {
 				m.comCur--
 				return m.simpleWrite("Comment deleted", func(ctx context.Context) error { return client.DeleteComment(ctx, id) })
-			}}
+			})
 		}
 	}
 	return m, nil
@@ -1042,16 +1172,16 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	id, name, client := t.ID, plain(t.Content), m.client
-	prompt := "Delete “" + name + "”? This cannot be undone. y/n"
+	text := "Delete “" + name + "”? This cannot be undone."
 	if n := len(m.snap.Comments[id]); n > 0 {
-		prompt = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone. y/n", name, n)
+		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone.", name, n)
 	}
-	m.confirm = &confirmPrompt{prompt: prompt, run: func(m *Model) tea.Cmd {
+	m.confirm = yesNo("Delete task", text, "Delete", func(m *Model) tea.Cmd {
 		m.removeTask(id)
 		return m.simpleWrite("Deleted “"+name+"”", func(ctx context.Context) error {
 			return client.Delete(ctx, id)
 		})
-	}}
+	})
 }
 
 // complete is completeTask for callers that hold a *Model, such as a confirm prompt.
@@ -1064,7 +1194,7 @@ func (m *Model) complete() tea.Cmd {
 	// Reopen does not move the date of a recurring task back. Thus undo is only for one-time tasks.
 	text := "Completed occurrence of “" + content + "” · next one scheduled"
 	if !recurring {
-		m.closed = append(m.closed, id)
+		m.closed = append(m.closed, []string{id})
 		m.removeTask(id)
 		text = "Completed “" + content + "” · ctrl+z to undo"
 	}
@@ -1078,10 +1208,21 @@ func (m Model) undo() (tea.Model, tea.Cmd) {
 		m.setStatus("nothing to undo", false)
 		return m, nil
 	}
-	id := m.closed[len(m.closed)-1]
+	ids := m.closed[len(m.closed)-1]
 	m.closed = m.closed[:len(m.closed)-1]
 	client := m.client
-	next := m.simpleWrite("Reopened task", func(ctx context.Context) error { return client.Reopen(ctx, id) })
+	done := "Reopened task"
+	if len(ids) > 1 {
+		done = fmt.Sprintf("Reopened %d tasks", len(ids))
+	}
+	next := m.simpleWrite(done, func(ctx context.Context) error {
+		for _, id := range ids {
+			if err := client.Reopen(ctx, id); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 	return m, next
 }
 
@@ -1163,13 +1304,6 @@ func (m *Model) buildNav() {
 	if overdue > 0 {
 		todayHex = hexOverdue
 	}
-	nav := []navItem{
-		{kind: vkToday, name: "Today", glyph: "◉", color: hexToday, count: today + overdue, countHex: todayHex},
-		{kind: vkUpcoming, name: "Upcoming", glyph: "▦", color: hexWeek},
-	}
-	if m.filterQuery != "" {
-		nav = append(nav, navItem{kind: vkFilter, name: m.filterQuery, glyph: "⌕", color: hexTomorrow, count: len(m.filterTasks)})
-	}
 	projItem := func(p *todoist.Project, depth int) navItem {
 		glyph := "#"
 		if p.InboxProject {
@@ -1178,11 +1312,20 @@ func (m *Model) buildNav() {
 		return navItem{kind: vkProject, projectID: p.ID, name: p.Name, glyph: glyph,
 			color: todoist.ColorHex(p.Color), count: perProject[p.ID], depth: depth}
 	}
+	// Order: Inbox, Today and Upcoming, Favorites, My Projects, All tasks. An empty
+	// line is at the top and before each group.
+	nav := []navItem{{header: " "}}
 	ordered := m.orderedProjects()
 	for _, op := range ordered {
 		if op.p.InboxProject {
-			nav = append(nav, navItem{header: " "}, projItem(op.p, 0))
+			nav = append(nav, projItem(op.p, 0))
 		}
+	}
+	nav = append(nav, navItem{header: " "},
+		navItem{kind: vkToday, name: "Today", glyph: "◉", color: hexToday, count: today + overdue, countHex: todayHex},
+		navItem{kind: vkUpcoming, name: "Upcoming", glyph: "▦", color: hexWeek})
+	if m.filterQuery != "" {
+		nav = append(nav, navItem{kind: vkFilter, name: m.filterQuery, glyph: "⌕", color: hexTomorrow, count: len(m.filterTasks)})
 	}
 	var favs []navItem
 	for _, op := range ordered {
@@ -1195,11 +1338,42 @@ func (m *Model) buildNav() {
 		nav = append(nav, favs...)
 	}
 	nav = append(nav, navItem{header: " "}, navItem{header: "My Projects"})
+	hasKids := map[string]bool{}
 	for _, op := range ordered {
-		if !op.p.InboxProject {
-			nav = append(nav, projItem(op.p, op.depth))
+		if p := op.p.ParentID; p != nil {
+			hasKids[*p] = true
 		}
 	}
+	hiddenUnder := map[string]bool{} // projects inside a collapsed project
+	for _, op := range ordered {
+		if op.p.InboxProject {
+			continue
+		}
+		if p := op.p.ParentID; p != nil && (hiddenUnder[*p] || (m.projects[*p] != nil && m.projects[*p].IsCollapsed)) {
+			hiddenUnder[op.p.ID] = true
+			continue
+		}
+		it := projItem(op.p, op.depth)
+		it.hasKids, it.collapsed = hasKids[op.p.ID], op.p.IsCollapsed && hasKids[op.p.ID]
+		nav = append(nav, it)
+	}
+	nav = append(nav, navItem{header: " "}, navItem{header: "Labels"})
+	perLabel := map[string]int{}
+	for _, t := range m.snap.Tasks {
+		for _, l := range t.Labels {
+			perLabel[l]++
+		}
+	}
+	for _, l := range m.snap.Labels {
+		nav = append(nav, navItem{kind: vkLabel, labelID: l.ID, name: l.Name, glyph: "@",
+			color: todoist.ColorHex(l.Color), count: perLabel[l.Name]})
+	}
+	if len(m.snap.Labels) == 0 {
+		nav = append(nav, navItem{kind: vkLabelHint, name: "A adds a label", glyph: " ", color: hexDim})
+	}
+	nav = append(nav, navItem{header: " "},
+		navItem{kind: vkAll, name: "All tasks", glyph: "≡", color: hexMuted, count: len(m.snap.Tasks)},
+		navItem{kind: vkCompleted, name: "Completed", glyph: "✓", color: hexToday})
 	m.nav = nav
 
 	m.navCur = -1
@@ -1209,12 +1383,12 @@ func (m *Model) buildNav() {
 			break
 		}
 	}
-	if m.navCur < 0 {
-		m.navCur = 0
+	if m.navCur < 0 { // start in Today
+		m.selectNav(func(n navItem) bool { return n.kind == vkToday })
 	}
 }
 
-func navKey(n navItem) string { return fmt.Sprintf("%d/%s", n.kind, n.projectID) }
+func navKey(n navItem) string { return fmt.Sprintf("%d/%s/%s", n.kind, n.projectID, n.labelID) }
 
 type orderedProject struct {
 	p     *todoist.Project
@@ -1312,64 +1486,17 @@ func (m *Model) buildRows(reset bool) {
 	case vkProject:
 		m.rows = m.projectRows(cur.projectID, m.notesMode())
 	case vkToday:
-		var over, today []todoist.Task
-		for _, t := range m.snap.Tasks {
-			switch todoist.Classify(t.Due, now) {
-			case todoist.Overdue:
-				over = append(over, t)
-			case todoist.DueToday:
-				today = append(today, t)
-			}
-		}
-		sortByDue(over)
-		sortByDue(today)
-		if len(over) > 0 {
-			m.rows = append(m.rows, row{header: "Overdue", headerHex: hexOverdue, count: len(over)})
-			m.rows = append(m.rows, flatRows(over)...)
-		}
-		m.rows = append(m.rows, row{header: "Today · " + now.Format("Mon 2 Jan"), headerHex: hexToday,
-			count: len(today), date: now.Format("2006-01-02")})
-		m.rows = append(m.rows, flatRows(today)...)
+		m.rows = m.todayRows(now)
 	case vkUpcoming:
-		var up []todoist.Task
-		for _, t := range m.snap.Tasks {
-			if todoist.Classify(t.Due, now) >= todoist.DueTomorrow {
-				up = append(up, t)
-			}
-		}
-		sortByDue(up)
-		lastDay := ""
-		for i := range up {
-			dt, _, _ := up[i].Due.Time()
-			day := dt.Format("Mon 2 Jan")
-			if dt.Year() != now.Year() {
-				day = dt.Format("Mon 2 Jan 2006")
-			}
-			if day != lastDay {
-				hex, label := hexText, day
-				switch todoist.Classify(up[i].Due, now) {
-				case todoist.DueTomorrow:
-					label += " · Tomorrow"
-					hex = hexTomorrow
-				case todoist.DueThisWeek:
-					hex = hexWeek
-				}
-				m.rows = append(m.rows, row{header: label, headerHex: hex, date: dt.Format("2006-01-02")})
-				lastDay = day
-			}
-			m.rows = append(m.rows, row{task: &up[i]})
-		}
-		for i := range m.rows {
-			if m.rows[i].header != "" {
-				n := 0
-				for j := i + 1; j < len(m.rows) && m.rows[j].task != nil; j++ {
-					n++
-				}
-				m.rows[i].count = n
-			}
-		}
+		m.rows = m.upcomingRows(now)
 	case vkFilter:
-		m.rows = flatRows(append([]todoist.Task(nil), m.filterTasks...))
+		m.rows = m.filterRows()
+	case vkAll:
+		m.rows = m.allRows()
+	case vkLabel:
+		m.rows = m.labelRows(cur.name)
+	case vkCompleted:
+		m.rows = m.completedRows()
 	}
 
 	if m.find != "" {
@@ -1446,8 +1573,11 @@ func (m *Model) projectRows(projectID string, notes bool) []row {
 	rows := group(bySection[""])
 	for _, s := range secs {
 		ts := bySection[s.ID]
-		rows = append(rows, row{header: s.Name, headerHex: fg(todoist.ColorHex(m.projects[projectID].Color)), count: len(ts), sectionID: s.ID})
-		rows = append(rows, group(ts)...)
+		rows = append(rows, row{header: s.Name, headerHex: fg(todoist.ColorHex(m.projects[projectID].Color)), count: len(ts),
+			sectionID: s.ID, hasKids: len(ts) > 0, collapsed: s.IsCollapsed && len(ts) > 0})
+		if !s.IsCollapsed {
+			rows = append(rows, group(ts)...)
+		}
 	}
 	return rows
 }
@@ -1462,6 +1592,73 @@ func addSpacers(rows []row) []row {
 		out = append(out, r)
 	}
 	return out
+}
+
+// allRows groups all tasks by project in sidebar order, with sub-tasks nested.
+func (m *Model) allRows() []row { return m.projectGroupedRows(m.snap.Tasks) }
+
+// labelRows groups the tasks with one label by project.
+func (m *Model) labelRows(name string) []row {
+	var ts []todoist.Task
+	for _, t := range m.snap.Tasks {
+		if slices.Contains(t.Labels, name) {
+			ts = append(ts, t)
+		}
+	}
+	return m.projectGroupedRows(ts)
+}
+
+// completedRows groups the completed tasks by project, newest completion first.
+func (m *Model) completedRows() []row {
+	rows := m.groupByProject(m.completed, true)
+	for i := range rows {
+		if rows[i].task != nil {
+			rows[i].done = true
+		}
+	}
+	return rows
+}
+
+// groupByProject groups tasks by project in sidebar order. Inside a group, tasks with a
+// due date come first, sorted by the date, and tasks without a date follow in project
+// order. If byCompletion is true, the newest completion comes first instead.
+func (m *Model) groupByProject(tasks []todoist.Task, byCompletion bool) []row {
+	byProject := map[string][]todoist.Task{}
+	for _, t := range tasks {
+		byProject[t.ProjectID] = append(byProject[t.ProjectID], t)
+	}
+	var rows []row
+	for _, op := range m.orderedProjects() {
+		ts := byProject[op.p.ID]
+		if len(ts) == 0 {
+			continue
+		}
+		sort.SliceStable(ts, func(i, j int) bool {
+			if byCompletion {
+				return ts[i].CompletedAt > ts[j].CompletedAt
+			}
+			ai, aj := ts[i].Due != nil, ts[j].Due != nil
+			if ai != aj {
+				return ai
+			}
+			if !ai {
+				return ts[i].ChildOrder < ts[j].ChildOrder
+			}
+			a, _, _ := ts[i].Due.Time()
+			b, _, _ := ts[j].Due.Time()
+			if !a.Equal(b) {
+				return a.Before(b)
+			}
+			return ts[i].Priority > ts[j].Priority
+		})
+		glyph := "# "
+		if op.p.InboxProject {
+			glyph = "⌂ "
+		}
+		rows = append(rows, row{header: glyph + op.p.Name, headerHex: fg(todoist.ColorHex(op.p.Color)), count: len(ts)})
+		rows = append(rows, flatRows(ts)...)
+	}
+	return rows
 }
 
 // notePreview is the first line of a note's body, or of its first comment.
@@ -1486,6 +1683,7 @@ func firstLine(s string) string {
 }
 
 // treeRows orders tasks by child_order with subtasks nested under their parents.
+// A collapsed task shows no sub-tasks. Its row has the number of hidden tasks.
 func treeRows(ts []todoist.Task) []row {
 	ids := map[string]bool{}
 	for _, t := range ts {
@@ -1505,12 +1703,27 @@ func treeRows(ts []todoist.Task) []row {
 		kids := children[parent]
 		sort.SliceStable(kids, func(i, j int) bool { return kids[i].ChildOrder < kids[j].ChildOrder })
 		for _, t := range kids {
-			out = append(out, row{task: t, depth: depth})
+			r := row{task: t, depth: depth, hasKids: len(children[t.ID]) > 0, collapsed: t.IsCollapsed}
+			if r.hasKids && t.IsCollapsed {
+				r.hidden = countTree(children, t.ID)
+				out = append(out, r)
+				continue
+			}
+			out = append(out, r)
 			walk(t.ID, depth+1)
 		}
 	}
 	walk("", 0)
 	return out
+}
+
+// countTree counts all tasks below id.
+func countTree(children map[string][]*todoist.Task, id string) int {
+	n := 0
+	for _, t := range children[id] {
+		n += 1 + countTree(children, t.ID)
+	}
+	return n
 }
 
 func flatRows(ts []todoist.Task) []row {

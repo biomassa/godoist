@@ -143,8 +143,8 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch {
-	case m.confirm != nil: // answer with y or n
-		return m, nil
+	case m.confirm != nil:
+		return m.confirmClick(x, y)
 	case m.cal != nil:
 		return m.calClick(x, y, dbl)
 	case m.menu != nil:
@@ -155,6 +155,8 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 			m.setStatus("cancelled", false)
 		}
 		return m, nil
+	case m.note != nil:
+		return m.noteClick(x, y)
 	case m.edit != nil: // keep unsaved text safe from stray clicks
 		return m, nil
 	case m.pick != nil:
@@ -168,6 +170,24 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	switch {
 	case l.nav.has(x, y):
 		m.navClick(y)
+		if ms.Button == tea.MouseRight {
+			switch {
+			case m.navProject() != nil:
+				m.menu = &ctxMenu{x: x, y: y, items: projectMenu, focus: paneNav}
+			case m.navLabel() != nil:
+				m.menu = &ctxMenu{x: x, y: y, items: labelMenu, focus: paneNav}
+			}
+			return m, nil
+		}
+		// A click on the ▾/▸ marker of a project hides or shows its sub-projects.
+		if r := l.nav.row(y); r >= 0 && m.navOff+r < len(m.nav) {
+			n := m.nav[m.navOff+r]
+			markX := l.nav.x + 2 + 2*n.depth
+			if n.hasKids && (x == markX || x == markX+1) && m.navProject() != nil {
+				next := m.toggleProjectCollapse(m.navProject())
+				return m, next
+			}
+		}
 		return m, nil
 	case m.listRect().has(x, y):
 		return m.listClick(ms, dbl)
@@ -214,10 +234,38 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 	}
 	m.rowCur = i
 	r := m.rows[i]
+	lx := m.listRect().x
 	if r.task == nil {
 		if ms.Button == tea.MouseRight && r.sectionID != "" {
-			m.menu = &ctxMenu{x: ms.X, y: ms.Y, items: sectionMenu}
+			m.menu = &ctxMenu{x: ms.X, y: ms.Y, items: sectionMenu, focus: paneTasks}
 		}
+		// A click on the ▾/▸ marker of a section hides or shows its tasks.
+		if s := m.sections[r.sectionID]; s != nil && r.hasKids && (ms.X == lx+2 || ms.X == lx+3) {
+			next := m.toggleSectionCollapse(s)
+			return m, next
+		}
+		return m, nil
+	}
+	if ms.Button == tea.MouseLeft && !r.done {
+		switch {
+		case ms.Mod&tea.ModCtrl != 0: // ctrl+click adds the task to the selection or removes it
+			m.toggleSelect(r.task.ID)
+			return m, nil
+		case ms.Mod&tea.ModShift != 0: // shift+click selects a range
+			m.selectRange(i)
+			return m, nil
+		}
+	}
+	// A click on the ▾/▸ marker after the circle hides or shows the sub-tasks.
+	if markX := lx + 4 + 2*r.depth; r.hasKids && (ms.X == markX || ms.X == markX+1) && !m.notesMode() {
+		if cur := m.currentNav(); cur != nil && isOverview(cur.kind) {
+			next := m.toggleOverview(r)
+			return m, next
+		}
+		next := m.toggleTaskCollapse(m.taskByID(r.task.ID))
+		return m, next
+	}
+	if r.done { // completed tasks only select; x reopens
 		return m, nil
 	}
 	if ms.Button == tea.MouseRight {
@@ -228,10 +276,8 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 	circleX := m.listRect().x + 2 + 2*r.depth
 	if !m.notesMode() && (ms.X == circleX || ms.X == circleX+1) {
 		if r.task.Due != nil && r.task.Due.IsRecurring {
-			m.confirm = &confirmPrompt{
-				prompt: "Complete this occurrence of “" + plain(r.task.Content) + "”? It cannot be undone. y/n",
-				run:    func(m *Model) tea.Cmd { return m.complete() },
-			}
+			m.confirm = yesNo("Complete occurrence", "Complete this occurrence of “"+plain(r.task.Content)+"”? This cannot be undone.",
+				"Complete", func(m *Model) tea.Cmd { return m.complete() })
 			return m, nil
 		}
 		next := m.complete()
@@ -254,6 +300,13 @@ func (m Model) detailClick(y int, dbl bool) (tea.Model, tea.Cmd) {
 	}
 	line := m.detOff + r
 	d := m.buildDetail(m.detailInnerWidth() - 1)
+	for k, cl := range d.checks { // a click on a checkbox toggles it
+		if cl == line && m.notesMode() {
+			m.chkCur, m.comCur = k, -1
+			next := m.toggleNoteCheck(k)
+			return m, next
+		}
+	}
 	m.comCur = -1
 	for i, cr := range d.comments {
 		if line >= cr[0] && line < cr[1] {
@@ -262,6 +315,13 @@ func (m Model) detailClick(y int, dbl bool) (tea.Model, tea.Cmd) {
 	}
 	if dbl && m.comCur >= 0 {
 		return m.detailKeys("e")
+	}
+	// A double-click on the note text opens the editor at that line.
+	if dbl && m.notesMode() && line >= d.editStart && (len(d.comments) == 0 || line < d.comments[0][0]) {
+		if t := m.currentTask(); t != nil && line < len(d.lines) {
+			next := m.openNoteEditorAt(sourceLineFor(t.Description, d.lines[line]))
+			return m, next
+		}
 	}
 	return m, nil
 }
@@ -282,6 +342,10 @@ func (m Model) pickerClick(x, y int, dbl bool) (tea.Model, tea.Cmd) {
 	m.pick.cur = i
 	if m.pick.kind == pickLabels {
 		m.pick.toggle(vis)
+		return m, nil
+	}
+	if m.pick.kind == pickColor && vis[i].toggleRow {
+		m.pick.toggleSub()
 		return m, nil
 	}
 	if dbl {
@@ -381,6 +445,7 @@ type ctxMenu struct {
 	x, y  int
 	cur   int
 	items []menuItem
+	focus pane // the pane whose keys the menu runs
 }
 
 var taskMenu = []menuItem{
@@ -395,7 +460,7 @@ var sectionMenu = []menuItem{
 }
 
 func (m *Model) openMenu(x, y int) {
-	m.menu = &ctxMenu{x: x, y: y, items: taskMenu}
+	m.menu = &ctxMenu{x: x, y: y, items: taskMenu, focus: paneTasks}
 }
 
 // menuRect is the area of the menu, moved inside the screen if needed.
@@ -407,8 +472,9 @@ func (m Model) menuRect() rect {
 // runMenu closes the menu and runs the key of item i on the task under the cursor.
 func (m Model) runMenu(i int) (tea.Model, tea.Cmd) {
 	key := m.menu.items[i].key
+	f := m.menu.focus
 	m.menu = nil
-	m.focus = paneTasks
+	m.focus = f
 	return m.updateKeys(keyMsg(key))
 }
 
@@ -473,6 +539,15 @@ func (m Model) overlays(screen string) string {
 	if isDialog(m.inputMode) {
 		r := m.dialogRect()
 		layers = append(layers, lipgloss.NewLayer(m.dialogBox()).X(r.x).Y(r.y).Z(1))
+	}
+	if m.note != nil && m.note.search != nil { // the find box covers the top of the editor
+		r := m.sideRect()
+		layers = append(layers, lipgloss.NewLayer(m.findBox(r.w-2)).X(r.x+1).Y(r.y+1).Z(1))
+	}
+	if m.confirm != nil {
+		r := m.confirmRect()
+		d, _ := m.confirmLayout()
+		layers = append(layers, lipgloss.NewLayer(d).X(r.x).Y(r.y).Z(4))
 	}
 	if m.cal != nil {
 		r := m.calRect()

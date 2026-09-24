@@ -6,7 +6,10 @@ import (
 	"time"
 
 	"charm.land/glamour/v2"
+	gansi "charm.land/glamour/v2/ansi"
+	"charm.land/glamour/v2/styles"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/biomassa/godoist/internal/todoist"
 )
@@ -39,24 +42,110 @@ func (c *mdCache) render(src string, w int) []string {
 	}
 	r := c.renderers[w]
 	if r == nil {
-		style := "dark"
-		if !darkTheme {
-			style = "light"
-		}
-		r, _ = glamour.NewTermRenderer(glamour.WithStandardStyle(style), glamour.WithWordWrap(max(10, w-2)))
+		r, _ = glamour.NewTermRenderer(glamour.WithStyles(readerStyle()), glamour.WithWordWrap(max(10, w-2)))
 		c.renderers[w] = r
 	}
+	// Headings are full-width bars in the color of their level. Glamour renders the text
+	// between them.
 	var lines []string
-	if r != nil {
-		if out, err := r.Render(src); err == nil {
-			lines = strings.Split(strings.Trim(out, "\n"), "\n")
+	var chunk []string
+	flush := func() {
+		text := strings.Trim(strings.Join(chunk, "\n"), "\n")
+		chunk = nil
+		if strings.TrimSpace(text) == "" {
+			return
 		}
+		var part []string
+		if r != nil {
+			if out, err := r.Render(text); err == nil {
+				part = strings.Split(strings.Trim(out, "\n"), "\n")
+			}
+		}
+		if part == nil {
+			part = strings.Split(lipgloss.NewStyle().Width(w).Render(text), "\n")
+		}
+		// Glamour adds lines with only spaces around a part. Drop them, so that one empty
+		// line separates a part from a heading.
+		for len(part) > 0 && strings.TrimSpace(ansi.Strip(part[0])) == "" {
+			part = part[1:]
+		}
+		for len(part) > 0 && strings.TrimSpace(ansi.Strip(part[len(part)-1])) == "" {
+			part = part[:len(part)-1]
+		}
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, part...)
 	}
-	if lines == nil {
-		lines = strings.Split(lipgloss.NewStyle().Width(w).Render(src), "\n")
+	inFence := false
+	for _, l := range strings.Split(src, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			inFence = !inFence
+		}
+		level, text := headingLevel(l)
+		if inFence || level == 0 {
+			chunk = append(chunk, l)
+			continue
+		}
+		flush()
+		if len(lines) > 0 {
+			lines = append(lines, "")
+		}
+		lines = append(lines, headingBar(level, plain(text), w))
 	}
+	flush()
 	c.out[key] = lines
 	return lines
+}
+
+// headingLevel returns the level (1 to 6) and the text of an ATX heading line, or 0.
+func headingLevel(l string) (int, string) {
+	t := strings.TrimLeft(l, " ")
+	n := 0
+	for n < len(t) && n < 7 && t[n] == '#' {
+		n++
+	}
+	if n == 0 || n > 6 || (n < len(t) && t[n] != ' ') {
+		return 0, ""
+	}
+	return n, strings.TrimSpace(strings.TrimRight(strings.TrimSpace(t[n:]), "#"))
+}
+
+// headingHex is the color of a heading level: red, yellow, green, blue, orange, purple.
+func headingHex(level int) string {
+	hexes := []string{"#DC4C3E", "#E0B000", "#369307", "#4180FF", "#FF9A14", "#A970FF"}
+	return hexes[max(1, min(level, 6))-1]
+}
+
+// headingStyle is the bar style of a heading level: a tinted background and bright text.
+func headingStyle(level int) lipgloss.Style {
+	h := headingHex(level)
+	text := mix(h, "#FFFFFF", 0.55)
+	if !darkTheme {
+		text = mix(h, "#000000", 0.45)
+	}
+	return lipgloss.NewStyle().Background(c(mix(h, baseBg, 0.62))).Foreground(c(text)).Bold(true)
+}
+
+// headingBar draws a heading as a full-width bar.
+func headingBar(level int, text string, w int) string {
+	st := headingStyle(level)
+	return st.Render(" " + trunc(text, max(1, w-3)) + strings.Repeat(" ", max(0, w-2-lipgloss.Width(trunc(text, max(1, w-3))))))
+}
+
+// readerStyle is the Glamour dark or light style with clean headings (no "##" marks) and
+// ☐ / ☑ checkboxes. Links are OSC 8 hyperlinks, and fenced code gets syntax colors.
+func readerStyle() gansi.StyleConfig {
+	st := styles.DarkStyleConfig
+	if !darkTheme {
+		st = styles.LightStyleConfig
+	}
+	st.H1.Prefix, st.H1.Suffix = " ", " "
+	for _, h := range []*gansi.StyleBlock{&st.H2, &st.H3, &st.H4, &st.H5, &st.H6} {
+		h.Prefix = ""
+	}
+	st.Task.Ticked, st.Task.Unticked = "☑ ", "☐ "
+	return st
 }
 
 // detailDoc is the content of the details pane before scrolling.
@@ -64,12 +153,16 @@ func (c *mdCache) render(src string, w int) []string {
 type detailDoc struct {
 	lines    []string
 	comments [][2]int
+	checks   []int // lines with a ☐ or ☑ of the note body, in order
+	// editStart is the first line of the rendered note body (notebook view), for a
+	// double-click that opens the editor at that place.
+	editStart int
 }
 
 // buildDetail builds the details for the row under the cursor. In notebook view,
 // it is a reader with the note body as markdown.
 func (m Model) buildDetail(w int) detailDoc {
-	var d detailDoc
+	d := detailDoc{lines: []string{""}} // an empty line under the pane title
 	r := m.currentRow()
 	if r == nil {
 		return d
@@ -115,11 +208,19 @@ func (m Model) buildDetail(w int) detailDoc {
 		case n > 1:
 			meta = append(meta, fmt.Sprintf("%d comments", n))
 		}
-		d.lines = append(d.lines, " "+st(hexMuted).Render(strings.Join(meta, " · ")), "")
+		d.lines = append(d.lines, " "+st(hexMuted).Render(strings.Join(meta, " · ")))
+		d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("enter or E")+st(hexDim).Render(" · edit this note"), "")
+		d.editStart = len(d.lines)
 		if body := strings.TrimSpace(t.Description); body != "" {
+			start := len(d.lines)
 			d.lines = append(d.lines, m.md.render(body, w)...)
+			for i := start; i < len(d.lines); i++ {
+				if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
+					d.checks = append(d.checks, i)
+				}
+			}
 		} else {
-			d.lines = append(d.lines, " "+st(hexDim).Render("empty note · E to write"))
+			d.lines = append(d.lines, " "+st(hexDim).Render("empty note"))
 		}
 	} else {
 		d.lines = append(d.lines, "")
@@ -157,7 +258,13 @@ func (m Model) buildDetail(w int) detailDoc {
 		d.lines = append(d.lines, st(hexDim).Render(stamp+strings.Repeat("─", max(0, w-lipgloss.Width(stamp)-1))))
 		if body := strings.TrimSpace(cm.Content); body != "" {
 			if notes {
+				start := len(d.lines)
 				d.lines = append(d.lines, m.md.render(body, w)...)
+				for i := start; i < len(d.lines); i++ {
+					if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
+						d.checks = append(d.checks, i)
+					}
+				}
 			} else {
 				for _, para := range strings.Split(body, "\n") {
 					d.lines = append(d.lines, wrap(para, hexBody, false)...)
@@ -199,6 +306,9 @@ func (m Model) detailLines(w, h int) []string {
 	sel := [2]int{-1, -1}
 	if m.focus == paneDetail && m.comCur >= 0 && m.comCur < len(d.comments) {
 		sel = d.comments[m.comCur]
+	}
+	if m.focus == paneDetail && m.chkCur >= 0 && m.chkCur < len(d.checks) {
+		sel = [2]int{d.checks[m.chkCur], d.checks[m.chkCur] + 1}
 	}
 	lines := make([]string, 0, h)
 	for i := m.detOff; i < len(d.lines) && len(lines) < h; i++ {

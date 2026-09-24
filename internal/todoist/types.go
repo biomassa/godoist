@@ -16,6 +16,7 @@ type Project struct {
 	IsArchived   bool    `json:"is_archived"`
 	IsShared     bool    `json:"is_shared"`
 	InboxProject bool    `json:"inbox_project"`
+	IsCollapsed  bool    `json:"is_collapsed"`
 	IsDeleted    bool    `json:"is_deleted"`
 	ViewStyle    string  `json:"view_style"`
 	Description  string  `json:"description"`
@@ -103,6 +104,8 @@ type Task struct {
 	NoteCount   int      `json:"note_count"`
 	AddedAt     string   `json:"added_at"`
 	Checked     bool     `json:"checked"`
+	IsCollapsed bool     `json:"is_collapsed"`
+	CompletedAt string   `json:"completed_at"` // only in completed-task lists
 	IsDeleted   bool     `json:"is_deleted"`
 }
 

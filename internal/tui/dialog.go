@@ -28,6 +28,13 @@ var dialogSpecs = map[inputMode]dialogSpec{
 	inputAddSection: {"New section", "Section name",
 		"saved as typed · goes after the section under the cursor · enter add · esc cancel", 120},
 	inputRenameSection: {"Rename section", "Section name", "saved as typed · enter save · esc cancel", 120},
+	inputAddProject: {"New project", "Project name",
+		"saved as typed · next: color and sub-project · enter next · esc cancel", 120},
+	inputRenameProject: {"Rename project", "Project name", "saved as typed · enter save · esc cancel", 120},
+	inputAddSubtask: {"New sub-task", "Sub-task name",
+		"dates, @label and p1–p4 are parsed · it goes under the task at the cursor · enter add · esc cancel", 500},
+	inputAddLabel:    {"New label", "Label name", "saved as typed · enter add · esc cancel", 60},
+	inputRenameLabel: {"Rename label", "Label name", "saved as typed · its tasks get the new name · enter save · esc cancel", 60},
 	inputQuery: {"Todoist filter", "today | overdue · @read · #private & p1 · search: backup",
 		"Todoist filter syntax. Plain words search the task names. An empty filter removes the view · enter run · esc cancel", 1024},
 }
