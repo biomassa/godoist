@@ -24,11 +24,62 @@ godoist is a terminal program for [Todoist](https://todoist.com). It has a text 
 
 ## Requirements
 
-- Go 1.27 or later, to build the program.
+- Go 1.27 or later, to build the program. See [Install Go](#install-go).
 - A Todoist account and its API token.
 - A terminal with true color and mouse support. Most modern terminals have both.
 
 ## Installation
+
+### Install Go
+
+If you do not have Go, install it with the package manager of your system.
+
+macOS ([Homebrew](https://brew.sh)):
+
+```sh
+brew install go
+```
+
+Debian and Ubuntu:
+
+```sh
+sudo apt install golang-go
+```
+
+Fedora, RHEL, and CentOS Stream:
+
+```sh
+sudo dnf install golang
+```
+
+Arch Linux and Manjaro:
+
+```sh
+sudo pacman -S go
+```
+
+openSUSE:
+
+```sh
+sudo zypper install go
+```
+
+Any Linux, with the official archive from [go.dev](https://go.dev/dl/) (use `arm64` in place of `amd64` on ARM):
+
+```sh
+curl -LO https://go.dev/dl/go1.27.1.linux-amd64.tar.gz
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go1.27.1.linux-amd64.tar.gz
+echo 'export PATH="$PATH:/usr/local/go/bin"' >> ~/.profile
+```
+
+Examine the version with `go version`. Some distributions have a Go version that is older than 1.27. Go 1.21 or later can download the necessary version itself. If `go install` fails because the version is too old, add `GOTOOLCHAIN=go1.27.1` before the command:
+
+```sh
+GOTOOLCHAIN=go1.27.1 go install github.com/biomassa/godoist/cmd/godoist@latest
+```
+
+### Install godoist
 
 Install the latest version with Go:
 
@@ -36,7 +87,11 @@ Install the latest version with Go:
 go install github.com/biomassa/godoist/cmd/godoist@latest
 ```
 
-Go puts the binary in `$(go env GOPATH)/bin`. Make sure that this directory is in your `PATH`.
+Go puts the binary in `$(go env GOPATH)/bin`, usually `~/go/bin`. Make sure that this directory is in your `PATH`:
+
+```sh
+echo 'export PATH="$PATH:$(go env GOPATH)/bin"' >> ~/.profile
+```
 
 To build from the source:
 
