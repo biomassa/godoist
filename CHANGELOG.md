@@ -68,4 +68,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Layout for narrow terminals: the details and the editor replace the task list.
 - CLI commands for scripts: `ls`, `add`, `done`, `reopen`, `rm`, `projects`, and `login`.
 - CLI output as aligned columns on a terminal, as TSV in a pipe, and as JSON with `--json`.
+- `add` output: in a terminal, a summary line with the name, project, section, due date, and task ID. In a pipe, only the task ID.
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.

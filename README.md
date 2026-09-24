@@ -221,7 +221,7 @@ Use the CLI in scripts. On a terminal, the output has aligned columns. In a pipe
 | `godoist ls` | List the active tasks. |
 | `godoist ls -p <project>` | List the tasks of one project. |
 | `godoist ls -f "<filter>"` | List the tasks that match a Todoist filter. |
-| `godoist add "<text>"` | Add a task with natural-language parsing. It prints the task ID. |
+| `godoist add "<text>"` | Add a task with natural-language parsing. In a terminal, it prints the name, project, due date, and task ID. In a pipe, it prints only the task ID. |
 | `godoist add -p <project> "<text>"` | Add a task to a project. |
 | `godoist done <id>...` | Complete tasks. |
 | `godoist reopen <id>...` | Open completed tasks again. |

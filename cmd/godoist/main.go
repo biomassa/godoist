@@ -303,16 +303,53 @@ func addCmd() *cobra.Command {
 					t.ProjectID = p.ID
 				}
 			}
-			if asJSON {
+			switch {
+			case asJSON:
 				return printJSON(t)
+			case isTTY():
+				fmt.Println(addedLine(c, cl, t))
+			default:
+				fmt.Println(t.ID)
 			}
-			fmt.Println(t.ID)
 			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&project, "project", "p", "", "put the task in this project")
-	cmd.Flags().BoolVar(&asJSON, "json", false, "print the created task as JSON (default: its ID)")
+	cmd.Flags().BoolVar(&asJSON, "json", false, "print the created task as JSON (default: a summary in a terminal, the ID in a pipe)")
 	return cmd
+}
+
+// addedLine is the summary that add shows in a terminal. If the project or section
+// names are not available, the line shows their IDs.
+func addedLine(c context.Context, cl *todoist.Client, t todoist.Task) string {
+	where := t.ProjectID
+	if ps, err := cl.Projects(c); err == nil {
+		for _, p := range ps {
+			if p.ID == t.ProjectID {
+				where = p.Name
+			}
+		}
+	}
+	if sid := t.Section(); sid != "" {
+		name := sid
+		if ss, err := cl.Sections(c); err == nil {
+			for _, sec := range ss {
+				if sec.ID == sid {
+					name = sec.Name
+				}
+			}
+		}
+		where += " / " + name
+	}
+	parts := []string{fmt.Sprintf("✓ Added %q", t.Content), where}
+	if t.Due != nil {
+		due := todoist.FormatDue(t.Due, time.Now())
+		if t.Due.IsRecurring {
+			due += " ↻ " + t.Due.String
+		}
+		parts = append(parts, due)
+	}
+	return strings.Join(parts, " · ") + "  (" + t.ID + ")"
 }
 
 func closeCmd(name, short string) *cobra.Command {
