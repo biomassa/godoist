@@ -120,6 +120,7 @@ type (
 		// retryMode and retryText reopen the input with the typed text after a failed add.
 		retryMode inputMode
 		retryText string
+		retryDesc string
 	}
 	autoSyncMsg  struct{}
 	completedMsg struct {
@@ -172,6 +173,8 @@ type Model struct {
 
 	input     textinput.Model // bottom-bar input (find)
 	dlg       textarea.Model  // dialog input (all other text inputs)
+	dlgDesc   textarea.Model  // description field of the task dialog
+	dlgField  int             // focused field of the task dialog: 0 name, 1 description
 	inputMode inputMode
 
 	editor textarea.Model
@@ -324,6 +327,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width, m.height = msg.Width, msg.Height
 		m.input.SetWidth(max(10, m.width-4))
 		m.sizeEditor()
+		m.sizeDialog()
 		return m, nil
 
 	case tea.BackgroundColorMsg:
@@ -407,7 +411,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		cmds := []tea.Cmd{m.startSync()}
 		if msg.err != nil && msg.retryMode != inputNone && m.inputMode == inputNone && m.edit == nil && !m.quitting {
-			cmds = append(cmds, m.openAdd(msg.retryMode, msg.retryText))
+			cmds = append(cmds, m.openTaskDialog(msg.retryMode, msg.retryText, msg.retryDesc))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -500,6 +504,22 @@ func (m Model) quit() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.hasDescField(m.inputMode) {
+		switch msg.String() {
+		case "tab", "shift+tab":
+			next := m.setDialogField(1 - m.dlgField)
+			return m, next
+		case "ctrl+enter":
+			return m.submitInput()
+		case "esc":
+		default:
+			if m.dlgField == 1 { // enter in the description adds a line break
+				var cmd tea.Cmd
+				m.dlgDesc, cmd = m.dlgDesc.Update(msg)
+				return m, cmd
+			}
+		}
+	}
 	switch msg.String() {
 	case "esc":
 		if m.inputMode == inputFind {
@@ -509,66 +529,7 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.closeInput()
 		return m, nil
 	case "enter":
-		val := strings.TrimSpace(m.input.Value())
-		if isDialog(m.inputMode) {
-			val = m.dialogValue()
-		}
-		mode := m.inputMode
-		m.closeInput()
-		switch mode {
-		case inputAdd:
-			if val != "" {
-				next := withRetry(m.quickAdd(val), inputAdd, val)
-				return m, next
-			}
-		case inputAddNote:
-			if val != "" {
-				next := m.addNote(val)
-				if next != nil {
-					next = withRetry(next, inputAddNote, val)
-				}
-				return m, next
-			}
-		case inputRename:
-			next := m.rename(val)
-			return m, next
-		case inputAddSection:
-			next := m.addSection(val)
-			return m, next
-		case inputAddProject:
-			next := m.startNewProject(val)
-			return m, next
-		case inputAddSubtask:
-			next := m.addSubtask(val)
-			return m, next
-		case inputAddLabel:
-			next := m.addLabel(val)
-			return m, next
-		case inputRenameLabel:
-			next := m.renameLabel(val)
-			return m, next
-		case inputRenameProject:
-			next := m.renameProject(val)
-			return m, next
-		case inputRenameSection:
-			next := m.renameSection(val)
-			return m, next
-		case inputQuery:
-			if val == "" && m.filterQuery != "" {
-				// An empty query removes the filter view from the sidebar.
-				m.clearFilter()
-				return m, nil
-			}
-			if val != "" {
-				m.focusFilterNav = true
-				m.setStatus("filtering…", false)
-				return m, m.runFilter(val)
-			}
-		case inputFind:
-			m.find = val
-			m.buildRows(true)
-		}
-		return m, nil
+		return m.submitInput()
 	}
 	var cmd tea.Cmd
 	if isDialog(m.inputMode) {
@@ -581,6 +542,78 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.buildRows(true)
 	}
 	return m, cmd
+}
+
+// submitInput closes the input and runs the action of its mode with the typed text.
+func (m Model) submitInput() (tea.Model, tea.Cmd) {
+	val := strings.TrimSpace(m.input.Value())
+	if isDialog(m.inputMode) {
+		val = m.dialogValue()
+	}
+	desc, hasDesc := "", m.hasDescField(m.inputMode)
+	if hasDesc {
+		desc = m.dialogDesc()
+	}
+	mode := m.inputMode
+	m.closeInput()
+	switch mode {
+	case inputAdd:
+		if val != "" {
+			next := withRetryDesc(m.quickAdd(val, desc), inputAdd, val, desc)
+			return m, next
+		}
+	case inputAddNote:
+		if val != "" {
+			next := m.addNote(val)
+			if next != nil {
+				next = withRetry(next, inputAddNote, val)
+			}
+			return m, next
+		}
+	case inputRename:
+		var d *string
+		if hasDesc {
+			d = &desc
+		}
+		next := m.rename(val, d)
+		return m, next
+	case inputAddSection:
+		next := m.addSection(val)
+		return m, next
+	case inputAddProject:
+		next := m.startNewProject(val)
+		return m, next
+	case inputAddSubtask:
+		next := m.addSubtask(val, desc)
+		return m, next
+	case inputAddLabel:
+		next := m.addLabel(val)
+		return m, next
+	case inputRenameLabel:
+		next := m.renameLabel(val)
+		return m, next
+	case inputRenameProject:
+		next := m.renameProject(val)
+		return m, next
+	case inputRenameSection:
+		next := m.renameSection(val)
+		return m, next
+	case inputQuery:
+		if val == "" && m.filterQuery != "" {
+			// An empty query removes the filter view from the sidebar.
+			m.clearFilter()
+			return m, nil
+		}
+		if val != "" {
+			m.focusFilterNav = true
+			m.setStatus("filtering…", false)
+			return m, m.runFilter(val)
+		}
+	case inputFind:
+		m.find = val
+		m.buildRows(true)
+	}
+	return m, nil
 }
 
 // openInput opens the find input in the bottom bar, or the dialog for the other modes.
@@ -603,10 +636,15 @@ func (m *Model) openAdd(mode inputMode, text string) tea.Cmd {
 
 // withRetry makes a failed add reopen the input with the typed text.
 func withRetry(cmd tea.Cmd, mode inputMode, text string) tea.Cmd {
+	return withRetryDesc(cmd, mode, text, "")
+}
+
+// withRetryDesc makes a failed save reopen the task dialog with the typed name and description.
+func withRetryDesc(cmd tea.Cmd, mode inputMode, text, desc string) tea.Cmd {
 	return func() tea.Msg {
 		msg := cmd()
 		if a, ok := msg.(actionMsg); ok && a.err != nil {
-			a.retryMode, a.retryText = mode, text
+			a.retryMode, a.retryText, a.retryDesc = mode, text, desc
 			return a
 		}
 		return msg
@@ -618,6 +656,8 @@ func (m *Model) closeInput() {
 	m.input.Blur()
 	m.input.SetValue("")
 	m.dlg = textarea.Model{}
+	m.dlgDesc = textarea.Model{}
+	m.dlgField = 0
 }
 
 // namesProject reports whether text contains "#<name>" for an existing project, which
@@ -645,7 +685,8 @@ func (m Model) namesProject(text string) bool {
 // In a project view, the task goes to that project and to the section under the cursor,
 // unless the text names a different #project.
 // In Today or Upcoming, the task gets the date of that day, unless the text sets a date.
-func (m *Model) quickAdd(text string) tea.Cmd {
+// A description that is not empty is saved as typed.
+func (m *Model) quickAdd(text, desc string) tea.Cmd {
 	var projectID, sectionID, date string
 	if cur := m.currentNav(); cur != nil {
 		switch {
@@ -670,9 +711,16 @@ func (m *Model) quickAdd(text string) tea.Cmd {
 			}
 			t.ProjectID = projectID
 		}
+		fields := map[string]any{}
 		if date != "" && t.Due == nil {
-			if _, err := client.UpdateTask(ctx, t.ID, map[string]any{"due_date": date}); err != nil {
-				return "", fmt.Errorf("added, but setting the date failed: %w", err)
+			fields["due_date"] = date
+		}
+		if desc != "" {
+			fields["description"] = desc
+		}
+		if len(fields) > 0 {
+			if _, err := client.UpdateTask(ctx, t.ID, fields); err != nil {
+				return "", fmt.Errorf("added, but setting the date or description failed: %w", err)
 			}
 		}
 		where := ""
@@ -704,13 +752,14 @@ func (m *Model) startRename() tea.Cmd {
 		return nil
 	}
 	m.targetID = t.ID
-	return m.openAdd(inputRename, t.Content)
+	return m.openTaskDialog(inputRename, t.Content, t.Description)
 }
 
 // rename saves a new name. In task view, Todoist parses the text as in quick add:
 // a date, #project, /section, @label or p1–p4 in the text changes that field, and the
 // other fields stay the same. In notebook view, the name is saved as typed.
-func (m *Model) rename(text string) tea.Cmd {
+// desc is the new description, or nil if the dialog had no description field.
+func (m *Model) rename(text string, desc *string) tea.Cmd {
 	id := m.targetID
 	var old *todoist.Task
 	for i := range m.snap.Tasks {
@@ -718,10 +767,25 @@ func (m *Model) rename(text string) tea.Cmd {
 			old = &m.snap.Tasks[i]
 		}
 	}
-	if text == "" || old == nil || text == old.Content {
+	if text == "" || old == nil {
 		return nil
 	}
+	descChanged := desc != nil && *desc != strings.TrimSpace(old.Description)
+	if text == old.Content && !descChanged {
+		return nil
+	}
+	retryDesc := old.Description
+	if desc != nil {
+		retryDesc = *desc
+	}
 	client, cur, names := m.client, *old, m.namesProject(text)
+	if text == old.Content { // only the description changed: no parse
+		cmd := m.simpleWrite("Description saved", func(ctx context.Context) error {
+			_, err := client.UpdateTask(ctx, id, map[string]any{"description": *desc})
+			return err
+		})
+		return withRetryDesc(cmd, inputRename, text, retryDesc)
+	}
 	if m.notesMode() {
 		cmd := m.simpleWrite("Renamed to “"+text+"”", func(ctx context.Context) error {
 			_, err := client.UpdateTask(ctx, id, map[string]any{"content": text})
@@ -737,6 +801,10 @@ func (m *Model) rename(text string) tea.Cmd {
 		}
 		fields := map[string]any{"content": p.Content}
 		changes := []string{"Renamed to “" + p.Content + "”"}
+		if descChanged {
+			fields["description"] = *desc
+			changes = append(changes, "description saved")
+		}
 		if p.Due != nil {
 			fields["due_string"] = p.Due.String
 			changes = append(changes, "due "+p.Due.String)
@@ -771,7 +839,7 @@ func (m *Model) rename(text string) tea.Cmd {
 		}
 		return strings.Join(changes, " · "), nil
 	})
-	return withRetry(cmd, inputRename, text)
+	return withRetryDesc(cmd, inputRename, text, retryDesc)
 }
 
 // startDue opens the date dialog with the due string of the task under the cursor.

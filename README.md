@@ -148,16 +148,16 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `tab`, `h` / `l` | Go to the next or previous pane. |
 | `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. |
 | `enter` | Open the project, or open the details. |
-| `a` | Add a task. Todoist parses the text. |
+| `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
-| `e` | Rename the task. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the text. |
+| `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
 | `E` | Edit the description. `ctrl+s` saves, `ctrl+e` opens `$EDITOR`. |
 | `t` | Open the date dialog. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |
 | `m` | Move the task to a project or a section. |
 | `c` | Add a comment. |
-| `A` | Add a sub-task to the task under the cursor. |
+| `A` | Add a sub-task to the task under the cursor. The dialog has a name and a description. |
 | `>` / `<` | Indent the task under the task above it, or outdent it one level. |
 | `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
@@ -169,6 +169,19 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `esc` | Clear the find or the filter. |
 | `r` | Sync now. |
 | `q` | Quit. godoist waits until all changes are saved. |
+
+### Task dialog
+
+The `a`, `e`, and `A` keys open a dialog with two fields: the name and the description. The dialog uses 2/3 of the terminal height. A long description scrolls.
+
+| Key | Action |
+|---|---|
+| `tab` / `shift+tab` | Go to the other field. A click on a field also goes to it. |
+| `enter` | In the name: save. In the description: start a new line. |
+| `ctrl+enter` | Save from the two fields. The terminal must send `ctrl+enter` as a separate key (for example kitty, WezTerm, foot, or Ghostty). |
+| `esc` | Close the dialog without a save. |
+
+Todoist parses the name as in quick add. The description is saved as typed. In notebook view, the dialog has only the name.
 
 ### Notebook view
 

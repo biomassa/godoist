@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comments in the details pane, with attachments. Add (`c`), edit (`e`), and delete (`d`) comments.
 - Task name editing (`e`) in a dialog. Todoist parses the text as in quick add: a date, `#project`, `/section`, `@label`, or `p1`–`p4` changes only that field. In notebook view, the name is saved as typed.
 - A centered dialog for all text inputs except find. Long text wraps, `enter` saves, `esc` cancels.
+- Task dialog for add (`a`), edit (`e`), and sub-task (`A`) with two fields: the name (parsed) and the description (saved as typed). It uses 2/3 of the terminal height, and a long description scrolls. `tab` / `shift+tab` or a click go to the other field. `enter` in the name saves, `enter` in the description starts a new line, and `ctrl+enter` saves from the two fields. In notebook view, the dialog has only the name.
 - Task description editing (`E`).
 - Date dialog (`t`): a text field that Todoist parses, a month calendar, and a time field. `tab` moves between them and parses a changed text once, so the calendar shows the result. `enter` saves the input changed last. `no date` removes the date.
 - Calendar: arrows, PgUp/PgDn, Home, quick picks (Today, Tomorrow, Next week, Weekend, No date), a dot on days with tasks, and the week start from the Todoist settings. The mouse selects days and quick picks, a double-click saves, and the wheel changes the month.

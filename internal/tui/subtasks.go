@@ -135,7 +135,8 @@ func (m Model) orderKeys(key string) (tea.Model, tea.Cmd, bool) {
 
 // addSubtask adds a task with Todoist parsing and makes it a sub-task of the target task.
 // A #project in the text has no effect: the sub-task goes to the parent's project.
-func (m *Model) addSubtask(text string) tea.Cmd {
+// A description that is not empty is saved as typed.
+func (m *Model) addSubtask(text, desc string) tea.Cmd {
 	parent := m.taskByID(m.targetID)
 	if parent == nil || text == "" {
 		return nil
@@ -146,12 +147,17 @@ func (m *Model) addSubtask(text string) tea.Cmd {
 		if err != nil {
 			return "", err
 		}
+		if desc != "" {
+			if _, err := client.UpdateTask(ctx, t.ID, map[string]any{"description": desc}); err != nil {
+				return "", fmt.Errorf("added, but the description was not saved: %w", err)
+			}
+		}
 		if err := client.MoveToParent(ctx, t.ID, pid); err != nil {
 			return "", fmt.Errorf("added, but it is not a sub-task: %w", err)
 		}
 		return "Added sub-task “" + t.Content + "” to “" + pname + "”", nil
 	})
-	return withRetry(cmd, inputAddSubtask, text)
+	return withRetryDesc(cmd, inputAddSubtask, text, desc)
 }
 
 // moveTaskOrder moves a task d places among its siblings. A top-level task at the first

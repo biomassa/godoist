@@ -666,7 +666,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.notesMode():
 		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "rename"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.edit == nil && m.focus != paneDetail {
@@ -812,7 +812,9 @@ func helpSections() [][]string {
 			k("", "goes to the section under the cursor"),
 			k("x / space", "complete"),
 			k("ctrl+z", "undo the last completion"),
-			k("e", "rename (parsed like quick add)"),
+			k("e", "edit name (parsed) and description"),
+			k("", "tab field · enter in description: new line"),
+			k("", "ctrl+enter save"),
 			k("E", "edit the description / note body"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),

@@ -154,6 +154,12 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		if !m.dialogRect().has(x, y) {
 			m.closeInput()
 			m.setStatus("cancelled", false)
+			return m, nil
+		}
+		// A click on the name or the description of the task dialog moves the keys there.
+		if f := m.dialogFieldAt(y); f >= 0 && f != m.dlgField {
+			next := m.setDialogField(f)
+			return m, next
 		}
 		return m, nil
 	case m.note != nil:
