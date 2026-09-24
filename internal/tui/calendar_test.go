@@ -155,3 +155,32 @@ func TestWrapHintKeepsItemsTogether(t *testing.T) {
 		t.Errorf("wrapHint split an item: %q", lines)
 	}
 }
+
+// Tasks with different dates show mixedDue. Enter with it does nothing. One backspace
+// removes it and shows mixedHint, and enter then clears all dates.
+func TestCalendarBulkMixedClears(t *testing.T) {
+	m := send(t, onRow(t, 1), key("s"), key("j"), key("s"), key("t")) // alpha (no date), beta
+	if m.cal == nil || m.cal.text.Value() != mixedDue {
+		t.Fatalf("text = %q, want %q", m.cal.text.Value(), mixedDue)
+	}
+	m = send(t, m, key("enter"))
+	if m.cal != nil || m.pending != 0 {
+		t.Fatalf("enter with %q saved: pending = %d", mixedDue, m.pending)
+	}
+	m = send(t, m, key("t"), key("backspace"))
+	if m.cal.text.Value() != "" || m.cal.text.Placeholder != mixedHint {
+		t.Fatalf("after one backspace text = %q placeholder = %q, want the hint", m.cal.text.Value(), m.cal.text.Placeholder)
+	}
+	m = send(t, m, key("enter"))
+	if m.pending != 1 || !m.cal.saving {
+		t.Errorf("pending = %d, want one save that removes the dates", m.pending)
+	}
+}
+
+// Typed text replaces mixedDue.
+func TestCalendarBulkMixedTypingReplaces(t *testing.T) {
+	m := send(t, onRow(t, 1), key("s"), key("j"), key("s"), key("t"), key("f"))
+	if got := m.cal.text.Value(); got != "f" {
+		t.Errorf("text = %q, want typing to replace %q", got, mixedDue)
+	}
+}

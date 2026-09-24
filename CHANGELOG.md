@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Manual task order: `[` and `]` move a task among its siblings. At the edge of a section, a top-level task goes into the next section. In All tasks, this works for tasks without a due date.
 - Collapse with `z` for sections, tasks with sub-tasks, and sub-projects. The state is saved in Todoist. `▾` and `▸` markers show it, and a click on a marker toggles it.
 - Multi-select: `s`, `S`, `ctrl`+click, and `shift`+click. Bulk complete, due date, priority, move, labels (with `[~]` for partial labels), and delete. One `ctrl+z` opens again the one-time tasks of a bulk completion.
+- Bulk date dialog: if the selected tasks have different dates, the text field shows `(mixed)`. One `backspace` or `delete` removes it and shows the hint "Clear dates for selected tasks". Then `enter` removes all the dates. Typed text replaces `(mixed)`. `enter` with `(mixed)` makes no change.
 - Labels group in the sidebar with a label view grouped by project. Label management: add, rename, color, favorite, reorder, and delete.
 - Completed view: the tasks completed in the last 30 days, grouped by project. `x` opens a task again.
 - Projects in the sidebar: `A` adds a project (name, then a color picker with a sub-project option), `e` renames, `C` changes the color, `*` adds to or removes from Favorites, `[` and `]` move it among its siblings, and `Delete` or `Backspace` deletes or archives it. Right-click opens a project menu. The Inbox is protected.

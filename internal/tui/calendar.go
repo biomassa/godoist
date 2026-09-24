@@ -98,19 +98,42 @@ func (m *Model) openCalendar(t *todoist.Task, text string) tea.Cmd {
 	return m.openCalendarWith([]*todoist.Task{t}, text)
 }
 
+// mixedDue is the text field value when the tasks have different due dates.
+// The user removes it and pushes enter to remove all the dates.
+const mixedDue = "(mixed)"
+
+// mixedHint shows in the empty text field after the user removes mixedDue.
+const mixedHint = "Clear dates for selected tasks"
+
 // openCalendarFor opens the date dialog for several tasks. The text field has the due
-// string if all tasks have the same one.
+// string if all tasks have the same one, and mixedDue if not.
 func (m *Model) openCalendarFor(ts []*todoist.Task) tea.Cmd {
+	// dueKey is the same for two tasks only if they have the same due text, and for
+	// one-time dates also the same date. Todoist can keep an empty text on a date.
+	dueKey := func(t *todoist.Task) string {
+		switch {
+		case t.Due == nil:
+			return ""
+		case t.Due.IsRecurring:
+			return "↻" + t.Due.String
+		}
+		return t.Due.String + "|" + t.Due.Date
+	}
 	text := ""
 	if ts[0].Due != nil {
 		text = ts[0].Due.String
 	}
 	for _, t := range ts[1:] {
-		if t.Due == nil || t.Due.String != text {
-			text = ""
+		if dueKey(t) != dueKey(ts[0]) {
+			text = mixedDue
+			break
 		}
 	}
-	return m.openCalendarWith(ts, text)
+	cmd := m.openCalendarWith(ts, text)
+	if text == mixedDue {
+		m.cal.text.Placeholder = mixedHint
+	}
+	return cmd
 }
 
 // openCalendarWith opens the date dialog for ts. The calendar starts on the first task's day.
@@ -298,7 +321,14 @@ func (m Model) updateCalendar(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch c.focus {
 	case calText:
 		before := c.text.Value()
-		c.text, cmd = c.text.Update(msg)
+		// One backspace or delete removes all of mixedDue. Typed text replaces it.
+		erase := key == "backspace" || key == "delete"
+		if before == mixedDue && (erase || msg.Text != "") {
+			c.text.SetValue("")
+		}
+		if before != mixedDue || !erase {
+			c.text, cmd = c.text.Update(msg)
+		}
 		if c.text.Value() != before {
 			c.source = srcText
 		}
@@ -360,7 +390,7 @@ func parseClock(s string) (h, min int, allDay, ok bool) {
 func (m Model) saveCalendar() (tea.Model, tea.Cmd) {
 	c := m.cal
 	switch {
-	case c.source == srcNone:
+	case c.source == srcNone, c.source == srcText && strings.TrimSpace(c.text.Value()) == mixedDue:
 		m.cal = nil
 		m.setStatus("no changes", false)
 		return m, nil
