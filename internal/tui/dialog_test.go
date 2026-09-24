@@ -68,6 +68,9 @@ func TestEditDialogHasDescription(t *testing.T) {
 	if m.inputMode != inputRename || m.dialogValue() != "alpha" || m.dlgDesc.Value() != "old notes" {
 		t.Fatalf("mode = %d name = %q desc = %q", m.inputMode, m.dialogValue(), m.dlgDesc.Value())
 	}
+	if !strings.Contains(stripANSI(m.dialogBox()), "Edit task") {
+		t.Error("the edit dialog title is not \"Edit task\"")
+	}
 	m = send(t, m, key("enter")) // nothing changed
 	if m.pending != 0 {
 		t.Errorf("pending = %d, want no save without changes", m.pending)

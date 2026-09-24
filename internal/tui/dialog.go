@@ -196,7 +196,11 @@ func (m Model) dialogBox() string {
 	for _, l := range m.dialogHintLines() {
 		lines = append(lines, " "+l)
 	}
-	return box(st(fg(hexAccent)).Bold(true).Render(spec.title), padLines(lines, inner, len(lines)), w, fg(hexAccent))
+	title := spec.title
+	if two && m.inputMode == inputRename { // the dialog edits the name and the description
+		title = "Edit task"
+	}
+	return box(st(fg(hexAccent)).Bold(true).Render(title), padLines(lines, inner, len(lines)), w, fg(hexAccent))
 }
 
 // dialogFieldAt is the task dialog field (0 name, 1 description) at screen line y, or -1.
