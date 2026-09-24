@@ -79,12 +79,10 @@ type navItem struct {
 	labelID   string // vkLabel
 	hasKids   bool   // a project with sub-projects
 	collapsed bool   // its sub-projects are hidden
-	// tree is the tree prefix of a project in My Projects: a marker slot for top-level
-	// projects, and │ ├ └ lines for sub-projects. markCol is the column of its ▾/▸ marker
-	// inside the pane (-1 if it has none).
-	tree    string
-	inTree  bool
-	markCol int
+	// tree is the tree prefix of a project in My Projects: │ ├ └ lines for sub-projects,
+	// and empty for top-level projects. The ▾/▸ marker goes after the name.
+	tree   string
+	inTree bool
 }
 
 // row is a line in the task pane: a group header, a task, or a note's preview line.
@@ -1377,15 +1375,9 @@ func (m *Model) buildNav() {
 	for i, op := range shown {
 		it := projItem(op.p, op.depth)
 		it.hasKids, it.collapsed = hasKids[op.p.ID], op.p.IsCollapsed && hasKids[op.p.ID]
-		it.inTree, it.markCol = true, -1
+		it.inTree = true
 		open = append(open[:min(op.depth, len(open))], !last[i])
-		mark := "  "
-		if it.hasKids {
-			mark = collapseMark(it.collapsed)
-		}
-		if op.depth == 0 {
-			it.tree, it.markCol = mark, 1
-		} else {
+		if op.depth > 0 {
 			var b strings.Builder
 			b.WriteString("  ")
 			for d := 1; d < op.depth; d++ {
@@ -1399,10 +1391,6 @@ func (m *Model) buildNav() {
 				b.WriteString("└ ")
 			} else {
 				b.WriteString("├ ")
-			}
-			if it.hasKids {
-				it.markCol = 1 + len([]rune(b.String()))
-				b.WriteString(mark)
 			}
 			it.tree = b.String()
 		}

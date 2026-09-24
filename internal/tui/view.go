@@ -266,19 +266,44 @@ func (m Model) navLines(w, h int) []string {
 			}
 			count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
 		}
-		var left string
-		if n.inTree { // My Projects: marker slot and tree lines
-			left = base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
-				base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
-		} else {
-			left = base.Render(" ") + base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
+		left := base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
+			base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
+		name := base.Foreground(c(nameHex)).Render(navName(n, w))
+		if n.inTree && n.hasKids {
+			name += base.Foreground(c(hexMuted)).Render(" " + strings.TrimSpace(collapseMark(n.collapsed)))
 		}
-		nameW := w - lipgloss.Width(left) - lipgloss.Width(count) - 1
-		name := base.Foreground(c(nameHex)).Render(trunc(n.name, nameW))
 		gap := w - lipgloss.Width(left) - lipgloss.Width(name) - lipgloss.Width(count)
 		lines = append(lines, left+name+base.Render(strings.Repeat(" ", max(0, gap)))+count)
 	}
 	return padLines(lines, w, h)
+}
+
+// navLeftWidth is the width of a sidebar row before the name: a space, the tree lines,
+// the glyph, and a space.
+func navLeftWidth(n navItem) int {
+	return 1 + lipgloss.Width(n.tree) + lipgloss.Width(n.glyph) + 1
+}
+
+// navName is the name of a sidebar row, cut to the space that is free in a pane of width w.
+// The space for the count and, in My Projects, for the ▾/▸ marker stays free.
+func navName(n navItem, w int) string {
+	nameW := w - navLeftWidth(n) - 1
+	if n.count > 0 {
+		nameW -= lipgloss.Width(fmt.Sprint(n.count)) + 1
+	}
+	if n.inTree && n.hasKids {
+		nameW -= 2
+	}
+	return trunc(n.name, nameW)
+}
+
+// navMarkCol is the column of the ▾/▸ marker in a sidebar row of width w, or -1 if the
+// row has no marker.
+func navMarkCol(n navItem, w int) int {
+	if !n.inTree || !n.hasKids {
+		return -1
+	}
+	return navLeftWidth(n) + lipgloss.Width(navName(n, w)) + 1
 }
 
 // ---- task list ----

@@ -287,10 +287,47 @@ func TestSidebarTreeLines(t *testing.T) {
 			got[n.name] = n.tree
 		}
 	}
-	want := map[string]string{"work": "▾ ", "home": "  ├ ▾ ", "garden": "  │ └ ", "clients": "  └ ", "misc": "  "}
+	want := map[string]string{"work": "", "home": "  ├ ", "garden": "  │ └ ", "clients": "  └ ", "misc": ""}
 	for name, tr := range want {
 		if got[name] != tr {
 			t.Errorf("%s tree = %q, want %q", name, got[name], tr)
 		}
+	}
+}
+
+// Top-level projects start at the same column as Inbox. The ▾/▸ marker goes after the
+// name, and a click on it hides the sub-projects.
+func TestSidebarMarkerAfterName(t *testing.T) {
+	m := testModel(t)
+	w := "p1"
+	m.st.Projects = append(m.st.Projects, todoist.Project{ID: "p2", Name: "home", ParentID: &w, ChildOrder: 1})
+	m.applyState(m.st)
+	l := m.layout()
+	lines := m.navLines(l.nav.w-2, 12)
+	for _, want := range []string{" ⌂ Inbox", " # work ▾", "   └ # home"} {
+		found := false
+		for _, ln := range lines {
+			found = found || strings.HasPrefix(stripANSI(ln), want)
+		}
+		if !found {
+			t.Errorf("no sidebar line starts with %q", want)
+		}
+	}
+	var work navItem
+	for _, n := range m.nav {
+		if n.projectID == "p1" {
+			work = n
+		}
+	}
+	col := navMarkCol(work, l.nav.w-2)
+	m = send(t, m, click(l.nav.x+1+col, 8))
+	collapsed := false
+	for _, n := range m.nav {
+		if n.projectID == "p1" {
+			collapsed = n.collapsed
+		}
+	}
+	if !collapsed {
+		t.Error("a click on the marker did not collapse work")
 	}
 }

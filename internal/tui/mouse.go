@@ -183,8 +183,9 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		// A click on the ▾/▸ marker of a project hides or shows its sub-projects.
 		if r := l.nav.row(y); r >= 0 && m.navOff+r < len(m.nav) {
 			n := m.nav[m.navOff+r]
-			markX := l.nav.x + 1 + n.markCol // the border, then the marker column in the pane
-			if n.hasKids && n.markCol >= 0 && (x == markX || x == markX+1) && m.navProject() != nil {
+			col := navMarkCol(n, l.nav.w-2)
+			markX := l.nav.x + 1 + col // the border, then the marker column in the pane
+			if col >= 0 && x == markX && m.navProject() != nil {
 				next := m.toggleProjectCollapse(m.navProject())
 				return m, next
 			}
