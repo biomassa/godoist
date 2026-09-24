@@ -4,6 +4,8 @@ godoist is a terminal program for [Todoist](https://todoist.com). It has a text 
 
 > This software was developed with the assistance of a LLM.
 
+![godoist: the sidebar, a project with sections and sub-tasks, and the details pane](docs/screenshot.png)
+
 ## Features
 
 - Three panes: sidebar, task list, and details.
