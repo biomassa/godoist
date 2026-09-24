@@ -146,10 +146,12 @@ These keys work in the sidebar, with the cursor on a project:
 | `C` | Change the color. |
 | `*` | Add the project to Favorites, or remove it. |
 | `[` / `]` | Move the project up or down among its siblings. |
+| `>` / `<` | Make the project a sub-project of the project above it, or move it one level up. |
+| `m` | Move the project under another project, or to the top level. |
 | `z` | Collapse or expand the sub-projects. |
 | `Delete` / `Backspace` | Delete or archive the project. A dialog asks which. |
 
-You cannot change the Inbox. The Todoist free plan limits the number of projects. If Todoist refuses a new project, godoist shows the message from Todoist.
+You can also drag a project onto another project to make it a sub-project, or onto **My Projects** to make it a top-level project. A project moves with its sub-projects. You cannot change the Inbox. The Todoist free plan limits the number of projects. If Todoist refuses a new project, godoist shows the message from Todoist.
 
 ### Multi-select
 

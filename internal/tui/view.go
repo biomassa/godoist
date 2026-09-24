@@ -266,12 +266,13 @@ func (m Model) navLines(w, h int) []string {
 			}
 			count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
 		}
-		mark := ""
-		if n.hasKids {
-			mark = base.Foreground(c(hexMuted)).Render(collapseMark(n.collapsed))
+		var left string
+		if n.inTree { // My Projects: marker slot and tree lines
+			left = base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
+				base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
+		} else {
+			left = base.Render(" ") + base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
 		}
-		left := base.Render(" "+strings.Repeat("  ", n.depth)) + mark +
-			base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
 		nameW := w - lipgloss.Width(left) - lipgloss.Width(count) - 1
 		name := base.Foreground(c(nameHex)).Render(trunc(n.name, nameW))
 		gap := w - lipgloss.Width(left) - lipgloss.Width(name) - lipgloss.Width(count)
@@ -624,7 +625,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.focus == paneNav && m.navLabel() != nil:
 		keys = [][2]string{{"A", "new label"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {"del", "delete"}, {"enter", "open"}}
 	case m.focus == paneNav && m.navProject() != nil && !m.navProject().InboxProject:
-		keys = [][2]string{{"A", "new project"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {"z", "collapse"}, {"del", "delete/archive"}, {"a", "add task"}, {"v", "notes view"}, {"enter", "open"}}
+		keys = [][2]string{{"A", "new project"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"m", "move under"}, {"z", "collapse"}, {"del", "delete/archive"}, {"a", "add task"}, {"v", "notes view"}, {"enter", "open"}}
 	case m.focus == paneNav:
 		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
 	case m.headerSection() != nil:
@@ -811,6 +812,8 @@ func helpSections() [][]string {
 			k("e / C", "rename / change the color"),
 			k("*", "add to / remove from Favorites"),
 			k("[ / ]", "move up / down among its siblings"),
+			k("> / <", "indent / outdent (sub-project)"),
+			k("m", "move under another project"),
 			k("z", "collapse / expand sub-projects"),
 			k("del", "delete or archive (asks)"),
 			k("right-click", "project menu")},

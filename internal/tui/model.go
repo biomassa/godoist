@@ -79,6 +79,12 @@ type navItem struct {
 	labelID   string // vkLabel
 	hasKids   bool   // a project with sub-projects
 	collapsed bool   // its sub-projects are hidden
+	// tree is the tree prefix of a project in My Projects: a marker slot for top-level
+	// projects, and │ ├ └ lines for sub-projects. markCol is the column of its ▾/▸ marker
+	// inside the pane (-1 if it has none).
+	tree    string
+	inTree  bool
+	markCol int
 }
 
 // row is a line in the task pane: a group header, a task, or a note's preview line.
@@ -1345,6 +1351,7 @@ func (m *Model) buildNav() {
 		}
 	}
 	hiddenUnder := map[string]bool{} // projects inside a collapsed project
+	var shown []orderedProject
 	for _, op := range ordered {
 		if op.p.InboxProject {
 			continue
@@ -1353,8 +1360,52 @@ func (m *Model) buildNav() {
 			hiddenUnder[op.p.ID] = true
 			continue
 		}
+		shown = append(shown, op)
+	}
+	// last[i] is true if shown[i] is the last shown project among its siblings.
+	last := make([]bool, len(shown))
+	for i, op := range shown {
+		last[i] = true
+		for j := i + 1; j < len(shown) && shown[j].depth >= op.depth; j++ {
+			if shown[j].depth == op.depth {
+				last[i] = false
+				break
+			}
+		}
+	}
+	var open []bool // for each ancestor level: does a later sibling follow (draw │)?
+	for i, op := range shown {
 		it := projItem(op.p, op.depth)
 		it.hasKids, it.collapsed = hasKids[op.p.ID], op.p.IsCollapsed && hasKids[op.p.ID]
+		it.inTree, it.markCol = true, -1
+		open = append(open[:min(op.depth, len(open))], !last[i])
+		mark := "  "
+		if it.hasKids {
+			mark = collapseMark(it.collapsed)
+		}
+		if op.depth == 0 {
+			it.tree, it.markCol = mark, 1
+		} else {
+			var b strings.Builder
+			b.WriteString("  ")
+			for d := 1; d < op.depth; d++ {
+				if open[d] {
+					b.WriteString("│ ")
+				} else {
+					b.WriteString("  ")
+				}
+			}
+			if last[i] {
+				b.WriteString("└ ")
+			} else {
+				b.WriteString("├ ")
+			}
+			if it.hasKids {
+				it.markCol = 1 + len([]rune(b.String()))
+				b.WriteString(mark)
+			}
+			it.tree = b.String()
+		}
 		nav = append(nav, it)
 	}
 	nav = append(nav, navItem{header: " "}, navItem{header: "Labels"})

@@ -161,7 +161,7 @@ func TestLegendClick(t *testing.T) {
 	if add == nil {
 		t.Fatal("no legend item for a")
 	}
-	m = send(t, m, click(add.x0, m.layout().bar))
+	m = send(t, m, click(add.x0, m.layout().bar+add.y))
 	if m.inputMode != inputAdd {
 		t.Errorf("inputMode = %d, want the add dialog", m.inputMode)
 	}

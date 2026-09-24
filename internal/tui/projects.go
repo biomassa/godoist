@@ -28,7 +28,7 @@ func (m Model) projectKeys(key string) (tea.Model, tea.Cmd, bool) {
 		return m, next, true
 	}
 	switch key {
-	case "e", "C", "*", "[", "]", "delete", "backspace":
+	case "e", "C", "*", "[", "]", ">", "<", "m", "delete", "backspace":
 	default:
 		return m, nil, false
 	}
@@ -56,6 +56,12 @@ func (m Model) projectKeys(key string) (tea.Model, tea.Cmd, bool) {
 			d = 1
 		}
 		next = m.moveProject(p, d)
+	case ">":
+		next = m.indentProject(p)
+	case "<":
+		next = m.outdentProject(p)
+	case "m":
+		next = m.openParentPicker(p)
 	case "delete", "backspace":
 		m.askDeleteProject(p)
 	}
@@ -265,5 +271,142 @@ func (p *picker) toggleSub() {
 // projectMenu is the right-click menu of a sidebar project.
 var projectMenu = []menuItem{
 	{"New project", "A"}, {"Rename", "e"}, {"Color", "C"}, {"Favorite on / off", "*"},
-	{"Move up", "["}, {"Move down", "]"}, {"Delete or archive", "delete"},
+	{"Move up", "["}, {"Move down", "]"}, {"Indent", ">"}, {"Outdent", "<"}, {"Move under…", "m"},
+	{"Delete or archive", "delete"},
+}
+
+// childProjects returns the IDs of the sub-projects of parentID ("" for the top level),
+// in their order. The Inbox is not in the list.
+func (m Model) childProjects(parentID string) []string {
+	var ps []todoist.Project
+	for _, q := range m.snap.Projects {
+		if q.InboxProject || q.IsArchived {
+			continue
+		}
+		if (parentID == "" && q.ParentID == nil) || (q.ParentID != nil && *q.ParentID == parentID) {
+			ps = append(ps, q)
+		}
+	}
+	sort.SliceStable(ps, func(i, j int) bool { return ps[i].ChildOrder < ps[j].ChildOrder })
+	ids := make([]string, len(ps))
+	for i, q := range ps {
+		ids[i] = q.ID
+	}
+	return ids
+}
+
+// isInside reports whether project id is p or one of its sub-projects at any depth.
+func (m Model) isInside(id, p string) bool {
+	for id != "" {
+		if id == p {
+			return true
+		}
+		q := m.projects[id]
+		if q == nil || q.ParentID == nil {
+			return false
+		}
+		id = *q.ParentID
+	}
+	return false
+}
+
+// reparent moves project p under parentID ("" for the top level) at position pos of the
+// new siblings (-1 for the end). The sidebar changes at once. The sub-projects move along.
+func (m *Model) reparent(p *todoist.Project, parentID string, pos int, done string) tea.Cmd {
+	if parentID != "" && m.isInside(parentID, p.ID) {
+		m.setStatus("a project cannot go inside itself", true)
+		return nil
+	}
+	order := slices.DeleteFunc(m.childProjects(parentID), func(id string) bool { return id == p.ID })
+	if pos < 0 || pos > len(order) {
+		pos = len(order)
+	}
+	order = slices.Insert(order, pos, p.ID)
+	if parentID == "" {
+		p.ParentID = nil
+	} else {
+		pp := parentID
+		p.ParentID = &pp
+	}
+	for k := range m.snap.Projects {
+		if n := slices.Index(order, m.snap.Projects[k].ID); n >= 0 {
+			m.snap.Projects[k].ChildOrder = n + 1
+		}
+	}
+	if q := m.projects[parentID]; q != nil {
+		q.IsCollapsed = false // show the project in its new place
+	}
+	m.buildNav()
+	id, client := p.ID, m.client
+	return m.simpleWrite(done, func(ctx context.Context) error {
+		if err := client.MoveProject(ctx, id, parentID); err != nil {
+			return err
+		}
+		return client.ReorderProjects(ctx, order)
+	})
+}
+
+// indentProject makes p a sub-project of the project above it at the same level.
+func (m *Model) indentProject(p *todoist.Project) tea.Cmd {
+	sib := m.siblings(p)
+	i := slices.Index(sib, p.ID)
+	if i <= 0 {
+		m.setStatus("no project above at the same level", false)
+		return nil
+	}
+	above := m.projects[sib[i-1]]
+	return m.reparent(p, above.ID, -1, "Moved “"+p.Name+"” under “"+above.Name+"”")
+}
+
+// outdentProject moves p one level up, right after its old parent.
+func (m *Model) outdentProject(p *todoist.Project) tea.Cmd {
+	if p.ParentID == nil {
+		m.setStatus("already at the top level", false)
+		return nil
+	}
+	parent := m.projects[*p.ParentID]
+	if parent == nil {
+		return nil
+	}
+	up := ""
+	if parent.ParentID != nil {
+		up = *parent.ParentID
+	}
+	pos := slices.Index(m.childProjects(up), parent.ID) + 1
+	return m.reparent(p, up, pos, "Moved “"+p.Name+"” one level up")
+}
+
+// moveProjectUnder makes p the last sub-project of parentID, or the last top-level project.
+func (m *Model) moveProjectUnder(p *todoist.Project, parentID string) tea.Cmd {
+	cur := ""
+	if p.ParentID != nil {
+		cur = *p.ParentID
+	}
+	if cur == parentID {
+		m.setStatus("the project is already there", false)
+		return nil
+	}
+	done := "Moved “" + p.Name + "” to the top level"
+	if q := m.projects[parentID]; q != nil {
+		done = "Moved “" + p.Name + "” under “" + q.Name + "”"
+	}
+	return m.reparent(p, parentID, -1, done)
+}
+
+// openParentPicker opens the list of possible parents: the top level and every project
+// that is not p or inside p.
+func (m *Model) openParentPicker(p *todoist.Project) tea.Cmd {
+	items := []pickItem{{text: "⌂ top level", match: "top level", color: hexMuted}}
+	for _, op := range m.orderedProjects() {
+		q := op.p
+		if q.InboxProject || m.isInside(q.ID, p.ID) {
+			continue
+		}
+		items = append(items, pickItem{text: "# " + q.Name, match: strings.ToLower(q.Name),
+			color: todoist.ColorHex(q.Color), depth: op.depth, projectID: q.ID})
+	}
+	m.pick = &picker{kind: pickParent, title: "Move under · " + p.Name, items: items, filter: newPickerFilter(), projectID: p.ID}
+	m.pick.filter.Placeholder = "type to filter, e.g. work"
+	m.pick.filter.SetWidth(pickerFilterWidth(m.pickerWidth()))
+	return m.pick.filter.Focus()
 }

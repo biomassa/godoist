@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/biomassa/godoist/internal/todoist"
 )
 
 func stripANSI(s string) string { return ansi.Strip(s) }
@@ -202,5 +204,93 @@ func TestConfirmKeys(t *testing.T) {
 	m = send(t, m, key("delete"), key("enter")) // the default is Delete
 	if m.pending != 2 {
 		t.Errorf("pending = %d, want enter to push Delete", m.pending)
+	}
+}
+
+// withProjects adds the top-level project "home" after work, for sub-project tests.
+func withProjects(t *testing.T) Model {
+	t.Helper()
+	m := testModel(t)
+	m.st.Projects = append(m.st.Projects, todoist.Project{ID: "p2", Name: "home", Color: "teal", ChildOrder: 2})
+	m.applyState(m.st)
+	return send(t, m, click(5, 9)) // home is row 8, under work
+}
+
+func TestIndentOutdentProject(t *testing.T) {
+	m := withProjects(t)
+	if p := m.navProject(); p == nil || p.ID != "p2" {
+		t.Fatalf("cursor is not on home: %+v", m.currentNav())
+	}
+	m = send(t, m, key(">"))
+	if p := m.projects["p2"]; p.ParentID == nil || *p.ParentID != "p1" || m.pending != 1 {
+		t.Fatalf("home parent = %v pending = %d, want under work", p.ParentID, m.pending)
+	}
+	if n := m.currentNav(); n == nil || n.projectID != "p2" || n.depth != 1 {
+		t.Errorf("cursor = %+v, want home at depth 1", n)
+	}
+	m = send(t, m, key("<"))
+	if p := m.projects["p2"]; p.ParentID != nil {
+		t.Errorf("home parent = %v after <, want top level", *p.ParentID)
+	}
+	if got := m.childProjects(""); len(got) != 2 || got[0] != "p1" || got[1] != "p2" {
+		t.Errorf("top-level order = %v, want [p1 p2]", got)
+	}
+}
+
+func TestParentPicker(t *testing.T) {
+	m := send(t, withProjects(t), key("m"))
+	if m.pick == nil || m.pick.kind != pickParent {
+		t.Fatalf("pick = %+v, want the parent picker", m.pick)
+	}
+	for _, it := range m.pick.items {
+		if it.projectID == "p2" {
+			t.Error("the picker lists the project itself")
+		}
+	}
+	m = send(t, m, key("down"), key("enter")) // top level, then work
+	if p := m.projects["p2"]; p.ParentID == nil || *p.ParentID != "p1" {
+		t.Errorf("home parent = %v, want work", p.ParentID)
+	}
+	m = send(t, m, click(5, 8), key("m")) // work: home is inside it now
+	for _, it := range m.pick.items {
+		if it.projectID == "p2" || it.projectID == "p1" {
+			t.Errorf("the picker lists %q, which is work or inside work", it.projectID)
+		}
+	}
+}
+
+func TestDragProject(t *testing.T) {
+	m := withProjects(t)
+	m = send(t, m, motion(6, 9), motion(6, 8), release(6, 8)) // home onto work
+	if p := m.projects["p2"]; p.ParentID == nil || *p.ParentID != "p1" {
+		t.Fatalf("home parent = %v, want work after the drag", p.ParentID)
+	}
+	m = send(t, m, click(5, 9), motion(6, 8), motion(6, 7), release(6, 7)) // onto "My Projects"
+	if p := m.projects["p2"]; p.ParentID != nil {
+		t.Errorf("home parent = %v, want top level", *p.ParentID)
+	}
+}
+
+func TestSidebarTreeLines(t *testing.T) {
+	m := testModel(t)
+	w, h := "p1", "p2"
+	m.st.Projects = append(m.st.Projects,
+		todoist.Project{ID: "p2", Name: "home", ParentID: &w, ChildOrder: 1},
+		todoist.Project{ID: "p3", Name: "garden", ParentID: &h, ChildOrder: 1},
+		todoist.Project{ID: "p4", Name: "clients", ParentID: &w, ChildOrder: 2},
+		todoist.Project{ID: "p5", Name: "misc", ChildOrder: 3},
+	)
+	m.applyState(m.st)
+	got := map[string]string{}
+	for _, n := range m.nav {
+		if n.inTree {
+			got[n.name] = n.tree
+		}
+	}
+	want := map[string]string{"work": "▾ ", "home": "  ├ ▾ ", "garden": "  │ └ ", "clients": "  └ ", "misc": "  "}
+	for name, tr := range want {
+		if got[name] != tr {
+			t.Errorf("%s tree = %q, want %q", name, got[name], tr)
+		}
 	}
 }

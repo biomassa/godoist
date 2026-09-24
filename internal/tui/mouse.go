@@ -116,10 +116,11 @@ type clickInfo struct {
 
 // dragState is a task that the user drags to a project or a section.
 type dragState struct {
-	taskID  string
-	content string
-	x, y    int  // pointer position
-	active  bool // the pointer moved after the press
+	taskID    string
+	projectID string // a sidebar project instead of a task
+	content   string
+	x, y      int  // pointer position
+	active    bool // the pointer moved after the press
 }
 
 func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
@@ -182,11 +183,15 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		// A click on the ▾/▸ marker of a project hides or shows its sub-projects.
 		if r := l.nav.row(y); r >= 0 && m.navOff+r < len(m.nav) {
 			n := m.nav[m.navOff+r]
-			markX := l.nav.x + 2 + 2*n.depth
-			if n.hasKids && (x == markX || x == markX+1) && m.navProject() != nil {
+			markX := l.nav.x + 1 + n.markCol // the border, then the marker column in the pane
+			if n.hasKids && n.markCol >= 0 && (x == markX || x == markX+1) && m.navProject() != nil {
 				next := m.toggleProjectCollapse(m.navProject())
 				return m, next
 			}
+		}
+		// A press on a project can start a drag to another parent.
+		if p := m.navProject(); p != nil && !p.InboxProject && ms.Button == tea.MouseLeft {
+			m.drag = &dragState{projectID: p.ID, content: p.Name, x: x, y: y}
 		}
 		return m, nil
 	case m.listRect().has(x, y):
@@ -384,7 +389,11 @@ func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	}
 	if !m.drag.active && (ms.X != m.drag.x || ms.Y != m.drag.y) {
 		m.drag.active = true
-		m.setStatus("moving “"+m.drag.content+"” · release on a project or a section header", false)
+		if m.drag.projectID != "" {
+			m.setStatus("moving # "+m.drag.content+" · release on a project, or on “My Projects” for the top level", false)
+		} else {
+			m.setStatus("moving “"+m.drag.content+"” · release on a project or a section header", false)
+		}
 	}
 	m.drag.x, m.drag.y = ms.X, ms.Y
 	return m, nil
@@ -397,6 +406,21 @@ func (m Model) mouseRelease(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	l := m.layout()
+	if d.projectID != "" { // a project: drop on a project to nest it, on "My Projects" for the top level
+		p := m.projects[d.projectID]
+		if r := l.nav.row(ms.Y); p != nil && l.nav.has(ms.X, ms.Y) && r >= 0 && m.navOff+r < len(m.nav) {
+			switch n := m.nav[m.navOff+r]; {
+			case n.header == "My Projects":
+				next := m.moveProjectUnder(p, "")
+				return m, next
+			case n.kind == vkProject && n.projectID != p.ID && m.projects[n.projectID] != nil && !m.projects[n.projectID].InboxProject:
+				next := m.moveProjectUnder(p, n.projectID)
+				return m, next
+			}
+		}
+		m.setStatus("move cancelled · drop on a project, or on “My Projects” for the top level", false)
+		return m, nil
+	}
 	if l.nav.has(ms.X, ms.Y) {
 		if r := l.nav.row(ms.Y); r >= 0 && m.navOff+r < len(m.nav) {
 			if n := m.nav[m.navOff+r]; n.header == "" && n.kind == vkProject {

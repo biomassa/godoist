@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Drag a task to a sidebar project or a section header to move it.
 - An empty line before sidebar groups, before section headers, and under the title of each task list. Section headers use the project color.
 - Unit tests for the mouse handling.
+- Sub-projects in the sidebar show tree lines (`├`, `└`, `│`). Top-level projects keep a column for the `▾` / `▸` marker, so that each level is clearly indented.
+- Sub-project moves in the sidebar: `>` and `<` indent and outdent a project, `m` opens a parent picker, and a drag onto a project or onto "My Projects" changes the parent. The project menu has Indent, Outdent, and Move under. Sub-projects move with their parent.
 - Find and replace in the inline editor (`ctrl+f`): a box at the top of the editor with find, replace, and match case. `enter` finds the next match, `ctrl+r` replaces the current match, and `ctrl+a` replaces all. An empty replace field removes the matches. All matches are highlighted, and the box shows "3 of 7". Replace all is one undo step.
 - Sub-tasks in Today, Upcoming, All tasks, labels, and filters: nested under their parents, collapsed by default, expanded with `z` or a click. A due sub-task brings in its parent (gray, expanded). Each view keeps its expanded tasks locally.
 - The inline editor opens with `enter` in the reader, with `E`, or with a double-click on the note text. The reader shows the hint "enter or E · edit this note".

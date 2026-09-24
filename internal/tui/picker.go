@@ -21,6 +21,7 @@ const (
 	pickLabels pickKind = iota // checklist of labels
 	pickMove                   // projects and sections
 	pickColor                  // Todoist colors, for a new project or a color change
+	pickParent                 // the new parent of a project
 )
 
 // Label states in the label picker.
@@ -250,6 +251,18 @@ func (m Model) updatePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if p.kind == pickParent {
+			if p.cur >= 0 && p.cur < len(vis) {
+				pr := m.projects[p.projectID]
+				m.pick = nil
+				if pr == nil {
+					return m, nil
+				}
+				next := m.moveProjectUnder(pr, vis[p.cur].projectID)
+				return m, next
+			}
+			return m, nil
+		}
 		if p.cur >= 0 && p.cur < len(vis) {
 			next := m.moveTo(vis[p.cur])
 			return m, next
@@ -453,6 +466,8 @@ func (m Model) pickerBox(w, h int) string {
 	switch {
 	case p.kind == pickMove:
 		hint = "↑/↓ select · enter move here · esc cancel"
+	case p.kind == pickParent:
+		hint = "↑/↓ select · enter move under it · esc cancel"
 	case p.kind == pickColor && p.newName != "":
 		hint = "↑/↓ select · space sub-project on / off · enter create · esc cancel"
 	case p.kind == pickColor:

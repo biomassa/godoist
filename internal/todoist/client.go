@@ -232,6 +232,16 @@ func (c *Client) ArchiveProject(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/projects/"+url.PathEscape(id)+"/archive", nil, nil, nil)
 }
 
+// MoveProject makes a project a sub-project of parentID, or a top-level project if
+// parentID is empty. Its sub-projects move with it. The REST API has no call for this.
+func (c *Client) MoveProject(ctx context.Context, id, parentID string) error {
+	var parent any
+	if parentID != "" {
+		parent = parentID
+	}
+	return c.syncCommand(ctx, "project_move", map[string]any{"id": id, "parent_id": parent})
+}
+
 // ReorderProjects gives sibling projects the order of ids (the first gets 1).
 func (c *Client) ReorderProjects(ctx context.Context, ids []string) error {
 	list := make([]map[string]any, len(ids))
