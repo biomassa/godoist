@@ -36,18 +36,17 @@ func (q *Queue) Overlay(s *SyncState) (pending map[string]bool) {
 	}
 	str := func(v any) string { x, _ := v.(string); return x }
 	ops := q.Ops()
-	// A task that is completed and then opened again (ctrl+z) in the queue stays: Todoist
-	// has not completed it yet.
-	reopened := map[string]bool{}
-	for _, op := range ops {
-		if op.Type == "item_uncomplete" {
-			reopened[str(op.Args["id"])] = true
-		}
-	}
+	// closed keeps the tasks that a queued completion took away, so that a queued reopen
+	// (ctrl+z) after it can bring them back.
+	closed := map[string]Task{}
 	for _, op := range ops {
 		switch op.Kind {
 		case OpQuick:
-			s.Tasks = append(s.Tasks, Task{ID: op.TempID, Content: op.Text, ProjectID: inbox, Priority: 1, ChildOrder: 1 << 20})
+			t := Task{ID: op.TempID, Content: op.Text, ProjectID: inbox, Priority: 1, ChildOrder: 1 << 20}
+			if op.Date != "" { // the date of the view: Todoist can change it if the text has a date
+				t.Due = &Due{Date: op.Date, String: op.Date}
+			}
+			s.Tasks = append(s.Tasks, t)
 			pending[op.TempID] = true
 		case OpRename:
 			if i := find(op.TaskID); i >= 0 {
@@ -148,12 +147,18 @@ func (q *Queue) Overlay(s *SyncState) (pending map[string]bool) {
 					}
 				}
 			case "item_close":
-				if i := find(id); i >= 0 && !reopened[id] {
+				if i := find(id); i >= 0 {
 					if s.Tasks[i].Due != nil && s.Tasks[i].Due.IsRecurring {
 						pending[id] = true // Todoist moves it to the next date
 					} else {
+						closed[id] = s.Tasks[i]
 						drop(id)
 					}
+				}
+			case "item_uncomplete":
+				if t, ok := closed[id]; ok && find(id) < 0 {
+					s.Tasks = append(s.Tasks, t)
+					delete(closed, id)
 				}
 			case "item_delete":
 				drop(id)

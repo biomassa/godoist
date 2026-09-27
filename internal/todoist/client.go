@@ -166,23 +166,17 @@ func (c *Client) QuickAddOn(ctx context.Context, text, date string) (Task, error
 	temp := NewTempID()
 	queued, err := c.taskWrite(ctx, Op{Kind: OpQuick, Text: text, TempID: temp, Date: date}, true, func() error {
 		var err error
-		t, err = c.quickAddDated(ctx, text, date)
+		t, err = c.quickAddNow(ctx, text) // only the add: a failed date must not send the add again
 		return err
 	})
 	if queued {
-		t = Task{ID: temp, Content: text}
+		return Task{ID: temp, Content: text}, nil
 	}
-	return t, err
-}
-
-// quickAddDated creates a task with quick add at once, and gives it date if Todoist found
-// no date in text.
-func (c *Client) quickAddDated(ctx context.Context, text, date string) (Task, error) {
-	t, err := c.quickAddNow(ctx, text)
 	if err != nil || date == "" || t.Due != nil {
 		return t, err
 	}
-	if err := c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(t.ID), nil, map[string]any{"due_date": date}, nil); err != nil {
+	// The date is a separate change. Offline, it goes into the queue with the real ID.
+	if _, err := c.UpdateTask(ctx, t.ID, map[string]any{"due_date": date}); err != nil {
 		return t, fmt.Errorf("added, but setting the date failed: %w", err)
 	}
 	t.Due = &Due{Date: date, String: date}

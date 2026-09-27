@@ -253,3 +253,74 @@ func TestQueueQuickAddDate(t *testing.T) {
 		t.Errorf("requests = %v, want the quick add and then the date", f.requests)
 	}
 }
+
+// If the add works and the date request fails, only the date waits in the queue. The add
+// does not go into the queue, so it cannot happen two times.
+func TestQueueQuickAddDateFailsAfterAdd(t *testing.T) {
+	c, q, _ := queueClient(t)
+	f := &fakeTodoist{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/tasks/real1" { // the connection breaks: no answer
+			conn, _, _ := w.(http.Hijacker).Hijack()
+			conn.Close()
+			return
+		}
+		f.ServeHTTP(w, r)
+	}))
+	defer srv.Close()
+	c.base = srv.URL
+	nt, err := c.QuickAddOn(context.Background(), "milk", "2026-09-27")
+	if err != nil || nt.ID != "real1" {
+		t.Fatalf("task = %+v err = %v", nt, err)
+	}
+	ops := q.Ops()
+	if len(ops) != 1 || ops[0].Type != "item_update" || ops[0].Args["id"] != "real1" {
+		t.Errorf("ops = %+v, want only the date with the real ID", ops)
+	}
+}
+
+// A server error (HTTP 503) keeps the queue for the next sync.
+func TestQueueKeepsOnServerError(t *testing.T) {
+	c, q, _ := queueClient(t)
+	ctx := context.Background()
+	_ = c.Close(ctx, "t1")
+	_, _ = c.QuickAdd(ctx, "milk")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer srv.Close()
+	c.base = srv.URL
+	var st SyncState
+	if err := c.Sync(ctx, &st); err == nil || q.Len() != 2 || len(q.TakeErrors()) != 0 {
+		t.Errorf("err = %v len = %d, want an error and the queue kept", err, q.Len())
+	}
+}
+
+// A queued add with the date of the view shows on that date. Complete, reopen, and
+// complete again leave the task completed.
+func TestQueueOverlayDateAndOrder(t *testing.T) {
+	c, q, _ := queueClient(t)
+	ctx := context.Background()
+	nt, _ := c.QuickAddOn(ctx, "milk", "2026-09-27")
+	_ = c.Close(ctx, "t1")
+	_ = c.Reopen(ctx, "t1")
+	_ = c.Close(ctx, "t1")
+	_ = c.Close(ctx, "t2")
+	_ = c.Reopen(ctx, "t2")
+	st := SyncState{Projects: []Project{{ID: "inbox", InboxProject: true}},
+		Tasks: []Task{{ID: "t1", Content: "one"}, {ID: "t2", Content: "two"}}}
+	q.Overlay(&st)
+	got := map[string]Task{}
+	for _, x := range st.Tasks {
+		got[x.ID] = x
+	}
+	if x := got[nt.ID]; x.Due == nil || x.Due.Date != "2026-09-27" {
+		t.Errorf("queued add = %+v, want the date of the view", x)
+	}
+	if _, ok := got["t1"]; ok {
+		t.Error("t1 shows, but the last queued change completes it")
+	}
+	if _, ok := got["t2"]; !ok {
+		t.Error("t2 is gone, but the last queued change reopens it")
+	}
+}

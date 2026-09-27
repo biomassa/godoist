@@ -122,6 +122,8 @@ type (
 		retryMode inputMode
 		retryText string
 		retryDesc string
+		queued    bool // the change went into the offline queue
+		offline   bool // it went into the queue because Todoist was not available
 	}
 	autoSyncMsg  struct{}
 	completedMsg struct {
@@ -298,13 +300,8 @@ func (m *Model) write(done string, f func(context.Context) (string, error)) tea.
 		switch {
 		case err != nil && todoist.IsOffline(err):
 			err = fmt.Errorf("offline · try again later")
-		case err == nil && todoist.Queued(ctx):
-			if text == "" {
-				text = "Saved"
-			}
-			text += " · offline"
 		}
-		return actionMsg{text: text, err: err}
+		return actionMsg{text: text, err: err, queued: err == nil && todoist.Queued(ctx), offline: todoist.QueuedOffline(ctx)}
 	}
 }
 
@@ -438,9 +435,19 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case actionMsg:
 		m.pending = max(0, m.pending-1)
-		if msg.err != nil {
+		if msg.offline {
+			m.offline = true
+		}
+		switch {
+		case msg.err != nil:
 			m.setStatus(msg.err.Error(), true)
-		} else if msg.text != "" {
+		case msg.queued && m.offline: // online, the queue goes to Todoist with the next sync
+			text := msg.text
+			if text == "" {
+				text = "Saved"
+			}
+			m.setStatus(text+" · offline", false)
+		case msg.text != "":
 			m.setStatus(msg.text, false)
 		}
 		if m.client.Queue().Len() > 0 {

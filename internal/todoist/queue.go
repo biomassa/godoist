@@ -282,21 +282,32 @@ var ErrMaybeAdded = errors.New("no answer from Todoist, so it may be added alrea
 // queuedKey marks a context whose writes went into the queue. See WithQueuedFlag.
 type queuedKey struct{}
 
+// queuedFlag is what a write with a WithQueuedFlag context did.
+type queuedFlag struct{ queued, offline bool }
+
 // WithQueuedFlag returns a context that records if a write goes into the queue.
-// Queued reports it after the writes.
+// Queued and QueuedOffline report it after the writes.
 func WithQueuedFlag(ctx context.Context) context.Context {
-	return context.WithValue(ctx, queuedKey{}, new(bool))
+	return context.WithValue(ctx, queuedKey{}, &queuedFlag{})
 }
 
 // Queued reports whether a write with ctx went into the offline queue.
 func Queued(ctx context.Context) bool {
-	p, _ := ctx.Value(queuedKey{}).(*bool)
-	return p != nil && *p
+	p, _ := ctx.Value(queuedKey{}).(*queuedFlag)
+	return p != nil && p.queued
 }
 
-func markQueued(ctx context.Context) {
-	if p, _ := ctx.Value(queuedKey{}).(*bool); p != nil {
-		*p = true
+// QueuedOffline reports whether a write with ctx went into the queue because Todoist was
+// not available. Other queued writes wait only behind older changes.
+func QueuedOffline(ctx context.Context) bool {
+	p, _ := ctx.Value(queuedKey{}).(*queuedFlag)
+	return p != nil && p.offline
+}
+
+func markQueued(ctx context.Context, offline bool) {
+	if p, _ := ctx.Value(queuedKey{}).(*queuedFlag); p != nil {
+		p.queued = true
+		p.offline = p.offline || offline
 	}
 }
 
@@ -309,6 +320,7 @@ func (c *Client) taskWrite(ctx context.Context, op Op, isAdd bool, rest func() e
 	if c.queue == nil {
 		return false, rest()
 	}
+	offline := false
 	if c.queue.Len() == 0 {
 		err := rest()
 		if err == nil || !IsOffline(err) {
@@ -318,11 +330,12 @@ func (c *Client) taskWrite(ctx context.Context, op Op, isAdd bool, rest func() e
 			// Not %w: this is not an offline error, so the TUI shows this message as it is.
 			return false, fmt.Errorf("%w (%v)", ErrMaybeAdded, err)
 		}
+		offline = true
 	}
 	if err := c.queue.add(op); err != nil {
 		return false, fmt.Errorf("could not save the change for later: %w", err)
 	}
-	markQueued(ctx)
+	markQueued(ctx, offline)
 	return true, nil
 }
 
@@ -364,10 +377,31 @@ func (c *Client) flush(ctx context.Context, s *SyncState) error {
 		switch op.Kind {
 		case OpQuick:
 			var t Task
-			t, err = raw.quickAddDated(ctx, op.Text, op.Date)
-			if err == nil && op.TempID != "" {
+			t, err = raw.quickAddNow(ctx, op.Text)
+			if IsOffline(err) && !notSent(err) {
+				// Todoist can have added it. A retry could add it two times.
+				q.refuse("no answer from Todoist for " + describeOp(op) + ". Look before you add it again")
+				q.remove(op.UUID)
+				continue
+			}
+			if err != nil {
+				break
+			}
+			if op.TempID != "" {
 				q.mapIDs(map[string]string{op.TempID: t.ID})
 			}
+			q.remove(op.UUID) // the add is done. The date below is a separate change.
+			if op.Date != "" && t.Due == nil {
+				due := map[string]any{"due_date": op.Date}
+				if _, derr := raw.UpdateTask(ctx, t.ID, due); derr != nil {
+					if IsOffline(derr) || transient(derr) {
+						_ = q.addFront(command("item_update", syncFields(t.ID, due)))
+						return derr
+					}
+					q.refuse("set the date of “" + op.Text + "”: " + derr.Error())
+				}
+			}
+			continue
 		case OpRename:
 			cur, ok := s.task(op.TaskID)
 			if !ok {
@@ -378,8 +412,8 @@ func (c *Client) flush(ctx context.Context, s *SyncState) error {
 		default:
 			err = fmt.Errorf("unknown change %q", op.Kind)
 		}
-		if IsOffline(err) {
-			return err
+		if IsOffline(err) || transient(err) {
+			return err // try again at the next sync
 		}
 		if err != nil {
 			q.refuse(describeOp(op) + ": " + err.Error())
@@ -387,6 +421,26 @@ func (c *Client) flush(ctx context.Context, s *SyncState) error {
 		}
 		q.remove(op.UUID)
 	}
+}
+
+// transient reports whether Todoist refused a request for a short time: too many requests
+// (HTTP 429) or a server error (HTTP 500 or more). The queue keeps the changes then.
+func transient(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && (ae.Status == http.StatusTooManyRequests || ae.Status >= 500)
+}
+
+// addFront puts op at the start of the queue, so that it goes first.
+func (q *Queue) addFront(op Op) error {
+	if err := q.add(op); err != nil {
+		return err
+	}
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	last := q.ops[len(q.ops)-1]
+	copy(q.ops[1:], q.ops[:len(q.ops)-1])
+	q.ops[0] = last
+	return q.save()
 }
 
 // sendCommands sends a batch of Sync commands and removes them from the queue.
@@ -408,8 +462,8 @@ func (c *Client) sendCommands(ctx context.Context, q *Queue, batch []Op, s *Sync
 		TempIDMapping map[string]string          `json:"temp_id_mapping"`
 	}
 	if err := c.do(ctx, http.MethodPost, "/sync", nil, url.Values{"commands": {string(j)}}, &resp); err != nil {
-		if IsOffline(err) {
-			return err
+		if IsOffline(err) || transient(err) {
+			return err // the commands have UUIDs, so a retry does not apply them two times
 		}
 		// Todoist refused the whole request. Drop the batch, so that the queue does not stop.
 		for _, op := range batch {
@@ -505,7 +559,7 @@ func (c *Client) QueueName(ctx context.Context, cur Task, text string, desc *str
 	if err := c.queue.add(Op{Kind: OpRename, TaskID: cur.ID, Text: text, Desc: desc, Names: names}); err != nil {
 		return err
 	}
-	markQueued(ctx)
+	markQueued(ctx, c.queue.Len() == 1) // the only change: it waits because the parser was not available
 	return nil
 }
 

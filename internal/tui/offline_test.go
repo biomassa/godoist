@@ -128,3 +128,15 @@ func TestOfflineRename(t *testing.T) {
 		t.Errorf("rows = %q, want the typed name", rowNames(m))
 	}
 }
+
+// Offline, a task added in Today shows in Today.
+func TestOfflineAddInToday(t *testing.T) {
+	m := offlineModel(t)
+	m = send(t, m, click(5, 4)) // Today
+	m = press(t, m, "a")
+	m = typeText(t, m, "milk")
+	m = press(t, m, "enter")
+	if !strings.Contains(rowNames(m), "milk") {
+		t.Errorf("Today rows = %q, want milk", rowNames(m))
+	}
+}
