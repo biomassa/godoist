@@ -373,13 +373,6 @@ The CLI does not use the queue: offline, its commands fail.
 
 godoist uses [Semantic Versioning](https://semver.org). Before version 1.0.0, a minor version (0.2.0) can change keys, commands, and file formats. [CHANGELOG.md](CHANGELOG.md) lists the changes of each version. `godoist --version` and the help screen (`?`) show the version.
 
-To make a release:
-
-1. Move the notes under `## [Unreleased]` in CHANGELOG.md to a new section `## [0.2.0] - YYYY-MM-DD`, and update the links at the end of the file.
-2. Commit the change on `main`.
-3. Run `scripts/release.sh --dry-run v0.2.0`, and examine `dist/notes.md`.
-4. Run `scripts/release.sh v0.2.0`. The script runs the tests, builds the binaries, pushes the tag, and publishes the GitHub release with the `gh` CLI.
-
 ## License
 
 [MIT](LICENSE)
