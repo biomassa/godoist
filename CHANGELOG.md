@@ -72,6 +72,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `add` output: in a terminal, a summary line with the name, project, section, due date, and task ID. In a pipe, only the task ID.
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.
 
+### Changed
+
+- `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
+
 ### Fixed
 
 - Paste works in all text fields: the task dialog, the description and comment editors, the date dialog, find, the filter query, the pickers, and the find box of the notebook editor. One-line fields get the text without line breaks.

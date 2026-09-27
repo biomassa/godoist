@@ -411,7 +411,7 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 // editorBox draws the built-in editor with a key hint below it.
 func (m Model) editorBox(w, h int) string {
 	lines := strings.Split(m.editor.View(), "\n")
-	hint := "ctrl+s save · esc cancel · ctrl+e $EDITOR"
+	hint := "ctrl+enter or ctrl+s save · esc cancel · ctrl+e $EDITOR"
 	if m.edit.saving {
 		hint = "saving…"
 	}
@@ -608,6 +608,8 @@ func legendKey(label string) string {
 		return "ctrl+z"
 	case "^s":
 		return "ctrl+s"
+	case "^enter":
+		return "ctrl+enter"
 	case "^e":
 		return "ctrl+e"
 	case "^b", "^i", "^k", "^t", "^y", "^f", "^r", "^a":
@@ -642,7 +644,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.pick != nil:
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"enter", "move"}, {"esc", "cancel"}}
 	case m.edit != nil:
-		keys = [][2]string{{"^s", "save"}, {"esc", "cancel"}, {"^e", "$EDITOR"}}
+		keys = [][2]string{{"^enter", "save"}, {"esc", "cancel"}, {"^e", "$EDITOR"}}
 	case m.focus == paneDetail:
 		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
 	case m.focus == paneNav && m.inLabels() && m.navLabel() == nil:
@@ -864,7 +866,8 @@ func helpSections() [][]string {
 			k("e / d", "edit / delete the selected comment"),
 			k("", "no comment selected: e edits the name")},
 		{h("Editor and pickers"),
-			k("ctrl+s", "save the editor text"),
+			k("ctrl+enter", "save the editor text and close"),
+			k("", "ctrl+s does the same"),
 			k("ctrl+e", "open the text in $EDITOR"),
 			k("type", "filter a picker list"),
 			k("↑ / ↓", "select in a picker"),

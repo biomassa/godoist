@@ -77,6 +77,8 @@ func keyMsg(s string) tea.KeyPressMsg {
 	switch s {
 	case "enter":
 		return tea.KeyPressMsg{Code: tea.KeyEnter}
+	case "ctrl+enter":
+		return tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModCtrl}
 	case "esc":
 		return tea.KeyPressMsg{Code: tea.KeyEscape}
 	case "tab":

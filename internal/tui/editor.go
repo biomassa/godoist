@@ -82,12 +82,12 @@ func (m Model) updateEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch msg.String() {
-	case "ctrl+s":
+	case "ctrl+enter", "ctrl+s": // ctrl+s for terminals that send ctrl+enter as enter
 		return m.saveEdit()
 	case "esc":
 		if m.editor.Value() != e.original && !e.discardArmed {
 			e.discardArmed = true
-			m.setStatus("unsaved changes · esc again to discard, ctrl+s to save", true)
+			m.setStatus("unsaved changes · esc again to discard, ctrl+enter to save", true)
 			return m, nil
 		}
 		m.edit = nil
@@ -196,7 +196,7 @@ func (m Model) externalEditorDone(msg editorDoneMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.edit != nil {
 		m.editor.SetValue(strings.TrimRight(string(b), "\n"))
-		m.setStatus("text loaded from $EDITOR · ctrl+s to save", false)
+		m.setStatus("text loaded from $EDITOR · ctrl+enter to save", false)
 	}
 	return m, nil
 }

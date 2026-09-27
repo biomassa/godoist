@@ -505,7 +505,7 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "tab", "shift+tab":
 			next := m.setDialogField(1 - m.dlgField)
 			return m, next
-		case "ctrl+enter":
+		case "ctrl+enter", "ctrl+s": // ctrl+s for terminals that send ctrl+enter as enter
 			return m.submitInput()
 		case "esc":
 		default:

@@ -216,7 +216,7 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch key {
 	case "ctrl+f":
 		return m, e.openFind(m.detailInnerWidth())
-	case "esc", "ctrl+c":
+	case "esc", "ctrl+c", "ctrl+enter", "ctrl+s": // the editor saves, then shows the reader
 		return m.closeNoteEditor()
 	case "ctrl+z":
 		if n := len(e.undo); n > 0 {

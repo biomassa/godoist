@@ -31,7 +31,7 @@ func TestTaskDialogNameAndDescription(t *testing.T) {
 		t.Errorf("name = %q", m.dialogValue())
 	}
 	view := stripANSI(m.dialogBox())
-	for _, want := range []string{"Name", "Description", "ctrl+enter add"} {
+	for _, want := range []string{"Name", "Description", "ctrl+enter or ctrl+s add"} {
 		if !strings.Contains(view, want) {
 			t.Errorf("dialog has no %q:\n%s", want, view)
 		}
@@ -84,5 +84,23 @@ func TestTaskDialogClickField(t *testing.T) {
 	m = send(t, m, click(r.x+5, r.y+1+4+dialogNameLines))
 	if m.dlgField != 1 {
 		t.Errorf("click on the description: field = %d", m.dlgField)
+	}
+}
+
+// ctrl+s saves the task dialog too, for terminals that send ctrl+enter as enter.
+func TestTaskDialogCtrlS(t *testing.T) {
+	m := send(t, openWork(t), key("a"))
+	m = typeText(t, m, "x")
+	m = send(t, m, key("tab"), key("ctrl+s"))
+	if m.inputMode != inputNone || m.pending != 1 {
+		t.Errorf("ctrl+s in the description: mode = %d pending = %d", m.inputMode, m.pending)
+	}
+}
+
+// ctrl+enter saves the E editor.
+func TestEditorCtrlEnterSaves(t *testing.T) {
+	m := send(t, onRow(t, 1), key("E"), pasteMsg("new text"), key("ctrl+enter"))
+	if m.edit == nil || !m.edit.saving || m.pending != 1 {
+		t.Errorf("ctrl+enter in the editor did not start a save")
 	}
 }

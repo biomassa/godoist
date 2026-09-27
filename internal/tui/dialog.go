@@ -43,11 +43,11 @@ var dialogSpecs = map[inputMode]dialogSpec{
 // description field.
 var descHints = map[inputMode][2]string{
 	inputAdd: {"dates, #project, /section, @label and p1–p4 are parsed · tab description · enter add · esc cancel",
-		"saved as typed · enter new line · ctrl+enter add · tab name · esc cancel"},
+		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},
 	inputRename: {"dates, #project, /section, @label and p1–p4 are parsed and change only those fields · tab description · enter save · esc cancel",
-		"saved as typed · enter new line · ctrl+enter save · tab name · esc cancel"},
+		"saved as typed · enter new line · ctrl+enter or ctrl+s save · tab name · esc cancel"},
 	inputAddSubtask: {"dates, @label and p1–p4 are parsed · it goes under the task at the cursor · tab description · enter add · esc cancel",
-		"saved as typed · enter new line · ctrl+enter add · tab name · esc cancel"},
+		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},
 }
 
 // hasDescField reports whether the dialog for mode has a description field under the

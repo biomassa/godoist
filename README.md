@@ -151,12 +151,12 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
 | `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
-| `E` | Edit the description. `ctrl+s` saves, `ctrl+e` opens `$EDITOR`. |
+| `E` | Edit the description. `ctrl+enter` or `ctrl+s` saves and closes the editor, `ctrl+e` opens `$EDITOR`. |
 | `t` | Open the date dialog. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |
 | `m` | Move the task to a project or a section. |
-| `c` | Add a comment. |
+| `c` | Add a comment. `ctrl+enter` or `ctrl+s` saves it. |
 | `A` | Add a sub-task to the task under the cursor. The dialog has a name and a description. |
 | `>` / `<` | Indent the task under the task above it, or outdent it one level. |
 | `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
@@ -178,7 +178,7 @@ The `a`, `e`, and `A` keys open a dialog with two fields: the name and the descr
 |---|---|
 | `tab` / `shift+tab` | Go to the other field. A click on a field also goes to it. |
 | `enter` | In the name: save. In the description: start a new line. |
-| `ctrl+enter` | Save from the two fields. The terminal must send `ctrl+enter` as a separate key (for example kitty, WezTerm, foot, or Ghostty). |
+| `ctrl+enter` or `ctrl+s` | Save from the two fields. For `ctrl+enter`, the terminal must send it as a separate key (for example kitty, WezTerm, foot, or Ghostty). macOS Terminal sends it as `enter`, so use `ctrl+s` there. |
 | `esc` | Close the dialog without a save. |
 
 Todoist parses the name as in quick add. The description is saved as typed. In notebook view, the dialog has only the name.
@@ -188,7 +188,7 @@ Todoist parses the name as in quick add. The description is saved as typed. In n
 Push `v` in a project to show it as a notebook. The right pane shows the note under the cursor as formatted markdown: headings as colored bars (red, yellow, green, blue, orange, and purple for levels 1 to 6), lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
 
 - In a note with checkboxes, `tab` and `shift+tab` move between the checkboxes, and `space` or a click changes a checkbox.
-- To edit the note, push `enter` in the reader, push `E`, or double-click the text. The inline editor opens in the same pane. The editor shows the markdown source with styles. It saves by itself one second after you stop typing, and when you leave it with `esc`. The pane title shows `saved`, `saving…`, or `unsaved`.
+- To edit the note, push `enter` in the reader, push `E`, or double-click the text. The inline editor opens in the same pane. The editor shows the markdown source with styles. It saves by itself one second after you stop typing, and when you leave it with `esc`, `ctrl+enter`, or `ctrl+s`. The pane title shows `saved`, `saving…`, or `unsaved`.
 - Editor keys: `ctrl+b` bold, `ctrl+i` italic, `ctrl+k` link, `ctrl+t` checkbox, `ctrl+z` / `ctrl+y` undo and redo, `alt+←` / `alt+→` word moves, `alt+backspace` deletes a word. `enter` on a list item starts the next item, and `enter` on an empty item ends the list.
 - `ctrl+f` opens a find box at the top of the editor, with a replace field and the option **match case**. All matches are highlighted. `enter` goes to the next match and `shift+enter` to the previous match. `ctrl+r` replaces the current match and `ctrl+a` replaces all matches. They use the replace field as it is, so an empty field removes the matches (for example, all `**`). `tab` moves between the fields, `space` changes **match case**, and `esc` closes the box.
 
