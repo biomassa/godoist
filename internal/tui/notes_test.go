@@ -217,3 +217,64 @@ func TestEditorTopLine(t *testing.T) {
 		t.Errorf("line under the title = %q, want empty", box[1])
 	}
 }
+
+// previewModel opens the inline editor on a note with a heading, inline marks, a code
+// block, and a last line.
+func previewModel(t *testing.T) Model {
+	t.Helper()
+	m := notesModel(t)
+	m.taskByID("t1").Description = "## Head\nSome **bold** text\n```\ncode\n```\nlast"
+	m.buildRows(false)
+	m = send(t, m, key("E"))
+	if m.note == nil {
+		t.Fatal("E did not open the editor")
+	}
+	return m
+}
+
+func previewText(m Model) []string {
+	r := m.sideRect()
+	lines := m.noteLines(r.w-2, r.h-2)
+	for i := range lines {
+		lines[i] = strings.TrimRight(stripANSI(lines[i]), " ")
+	}
+	return lines
+}
+
+// Lines other than the cursor line show rendered markdown. The cursor line shows its source.
+func TestNotePreviewCursorLine(t *testing.T) {
+	m := previewModel(t)
+	m.note.row, m.note.col = 1, 0
+	got := strings.Join(previewText(m), "\n")
+	if !strings.Contains(got, " Head") || strings.Contains(got, "## Head") || !strings.Contains(got, "Some **bold** text") {
+		t.Fatalf("cursor on line 1:\n%s", got)
+	}
+	m.note.row = 0
+	got = strings.Join(previewText(m), "\n")
+	if !strings.Contains(got, "## Head") || !strings.Contains(got, "Some bold text") || strings.Contains(got, "```") {
+		t.Errorf("cursor on the heading:\n%s", got)
+	}
+}
+
+// With the cursor in a fenced block, the whole block shows as source.
+func TestNotePreviewBlockAsSource(t *testing.T) {
+	m := previewModel(t)
+	m.note.row, m.note.col = 3, 0 // "code"
+	got := strings.Join(previewText(m), "\n")
+	if strings.Count(got, "```") != 2 {
+		t.Errorf("cursor in the block:\n%s", got)
+	}
+}
+
+// A click on a rendered line puts the cursor at the source position of the clicked rune.
+func TestNotePreviewClick(t *testing.T) {
+	m := previewModel(t)
+	m.note.row, m.note.col = 5, 0 // "last"
+	r := m.sideRect()
+	// Row 2 of the pane (after the empty top line and the heading) is "Some bold text".
+	// "b" of "bold" is the 6th visible rune; in the source it is rune 7 ("Some **b").
+	m = send(t, m, click(r.x+2+5, r.y+1+2))
+	if m.note.row != 1 || m.note.col != 7 {
+		t.Errorf("row = %d col = %d, want 1, 7", m.note.row, m.note.col)
+	}
+}

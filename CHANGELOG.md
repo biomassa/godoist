@@ -76,6 +76,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- The notebook editor shows a live preview. Each line shows formatted markdown, except the line with the cursor, which shows its source. A fenced code block or a table shows as source while the cursor is in it. While the find box is open, all lines show as source.
 - `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
 - All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.
 - The details pane shows descriptions and comments as formatted markdown in all views. In all views, `tab` / `space` or a click changes the checkboxes in descriptions and in comments.

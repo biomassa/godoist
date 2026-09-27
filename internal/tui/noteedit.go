@@ -653,53 +653,18 @@ func kindStyle(kind int) lipgloss.Style {
 	return s
 }
 
-// noteLines draws the editor text with live styling and the cursor.
+// noteLines draws the editor text: a live preview with the source of the cursor line.
 func (m Model) noteLines(w, h int) []string {
 	e := m.note
 	tw := w - 2
+	rows, cy := m.noteLayout(tw)
 	var out []string
-	cy, cx := e.screenPos(tw)
-	inFence := false
-	for i, l := range e.lines {
-		src := string(l)
-		kinds := lineKinds(src, inFence && !strings.HasPrefix(strings.TrimSpace(src), "```"))
-		if strings.HasPrefix(strings.TrimSpace(src), "```") {
-			inFence = !inFence
+	for i, r := range rows {
+		cx := -1
+		if i == cy {
+			cx = e.col - r.start
 		}
-		starts := wrapLine(l, tw)
-		level, _ := headingLevel(src)
-		if inFence {
-			level = 0
-		}
-		for k, s := range starts {
-			end := len(l)
-			if k+1 < len(starts) {
-				end = starts[k+1]
-			}
-			var b strings.Builder
-			for j := s; j < end; j++ {
-				st := kindStyle(kinds[j])
-				if level > 0 && kinds[j] == skHeading { // headings are bars in their level color
-					st = headingStyle(level)
-				}
-				if ms, ok := e.matchStyle(i, j); ok { // find matches
-					st = ms
-				}
-				if len(out) == cy && j-s == cx && i == e.row {
-					st = st.Reverse(true)
-				}
-				b.WriteString(st.Render(string(l[j])))
-			}
-			if len(out) == cy && i == e.row && cx >= end-s { // the cursor after the last rune
-				b.WriteString(lipgloss.NewStyle().Reverse(true).Render(" "))
-			}
-			if level > 0 { // fill the bar to the full width
-				if n := tw - lipgloss.Width(b.String()); n > 0 {
-					b.WriteString(headingStyle(level).Render(strings.Repeat(" ", n)))
-				}
-			}
-			out = append(out, " "+b.String())
-		}
+		out = append(out, renderRow(r, tw, cx))
 	}
 	// Keep the cursor line on the screen. The text starts below an empty line, as in the
 	// other panes, or below the find box when it is open.
@@ -756,21 +721,27 @@ func (m Model) noteClick(x, y int) (tea.Model, tea.Cmd) {
 	if row < 0 {
 		return m, nil
 	}
-	target, tw := e.off+row, r.w-4
-	n := 0
-	for i, l := range e.lines {
-		starts := wrapLine(l, tw)
-		if target < n+len(starts) {
-			k := target - n
-			end := len(l)
-			if k+1 < len(starts) {
-				end = starts[k+1] - 1
+	rows, _ := m.noteLayout(r.w - 4)
+	if target := e.off + row; target < len(rows) {
+		er := rows[target]
+		e.row = er.line
+		switch {
+		case er.cells == nil: // a rendered block: the start of its line
+			e.col = 0
+		default:
+			k := x - r.x - 2 // the border and the row margin
+			col := len(e.lines[er.line])
+			if k >= 0 && k < len(er.cells) {
+				col = er.cells[k].src
+			} else if k < 0 && len(er.cells) > 0 {
+				col = er.cells[0].src
+			} else if er.source && len(er.cells) > 0 && k >= len(er.cells) {
+				col = er.cells[len(er.cells)-1].src + 1
 			}
-			e.row, e.col = i, min(starts[k]+max(0, x-r.x-2), end)
-			e.typing, e.want = false, -1
-			return m, nil
+			e.col = min(col, len(e.lines[er.line]))
 		}
-		n += len(starts)
+		e.typing, e.want = false, -1
+		return m, nil
 	}
 	e.row = len(e.lines) - 1
 	e.col = len(e.lines[e.row])
