@@ -391,6 +391,9 @@ func (m Model) mouseWheel(ms tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.note != nil && m.note.dragging { // a drag in the editor selects text
+		return m.noteDrag(ms.X, ms.Y)
+	}
 	if m.drag == nil {
 		return m, nil
 	}
@@ -407,6 +410,9 @@ func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) mouseRelease(ms tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.note != nil {
+		m.note.dragging = false
+	}
 	d := m.drag
 	m.drag = nil
 	if d == nil || !d.active {

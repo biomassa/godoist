@@ -878,6 +878,8 @@ func helpSections() [][]string {
 			k("esc", "save the editor text and close"),
 			k("", "ctrl+enter and ctrl+s do the same"),
 			k("ctrl+e", "open the text in $EDITOR"),
+			k("shift+arrows", "select · ctrl+a select all · drag"),
+			k("ctrl+c/x/v", "copy / cut / paste (system clipboard)"),
 			k("type", "filter a picker list"),
 			k("↑ / ↓", "select in a picker"),
 			k("space", "check a label"),

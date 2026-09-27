@@ -200,6 +200,9 @@ func (e *noteEditor) sourceRows(i int, inFence bool, tw int) []edRow {
 			if ms, ok := e.matchStyle(i, j); ok { // find matches
 				st = ms
 			}
+			if e.inSel(i, j) {
+				st = selectionStyle(st)
+			}
 			row.cells = append(row.cells, pcell{l[j], st, j})
 		}
 		if level > 0 {
@@ -236,7 +239,7 @@ func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
 	for i := range e.lines {
 		src := string(e.lines[i])
 		isFence := strings.HasPrefix(strings.TrimSpace(src), "```")
-		asSource := e.search != nil || i == e.row || (i >= active.from && i <= active.to)
+		asSource := e.search != nil || i == e.row || (i >= active.from && i <= active.to) || e.selLine(i)
 		switch {
 		case asSource:
 			if i == e.row {

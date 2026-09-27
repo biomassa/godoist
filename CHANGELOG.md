@@ -73,9 +73,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.
 - Links in task names, as `[text](url)` or as a bare URL, are underlined terminal hyperlinks in the task list and in the details pane. `o` opens the first link of the task (name first, then description) in the browser.
 - Offline queue: offline, task changes wait in `~/.cache/godoist/queue-*.json` and show in the list at once. godoist sends them in order at the next sync. A name that Todoist must parse shows with `⏳` until then. The bottom line shows `offline · N changes waiting`, and quit asks first while changes wait. Project, section, and label changes show `offline · try again later`.
+- Text selection and the system clipboard in the markdown editor and the task dialog fields. `shift` with the arrows, `home`, or `end` selects. `alt+shift` or `ctrl+shift` selects words, `ctrl+a` selects all, and a mouse drag selects in the editor. `ctrl+c` copies, `ctrl+x` cuts, and `ctrl+v` pastes through the terminal (OSC 52). Typed text and a paste replace the selection.
 
 ### Changed
 
+- In the markdown editor, `ctrl+c` copies. It does not close the editor (use `esc`). In the task dialog fields, `ctrl+a` selects all, and `home` goes to the line start.
 - The description editor (`E`) and the comment editors use the markdown editor of notebook view, with the live preview, autosave, the format keys, and find and replace. The editor adds a new comment when it closes. The plain text editor is gone.
 - The text inputs have a steady cursor. A blinking cursor drew the screen again two times a second.
 - Faster screen draws: the editor formats a line again only when its text changes, and it draws only the visible lines. The model is smaller, because the text inputs are pointers.

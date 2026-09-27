@@ -63,7 +63,9 @@ func (m Model) paste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 			}
 			return m, cmd
 		}
-		e.push(false)
+		if !e.replaceSelection() { // a paste replaces the selected text
+			e.push(false)
+		}
 		e.insertText(msg.Content)
 		return m, e.changed()
 	case m.hasDescField(m.inputMode) && m.dlgField == 1:

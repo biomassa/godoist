@@ -82,6 +82,7 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 	ta.MaxHeight = 0
 	ta.KeyMap.InsertNewline.SetEnabled(false) // enter saves. A name has no line breaks.
 	ta.SetStyles(areaStyles())
+	clipboardKeys(&ta)
 	ta.SetWidth(m.dialogWidth() - 4)
 	ta.SetHeight(5)
 	ta.SetValue(value)
@@ -98,6 +99,7 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 		d.CharLimit = 16383 // the Todoist limit
 		d.MaxHeight = 0
 		d.SetStyles(areaStyles())
+		clipboardKeys(&d)
 		d.SetWidth(m.dialogWidth() - 4)
 		m.dlgDesc = &d
 		m.sizeDialog()
@@ -113,6 +115,40 @@ func (m *Model) openTaskDialog(mode inputMode, name, desc string) tea.Cmd {
 		m.dlgDesc.MoveToBegin()
 	}
 	return cmd
+}
+
+// clipboardKeys sets the selection keys of a dialog field: ctrl+a selects all (home goes
+// to the line start). The
+// textarea copy key (ctrl+shift+c) is off: it needs a clipboard program, and kitty uses
+// that key. ctrl+c, ctrl+x, and ctrl+v go through the terminal (see dialogClipboard).
+func clipboardKeys(ta *textarea.Model) {
+	ta.KeyMap.LineStart.SetKeys("home") // not ctrl+a: that selects all
+	ta.KeyMap.SelectAll.SetKeys("ctrl+a", "ctrl+g")
+	ta.KeyMap.CopySelection.SetEnabled(false)
+}
+
+// dialogClipboard copies, cuts, or pastes in the focused field of the dialog. The system
+// clipboard goes through the terminal (OSC 52).
+func (m Model) dialogClipboard(key string) (tea.Model, tea.Cmd) {
+	f := m.dlg
+	if m.hasDescField(m.inputMode) && m.dlgField == 1 {
+		f = m.dlgDesc
+	}
+	if key == "ctrl+v" {
+		return m, tea.ReadClipboard // the text comes as a ClipboardMsg and goes to paste
+	}
+	if !f.HasSelection() {
+		m.setStatus("select text first: shift+arrows or ctrl+a", false)
+		return m, nil
+	}
+	copyCmd := tea.SetClipboard(f.SelectedText())
+	if key == "ctrl+x" {
+		f.DeleteSelection()
+		m.setStatus("cut", false)
+	} else {
+		m.setStatus("copied", false)
+	}
+	return m, copyCmd
 }
 
 // dialogNameLines is the height of the name field in the task dialog.

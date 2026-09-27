@@ -474,6 +474,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.PasteMsg:
 		return m.paste(msg)
+	case tea.ClipboardMsg: // the answer to ctrl+v: the system clipboard from the terminal
+		return m.paste(tea.PasteMsg{Content: msg.Content})
 
 	case completedMsg:
 		m.completedLoading = false
@@ -566,6 +568,8 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, next
 		case "ctrl+enter", "ctrl+s": // ctrl+s for terminals that send ctrl+enter as enter
 			return m.submitInput()
+		case "ctrl+c", "ctrl+x", "ctrl+v":
+			return m.dialogClipboard(msg.String())
 		case "esc":
 		default:
 			if m.dlgField == 1 { // enter in the description adds a line break

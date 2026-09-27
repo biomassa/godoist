@@ -36,6 +36,10 @@ type noteEditor struct {
 	redo      []noteState
 	typing    bool      // the last change was typing, so the next letter joins its undo step
 	search    *noteFind // the open find box, or nil
+	// The selection goes from the anchor selRow, selCol to the cursor (see noteselect.go).
+	selOn          bool
+	selRow, selCol int
+	dragging       bool // the mouse button is down after a click in the text
 }
 
 // noteState is one undo step.
@@ -246,20 +250,23 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if e.search != nil {
 		return m.updateFind(msg)
 	}
+	if nm, cmd, ok := m.selectKeys(msg); ok {
+		return nm, cmd
+	}
 	line := e.lines[e.row]
 	switch key {
 	case "ctrl+e":
 		return m, m.externalEditor(e.text())
 	case "ctrl+f":
 		return m, e.openFind(m.detailInnerWidth())
-	case "esc", "ctrl+c", "ctrl+enter", "ctrl+s": // the editor saves, then shows the reader
+	case "esc", "ctrl+enter", "ctrl+s": // the editor saves, then shows the reader
 		return m.closeNoteEditor()
 	case "ctrl+z":
 		if n := len(e.undo); n > 0 {
 			e.redo = append(e.redo, e.snapshot())
 			st := e.undo[n-1]
 			e.undo = e.undo[:n-1]
-			e.lines, e.row, e.col, e.typing = st.lines, st.row, st.col, false
+			e.lines, e.row, e.col, e.typing, e.selOn = st.lines, st.row, st.col, false, false
 			return m, e.changed()
 		}
 		return m, nil
@@ -268,7 +275,7 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			e.undo = append(e.undo, e.snapshot())
 			st := e.redo[n-1]
 			e.redo = e.redo[:n-1]
-			e.lines, e.row, e.col, e.typing = st.lines, st.row, st.col, false
+			e.lines, e.row, e.col, e.typing, e.selOn = st.lines, st.row, st.col, false, false
 			return m, e.changed()
 		}
 		return m, nil
@@ -297,20 +304,25 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "alt+right", "ctrl+right":
 		e.wordRight()
 	case "enter":
-		e.push(false)
+		if !e.replaceSelection() {
+			e.push(false)
+		}
 		e.newline()
 		return m, e.changed()
-	case "backspace":
+	case "backspace", "delete":
+		if e.replaceSelection() { // the selection goes, and nothing more
+			return m, e.changed()
+		}
 		e.push(false)
-		e.backspace()
+		if key == "delete" {
+			e.deleteForward()
+		} else {
+			e.backspace()
+		}
 		return m, e.changed()
 	case "alt+backspace", "ctrl+w":
 		e.push(false)
 		e.deleteWordBack()
-		return m, e.changed()
-	case "delete":
-		e.push(false)
-		e.deleteForward()
 		return m, e.changed()
 	case "ctrl+b":
 		e.push(false)
@@ -329,12 +341,16 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		e.toggleLineCheckbox()
 		return m, e.changed()
 	case "tab":
-		e.push(false)
+		if !e.replaceSelection() {
+			e.push(false)
+		}
 		e.insert([]rune("  "))
 		return m, e.changed()
 	default:
 		if msg.Text != "" && msg.Mod&(tea.ModCtrl|tea.ModAlt) == 0 {
-			e.push(true)
+			if !e.replaceSelection() {
+				e.push(true)
+			}
 			e.insert([]rune(msg.Text))
 			return m, e.changed()
 		}
@@ -734,38 +750,16 @@ func (m Model) noteTitle() string {
 // noteClick puts the cursor where the user clicks in the editor. A click outside the
 // editor saves the note and closes the editor.
 func (m Model) noteClick(x, y int) (tea.Model, tea.Cmd) {
-	r := m.sideRect()
-	if !r.has(x, y) {
+	if !m.sideRect().has(x, y) {
 		return m.closeNoteEditor()
 	}
 	e := m.note
-	row := r.row(y) - e.textTop(r.h-2)
-	if row < 0 {
+	row, col, ok := m.notePosAt(x, y)
+	if !ok {
 		return m, nil
 	}
-	rows, _ := m.noteLayout(r.w-4, r.h-2-e.textTop(r.h-2))
-	if row < len(rows) {
-		er := rows[row]
-		e.row = er.line
-		switch {
-		case er.cells == nil: // a rendered block: the start of its line
-			e.col = 0
-		default:
-			k := x - r.x - 2 // the border and the row margin
-			col := len(e.lines[er.line])
-			if k >= 0 && k < len(er.cells) {
-				col = er.cells[k].src
-			} else if k < 0 && len(er.cells) > 0 {
-				col = er.cells[0].src
-			} else if er.source && len(er.cells) > 0 && k >= len(er.cells) {
-				col = er.cells[len(er.cells)-1].src + 1
-			}
-			e.col = min(col, len(e.lines[er.line]))
-		}
-		e.typing, e.want = false, -1
-		return m, nil
-	}
-	e.row = len(e.lines) - 1
-	e.col = len(e.lines[e.row])
+	e.row, e.col = row, col
+	e.selOn, e.selRow, e.selCol, e.dragging = false, row, col, true // a drag selects text (see noteDrag)
+	e.typing, e.want = false, -1
 	return m, nil
 }
