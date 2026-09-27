@@ -403,7 +403,7 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 	if n := len(m.snap.Comments[r.task.ID]); n > 0 && firstLine(r.task.Description) != "" {
 		right = base.Foreground(c(hexMuted)).Render(fmt.Sprintf("✎%d ", n))
 	}
-	title := base.Foreground(c(hexText)).Bold(true).Render(trunc(plain(r.task.Content), w-lipgloss.Width(left)-lipgloss.Width(right)-1))
+	title := titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(right)-1, base.Foreground(c(hexText)).Bold(true))
 	gap := w - lipgloss.Width(left) - lipgloss.Width(title) - lipgloss.Width(right)
 	return left + title + base.Render(strings.Repeat(" ", max(0, gap))) + right
 }
@@ -540,7 +540,7 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 	if r.done || r.pulled {
 		contentHex = hexMuted
 	}
-	content := base.Foreground(c(contentHex)).Render(trunc(plain(t.Content), contentW))
+	content := titleLine(t.Content, contentW, base.Foreground(c(contentHex)))
 	gap := w - lipgloss.Width(left) - lipgloss.Width(content) - lipgloss.Width(right)
 	return left + content + base.Render(strings.Repeat(" ", max(0, gap))) + right
 }
@@ -668,7 +668,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.notesMode():
 		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.edit == nil && m.focus != paneDetail {
@@ -818,6 +818,7 @@ func helpSections() [][]string {
 			k("", "tab field · enter in description: new line"),
 			k("", "ctrl+enter save"),
 			k("E", "edit the description / note body"),
+			k("o", "open the first link of the task"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),
 			k("1 – 4", "priority p1 – p4"),

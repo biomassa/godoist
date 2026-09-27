@@ -153,6 +153,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
 | `E` | Edit the description. `ctrl+enter` or `ctrl+s` saves and closes the editor, `ctrl+e` opens `$EDITOR`. |
 | `t` | Open the date dialog. |
+| `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |
 | `m` | Move the task to a project or a section. |
@@ -271,7 +272,8 @@ These keys work in a project:
 ### Mouse
 
 - Click to select. Click the `○` circle to complete a task.
-- Double-click a task to rename it.
+- Double-click a task to edit it.
+- Links in task names are terminal hyperlinks. Open them with the link key of your terminal, for example `ctrl+shift+click` in kitty or `cmd+click` on macOS.
 - Right-click a task, a section header, a sidebar project, or a label to open a menu.
 - Click a `▾` or `▸` marker to collapse or expand.
 - `ctrl`+click selects a task, and `shift`+click selects a range.

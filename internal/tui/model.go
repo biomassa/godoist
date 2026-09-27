@@ -1098,6 +1098,8 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 	case "delete", "backspace":
 		m.askDeleteTask()
 		return m, nil
+	case "o":
+		return m.openLink()
 	case "c":
 		if t := m.currentTask(); t != nil {
 			next := m.openEditor(editCommentNew, t.ID, "", "New comment · "+plain(t.Content), "")
@@ -1182,6 +1184,8 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		}
 	case "x", "space":
 		return m.completeTask()
+	case "o":
+		return m.openLink()
 	case "c":
 		if t != nil {
 			next := m.openEditor(editCommentNew, t.ID, "", "New comment · "+plain(t.Content), "")

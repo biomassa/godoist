@@ -71,6 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI output as aligned columns on a terminal, as TSV in a pipe, and as JSON with `--json`.
 - `add` output: in a terminal, a summary line with the name, project, section, due date, and task ID. In a pipe, only the task ID.
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.
+- Links in task names, as `[text](url)` or as a bare URL, are underlined terminal hyperlinks in the task list and in the details pane. `o` opens the first link of the task (name first, then description) in the browser.
 
 ### Changed
 

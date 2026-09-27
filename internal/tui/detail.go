@@ -190,7 +190,9 @@ func (m Model) buildDetail(w int) detailDoc {
 	t := r.task
 	notes := m.notesMode()
 	now := time.Now()
-	d.lines = append(d.lines, wrap(plain(t.Content), hexText, true)...)
+	for _, l := range titleLines(t.Content, max(1, w-2), st(hexText).Bold(true)) {
+		d.lines = append(d.lines, " "+l)
+	}
 	comments := m.snap.Comments[t.ID]
 
 	if notes {
