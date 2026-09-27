@@ -78,5 +78,9 @@ CLI:
 - Output as aligned columns on a terminal, as TSV in a pipe, and as JSON with `--json`. `add` prints a summary line on a terminal and the task ID in a pipe.
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.
 
+License:
+
+- MIT license.
+
 [Unreleased]: https://github.com/biomassa/godoist/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/biomassa/godoist/releases/tag/v0.1.0

@@ -360,3 +360,7 @@ To make a release:
 2. Commit the change on `main`.
 3. Run `scripts/release.sh --dry-run v0.2.0`, and examine `dist/notes.md`.
 4. Run `scripts/release.sh v0.2.0`. The script runs the tests, builds the binaries, pushes the tag, and publishes the GitHub release with the `gh` CLI.
+
+## License
+
+[MIT](LICENSE)
