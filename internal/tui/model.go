@@ -428,11 +428,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.noteSaved(msg)
 
 	case tea.PasteMsg:
-		if m.note != nil {
-			m.note.push(false)
-			m.note.insertText(msg.Content)
-			return m, m.note.changed()
-		}
+		return m.paste(msg)
 
 	case completedMsg:
 		m.completedLoading = false
