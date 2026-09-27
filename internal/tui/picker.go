@@ -105,7 +105,7 @@ func (p *picker) visible() []pickItem {
 func pickerFilterWidth(w int) int { return max(10, w-2-lipgloss.Width(" filter › ")-2) }
 
 func newPickerFilter() textinput.Model {
-	ti := textinput.New()
+	ti := newTextInput()
 	ti.Prompt = " filter › "
 	ti.Placeholder = "type to filter"
 	ti.CharLimit = 60

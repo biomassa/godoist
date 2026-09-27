@@ -19,21 +19,23 @@ const noteAutosave = time.Second
 // noteEditor is the inline markdown editor of notebook view. It shows the source with
 // live styling and saves by itself one second after the last change and when it closes.
 type noteEditor struct {
-	taskID string
-	title  string
-	lines  [][]rune
-	row    int // cursor line
-	col    int // cursor rune in the line
-	want   int // column that up/down try to keep
-	off    int // first visible screen line
-	saved  string
-	gen    int  // change counter, for the autosave timer
-	saving bool // a save is in flight
-	err    string
-	undo   []noteState
-	redo   []noteState
-	typing bool      // the last change was typing, so the next letter joins its undo step
-	search *noteFind // the open find box, or nil
+	kind      editKind // the description, a new comment, or a comment
+	commentID string   // editCommentEdit: the comment
+	taskID    string
+	title     string
+	lines     [][]rune
+	row       int // cursor line
+	col       int // cursor rune in the line
+	want      int // column that up/down try to keep
+	off       int // first visible screen line
+	saved     string
+	gen       int  // change counter, for the autosave timer
+	saving    bool // a save is in flight
+	err       string
+	undo      []noteState
+	redo      []noteState
+	typing    bool      // the last change was typing, so the next letter joins its undo step
+	search    *noteFind // the open find box, or nil
 }
 
 // noteState is one undo step.
@@ -95,7 +97,14 @@ func (m *Model) openNoteEditor() tea.Cmd {
 	if t == nil {
 		return nil
 	}
-	e := &noteEditor{taskID: t.ID, title: plain(t.Content), lines: splitRunes(t.Description), saved: t.Description, want: -1}
+	return m.openEditor(editDescription, t.ID, "", plain(t.Content), t.Description)
+}
+
+// openEditor opens the inline markdown editor for a description or a comment, with the
+// cursor at the end of text. All text editors of the details pane use it.
+func (m *Model) openEditor(kind editKind, taskID, commentID, title, text string) tea.Cmd {
+	e := &noteEditor{kind: kind, commentID: commentID, taskID: taskID, title: title,
+		lines: splitRunes(text), saved: text, want: -1}
 	e.row = len(e.lines) - 1
 	e.col = len(e.lines[e.row])
 	m.note = e
@@ -131,11 +140,16 @@ func sourceLineFor(src, rendered string) int {
 	return -1
 }
 
-// closeNoteEditor saves unsaved text and returns to the reader.
+// closeNoteEditor saves unsaved text and returns to the reader. An empty comment is not
+// saved: Todoist does not keep empty comments, and d deletes a comment.
 func (m Model) closeNoteEditor() (tea.Model, tea.Cmd) {
 	e := m.note
 	m.note = nil
 	if !e.dirty() {
+		return m, nil
+	}
+	if e.kind != editDescription && strings.TrimSpace(e.text()) == "" {
+		m.setStatus("the comment is empty, so it is not saved · d deletes a comment", false)
 		return m, nil
 	}
 	next := m.saveNote(e, "Saved “"+e.title+"”")
@@ -147,14 +161,31 @@ func (m *Model) saveNote(e *noteEditor, done string) tea.Cmd {
 	text := e.text()
 	e.saving = true
 	m.pending++
-	client, id := m.client, e.taskID
-	if t := m.taskByID(id); t != nil {
-		t.Description = text // the reader shows the new text at once
+	client, id, kind, commentID := m.client, e.taskID, e.kind, e.commentID
+	switch kind { // the details pane shows the new text at once. The sync confirms it.
+	case editDescription:
+		if t := m.taskByID(id); t != nil {
+			t.Description = text
+		}
+	case editCommentEdit:
+		for i, cm := range m.snap.Comments[id] {
+			if cm.ID == commentID {
+				m.snap.Comments[id][i].Content = text
+			}
+		}
 	}
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		_, err := client.UpdateTask(ctx, id, map[string]any{"description": text})
+		var err error
+		switch kind {
+		case editDescription:
+			_, err = client.UpdateTask(ctx, id, map[string]any{"description": text})
+		case editCommentEdit:
+			_, err = client.UpdateComment(ctx, commentID, text)
+		case editCommentNew:
+			_, err = client.AddComment(ctx, id, text)
+		}
 		if err == nil && done != "" {
 			return actionMsg{text: done} // the editor is closed: report like other writes
 		}
@@ -186,7 +217,10 @@ func (m Model) noteSaved(msg noteSavedMsg) (tea.Model, tea.Cmd) {
 // noteTick saves if no change came during the autosave pause.
 func (m Model) noteTick(msg noteTickMsg) (tea.Model, tea.Cmd) {
 	e := m.note
-	if e == nil || msg.gen != e.gen || e.saving || !e.dirty() {
+	// A new comment is saved only when the editor closes: each save would add a comment.
+	// An empty comment is not saved.
+	if e == nil || msg.gen != e.gen || e.saving || !e.dirty() || e.kind == editCommentNew ||
+		(e.kind == editCommentEdit && strings.TrimSpace(e.text()) == "") {
 		return m, nil
 	}
 	next := m.saveNote(e, "")
@@ -214,6 +248,8 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	line := e.lines[e.row]
 	switch key {
+	case "ctrl+e":
+		return m, m.externalEditor(e.text())
 	case "ctrl+f":
 		return m, e.openFind(m.detailInnerWidth())
 	case "esc", "ctrl+c", "ctrl+enter", "ctrl+s": // the editor saves, then shows the reader
@@ -657,30 +693,16 @@ func kindStyle(kind int) lipgloss.Style {
 func (m Model) noteLines(w, h int) []string {
 	e := m.note
 	tw := w - 2
-	rows, cy := m.noteLayout(tw)
-	var out []string
+	// The text starts below an empty line, as in the other panes, or below the find box.
+	top := e.textTop(h)
+	rows, cy := m.noteLayout(tw, h-top)
+	out := make([]string, top, h)
 	for i, r := range rows {
 		cx := -1
 		if i == cy {
 			cx = e.col - r.start
 		}
 		out = append(out, renderRow(r, tw, cx))
-	}
-	// Keep the cursor line on the screen. The text starts below an empty line, as in the
-	// other panes, or below the find box when it is open.
-	top := e.textTop(h)
-	view := h - top
-	if cy < e.off {
-		e.off = cy
-	}
-	if cy >= e.off+view {
-		e.off = cy - view + 1
-	}
-	if e.off > 0 && e.off < len(out) {
-		out = out[e.off:]
-	}
-	if top > 0 {
-		out = append(make([]string, top), out...)
 	}
 	return padLines(out, w, h)
 }
@@ -721,9 +743,9 @@ func (m Model) noteClick(x, y int) (tea.Model, tea.Cmd) {
 	if row < 0 {
 		return m, nil
 	}
-	rows, _ := m.noteLayout(r.w - 4)
-	if target := e.off + row; target < len(rows) {
-		er := rows[target]
+	rows, _ := m.noteLayout(r.w-4, r.h-2-e.textTop(r.h-2))
+	if row < len(rows) {
+		er := rows[row]
 		e.row = er.line
 		switch {
 		case er.cells == nil: // a rendered block: the start of its line

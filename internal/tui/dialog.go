@@ -81,12 +81,12 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 	ta.CharLimit = spec.limit
 	ta.MaxHeight = 0
 	ta.KeyMap.InsertNewline.SetEnabled(false) // enter saves. A name has no line breaks.
-	ta.SetStyles(textarea.DefaultStyles(darkTheme))
+	ta.SetStyles(areaStyles())
 	ta.SetWidth(m.dialogWidth() - 4)
 	ta.SetHeight(5)
 	ta.SetValue(value)
 	ta.MoveToEnd()
-	m.dlg = ta
+	m.dlg = &ta
 	m.inputMode = mode
 	m.dlgField = 0
 	if m.hasDescField(mode) {
@@ -97,9 +97,9 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 		d.Placeholder = "Description (optional)"
 		d.CharLimit = 16383 // the Todoist limit
 		d.MaxHeight = 0
-		d.SetStyles(textarea.DefaultStyles(darkTheme))
+		d.SetStyles(areaStyles())
 		d.SetWidth(m.dialogWidth() - 4)
-		m.dlgDesc = d
+		m.dlgDesc = &d
 		m.sizeDialog()
 	}
 	return m.dlg.Focus()

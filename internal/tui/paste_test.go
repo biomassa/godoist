@@ -24,7 +24,8 @@ func TestPasteTaskDialog(t *testing.T) {
 // A paste into find filters the list at once.
 func TestPasteFind(t *testing.T) {
 	m := openWork(t)
-	m.input = textinput.New() // New makes it in the program
+	ti := textinput.New() // New makes it in the program
+	m.input = &ti
 	m = send(t, m, key("/"), pasteMsg("gam"))
 	if m.find != "gam" {
 		t.Errorf("find = %q, want gam", m.find)
@@ -50,7 +51,7 @@ func TestPastePickerFilter(t *testing.T) {
 // A paste into the E editor keeps the line breaks.
 func TestPasteEditor(t *testing.T) {
 	m := send(t, onRow(t, 1), key("E"), pasteMsg("a\nb"))
-	if m.edit == nil || m.editor.Value() != "a\nb" {
-		t.Errorf("editor = %q", m.editor.Value())
+	if m.note == nil || m.note.text() != "a\nb" {
+		t.Fatalf("editor = %v", m.note)
 	}
 }

@@ -152,13 +152,13 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
 | `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
-| `E` | Edit the description. `ctrl+enter` or `ctrl+s` saves and closes the editor, `ctrl+e` opens `$EDITOR`. |
+| `E` | Edit the description in the markdown editor (see [Notebook view](#notebook-view)). |
 | `t` | Open the date dialog. |
 | `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |
 | `m` | Move the task to a project or a section. |
-| `c` | Add a comment. `ctrl+enter` or `ctrl+s` saves it. |
+| `c` | Add a comment in the markdown editor. godoist adds the comment when you close the editor. |
 | `A` | Add a sub-task to the task under the cursor. The dialog has a name and a description. |
 | `>` / `<` | Indent the task under the task above it, or outdent it one level. |
 | `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
@@ -188,6 +188,8 @@ Todoist parses the name as in quick add. godoist saves the description as typed.
 ### Descriptions and comments
 
 The details pane shows task descriptions and comments as formatted markdown, as the notebook reader does. A description or a comment can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` completes the task.
+
+Descriptions and comments use the same markdown editor as notes, with the live preview. The editor saves a description or a changed comment by itself one second after you stop typing. It adds a new comment when you close the editor. It does not save an empty comment. `esc`, `ctrl+enter`, or `ctrl+s` closes the editor, and `ctrl+e` opens the text in `$EDITOR`.
 
 ### Notebook view
 

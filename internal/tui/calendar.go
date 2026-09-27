@@ -150,14 +150,14 @@ func (m *Model) openCalendarWith(ts []*todoist.Task, text string) tea.Cmd {
 			c.rules[x.ID] = [2]string{x.Due.String, x.Due.Lang}
 		}
 	}
-	c.text = textinput.New()
+	c.text = newTextInput()
 	c.text.Prompt = " "
 	c.text.Placeholder = "fri 9am · every mon · jan 15 · no date"
 	c.text.CharLimit = 200
 	c.text.SetWidth(calWidth - 6)
 	c.text.SetValue(text)
 	c.text.CursorEnd()
-	c.timeIn = textinput.New()
+	c.timeIn = newTextInput()
 	c.timeIn.Prompt = ""
 	c.timeIn.Placeholder = "all day"
 	c.timeIn.CharLimit = 5

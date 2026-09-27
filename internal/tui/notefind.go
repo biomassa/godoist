@@ -33,7 +33,7 @@ type noteFind struct {
 type noteMatch struct{ row, a, b int }
 
 func newFindInput(prompt string) textinput.Model {
-	ti := textinput.New()
+	ti := newTextInput()
 	ti.Prompt = prompt
 	ti.CharLimit = 200
 	return ti

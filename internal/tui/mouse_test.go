@@ -18,7 +18,7 @@ import (
 // Row r is at y = r+1.
 // Rows of the work project: 0 spacer, 1 alpha, 2 beta (recurring), 3 spacer, 4 "urgent" header,
 // 5 gamma, 6 spacer, 7 "later" header (empty). Row r is at y = r+1.
-func testModel(t *testing.T) Model {
+func testModel(t testing.TB) Model {
 	t.Helper()
 	// Keep the tests away from the user's state file.
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
@@ -48,7 +48,7 @@ func testModel(t *testing.T) Model {
 	return m
 }
 
-func send(t *testing.T, m Model, msgs ...tea.Msg) Model {
+func send(t testing.TB, m Model, msgs ...tea.Msg) Model {
 	t.Helper()
 	for _, msg := range msgs {
 		nm, _ := m.Update(msg)
@@ -63,7 +63,7 @@ func release(x, y int) tea.Msg    { return tea.MouseReleaseMsg{X: x, Y: y, Butto
 func motion(x, y int) tea.Msg     { return tea.MouseMotionMsg{X: x, Y: y, Button: tea.MouseLeft} }
 
 // openWork clicks the "work" project in the sidebar.
-func openWork(t *testing.T) Model {
+func openWork(t testing.TB) Model {
 	m := send(t, testModel(t), click(5, 8))
 	if cur := m.currentNav(); cur == nil || cur.projectID != "p1" {
 		t.Fatalf("sidebar click did not open the work project: %+v", cur)

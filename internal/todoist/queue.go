@@ -247,9 +247,6 @@ func newUUID() string {
 // NewTempID returns a temporary ID for a new item.
 func NewTempID() string { return "tmp-" + newUUID() }
 
-// IsTempID reports whether id is a temporary ID of an item that is not in Todoist yet.
-func IsTempID(id string) bool { return strings.HasPrefix(id, "tmp-") }
-
 // IsOffline reports whether err means that the request did not get to Todoist or that
 // no answer came back: no network, a failed name lookup, a refused connection, or a time-out.
 func IsOffline(err error) bool {

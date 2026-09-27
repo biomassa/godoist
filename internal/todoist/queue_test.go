@@ -91,7 +91,7 @@ func TestQueueOffline(t *testing.T) {
 	c, q, path := queueClient(t)
 	ctx := WithQueuedFlag(context.Background())
 	nt, err := c.QuickAdd(ctx, "milk tomorrow")
-	if err != nil || !IsTempID(nt.ID) || nt.Content != "milk tomorrow" {
+	if err != nil || !strings.HasPrefix(nt.ID, "tmp-") || nt.Content != "milk tomorrow" {
 		t.Fatalf("QuickAdd offline: %+v %v", nt, err)
 	}
 	if err := c.Move(ctx, nt.ID, "p1", ""); err != nil {

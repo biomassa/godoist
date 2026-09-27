@@ -8,7 +8,7 @@ import (
 )
 
 // notesModel opens the work project in notebook view. alpha has two checkboxes.
-func notesModel(t *testing.T) Model {
+func notesModel(t testing.TB) Model {
 	t.Helper()
 	m := testModel(t)
 	m.chkCur = -1
@@ -209,12 +209,38 @@ func TestNoteEditorTopLine(t *testing.T) {
 	}
 }
 
-// The E editor starts with an empty line under the title too.
-func TestEditorTopLine(t *testing.T) {
-	m := send(t, onRow(t, 1), key("E"))
-	box := strings.Split(stripANSI(m.editorBox(60, 20)), "\n")
-	if strings.Trim(box[1], "│ ") != "" {
-		t.Errorf("line under the title = %q, want empty", box[1])
+// In task view, E opens the inline markdown editor for the description, with the preview.
+func TestTaskViewUsesInlineEditor(t *testing.T) {
+	m := onRow(t, 1)
+	m.taskByID("t1").Description = "**bold**\nlast"
+	m.buildRows(false)
+	m = send(t, m, key("E"))
+	if m.note == nil || m.note.kind != editDescription {
+		t.Fatal("E did not open the inline editor")
+	}
+	if got := strings.Join(previewText(m), "\n"); !strings.Contains(got, " bold") || strings.Contains(got, "**bold**") {
+		t.Errorf("preview:\n%s", got)
+	}
+}
+
+// A new comment is saved when the editor closes, not before. An empty one is not saved.
+func TestCommentEditor(t *testing.T) {
+	m := send(t, onRow(t, 1), key("c"))
+	if m.note == nil || m.note.kind != editCommentNew {
+		t.Fatal("c did not open the inline editor")
+	}
+	m = send(t, m, pasteMsg(" "), key("esc")) // only a space: empty
+	if m.note != nil || m.pending != 0 || !strings.Contains(m.status, "empty") {
+		t.Fatalf("empty comment: pending = %d status = %q", m.pending, m.status)
+	}
+	m = send(t, m, key("c"), pasteMsg("hello"))
+	m = send(t, m, noteTickMsg{gen: m.note.gen}) // the autosave pause ends
+	if m.pending != 0 {
+		t.Fatalf("a new comment saved before the editor closed: pending = %d", m.pending)
+	}
+	m = send(t, m, key("ctrl+enter"))
+	if m.note != nil || m.pending != 1 {
+		t.Errorf("ctrl+enter: note = %v pending = %d", m.note != nil, m.pending)
 	}
 }
 

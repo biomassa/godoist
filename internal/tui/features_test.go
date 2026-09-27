@@ -8,7 +8,7 @@ import (
 )
 
 // onRow opens the work project and puts the cursor on list row r (y = r+1).
-func onRow(t *testing.T, r int) Model {
+func onRow(t testing.TB, r int) Model {
 	t.Helper()
 	m := openWork(t)
 	x := m.layout().mid.x + 10

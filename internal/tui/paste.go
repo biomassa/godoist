@@ -66,14 +66,12 @@ func (m Model) paste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		e.push(false)
 		e.insertText(msg.Content)
 		return m, e.changed()
-	case m.edit != nil:
-		m.editor, cmd = m.editor.Update(msg)
 	case m.hasDescField(m.inputMode) && m.dlgField == 1:
-		m.dlgDesc, cmd = m.dlgDesc.Update(msg)
+		*m.dlgDesc, cmd = m.dlgDesc.Update(msg)
 	case isDialog(m.inputMode):
-		m.dlg, cmd = m.dlg.Update(line)
+		*m.dlg, cmd = m.dlg.Update(line)
 	case m.inputMode != inputNone:
-		m.input, cmd = m.input.Update(line)
+		*m.input, cmd = m.input.Update(line)
 		if m.inputMode == inputFind {
 			m.find = m.input.Value()
 			m.buildRows(true)

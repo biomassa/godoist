@@ -19,6 +19,8 @@ import (
 type mdCache struct {
 	out       map[string][]string
 	renderers map[int]*glamour.TermRenderer
+	preview   map[string][]edRow // formatted editor lines for the width previewW: see previewRows
+	previewW  int
 }
 
 // newMDCache returns an empty cache.
@@ -28,6 +30,7 @@ func newMDCache() *mdCache { return &mdCache{} }
 func (c *mdCache) reset() {
 	c.out = map[string][]string{}
 	c.renderers = map[int]*glamour.TermRenderer{}
+	c.preview = map[string][]edRow{}
 }
 
 // render returns markdown as lines that are at most w cells wide.

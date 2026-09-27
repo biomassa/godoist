@@ -28,8 +28,7 @@ type edRow struct {
 	cells  []pcell
 	pre    string
 	line   int  // the source line of the row
-	fill   bool // a heading bar: the row gets the heading style to the full width
-	fillSt lipgloss.Style
+	fill   int  // a heading bar of this level: the row gets its style to the full width
 	source bool // the row shows source, so it can have the cursor
 	start  int  // source rows: the first rune of the line on this row
 }
@@ -204,16 +203,18 @@ func (e *noteEditor) sourceRows(i int, inFence bool, tw int) []edRow {
 			row.cells = append(row.cells, pcell{l[j], st, j})
 		}
 		if level > 0 {
-			row.fill, row.fillSt = true, headingStyle(level)
+			row.fill = level
 		}
 		rows = append(rows, row)
 	}
 	return rows
 }
 
-// noteLayout makes the screen rows of the editor for text width tw, and returns the row
-// of the cursor.
-func (m Model) noteLayout(tw int) (rows []edRow, cursor int) {
+// noteLayout returns the rows of the editor that are on the screen, for text width tw
+// and view rows, and the screen row of the cursor in them. It scrolls the editor so that
+// the cursor is on the screen. Each line uses its rows from the cache, so a redraw formats
+// only the cursor line (see previewRows). Only the visible rows are copied.
+func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
 	e := m.note
 	blocks := e.noteBlocks()
 	blockAt := map[int]noteBlock{} // first line → block
@@ -228,69 +229,124 @@ func (m Model) noteLayout(tw int) (rows []edRow, cursor int) {
 			active = b
 		}
 	}
+	// Pass 1: the rows of each line, and the row of the cursor.
+	lineRows := make([][]edRow, len(e.lines))
+	total, cy := 0, 0
 	fence := false // for the source styles: the line is in a fenced block
-	for i := 0; i < len(e.lines); i++ {
+	for i := range e.lines {
 		src := string(e.lines[i])
 		isFence := strings.HasPrefix(strings.TrimSpace(src), "```")
 		asSource := e.search != nil || i == e.row || (i >= active.from && i <= active.to)
 		switch {
 		case asSource:
 			if i == e.row {
-				cursor = len(rows)
-				starts := wrapLine(e.lines[i], tw)
-				for k, s := range starts {
+				cy = total
+				for k, s := range wrapLine(e.lines[i], tw) {
 					if e.col >= s {
-						cursor = len(rows) + k
+						cy = total + k
 					}
 				}
 			}
-			rows = append(rows, e.sourceRows(i, fence, tw)...)
+			lineRows[i] = e.sourceRows(i, fence, tw)
 		case inBlock[i]:
-			b, first := blockAt[i]
-			if !first {
-				break // the block rows come with its first line
-			}
-			text := make([]string, 0, b.to-b.from+1)
-			for j := b.from; j <= b.to; j++ {
-				text = append(text, string(e.lines[j]))
-			}
-			rendered := m.md.render(strings.Join(text, "\n"), tw+2)
-			for k, l := range rendered {
-				rows = append(rows, edRow{pre: l, line: min(b.from+k, b.to)})
+			if b, first := blockAt[i]; first { // the block rows come with its first line
+				lineRows[i] = m.md.blockRows(e, b, tw)
 			}
 		default:
-			cells, level := previewCells(src)
-			if level == -1 { // a rule
-				rows = append(rows, edRow{pre: " " + st(hexDim).Render(strings.Repeat("─", tw)), line: i})
-				break
-			}
-			rs := make([]rune, len(cells))
-			for k, cl := range cells {
-				rs[k] = cl.r
-			}
-			starts := wrapLine(rs, tw)
-			for k, s := range starts {
-				end := len(cells)
-				if k+1 < len(starts) {
-					end = starts[k+1]
-				}
-				row := edRow{cells: cells[s:end], line: i}
-				if level > 0 {
-					row.fill, row.fillSt = true, headingStyle(level)
-				}
-				rows = append(rows, row)
-			}
+			lineRows[i] = m.md.previewRows(src, tw)
 		}
+		total += len(lineRows[i])
 		if isFence {
 			fence = !fence
 		}
 	}
-	return rows, cursor
+	// Scroll so that the cursor row is on the screen.
+	if cy < e.off {
+		e.off = cy
+	}
+	if cy >= e.off+view {
+		e.off = cy - view + 1
+	}
+	e.off = max(0, min(e.off, total-1))
+	// Pass 2: copy the visible rows.
+	n := 0
+	for i, lr := range lineRows {
+		for k := range lr {
+			if n >= e.off && n < e.off+view {
+				r := lr[k]
+				r.line = i
+				if b, ok := blockAt[i]; ok && r.cells == nil && !r.source {
+					r.line = min(b.from+k, b.to) // a block row: its source line, for a click
+				}
+				rows = append(rows, r)
+			}
+			n++
+		}
+		if n >= e.off+view {
+			break
+		}
+	}
+	return rows, cy - e.off
+}
+
+// blockRows returns the rows of a fenced code block or a table as the reader shows it.
+// The markdown cache keeps the rendered text.
+func (c *mdCache) blockRows(e *noteEditor, b noteBlock, tw int) []edRow {
+	text := make([]string, 0, b.to-b.from+1)
+	for j := b.from; j <= b.to; j++ {
+		text = append(text, string(e.lines[j]))
+	}
+	rendered := c.render(strings.Join(text, "\n"), tw+2)
+	rows := make([]edRow, len(rendered))
+	for k, l := range rendered {
+		rows[k] = edRow{pre: l}
+	}
+	return rows
+}
+
+// previewRows returns the formatted rows of a source line for width tw. Each row is drawn
+// one time and kept in the cache with its cells (for a click), so that a key press
+// draws only the lines that change: the cursor line and the line that it leaves.
+// The cache is cleared when the theme changes, and when it gets large.
+// It is a method of the cache, not of Model, because a Model is large to copy.
+func (c *mdCache) previewRows(src string, tw int) []edRow {
+	if c.preview == nil || len(c.preview) > 20000 || c.previewW != tw {
+		c.preview, c.previewW = map[string][]edRow{}, tw // one width at a time
+	}
+	if rows, ok := c.preview[src]; ok {
+		return rows
+	}
+	key := src
+	var rows []edRow
+	cells, level := previewCells(src)
+	if level == -1 { // a rule
+		rows = []edRow{{pre: " " + st(hexDim).Render(strings.Repeat("─", tw))}}
+	} else {
+		rs := make([]rune, len(cells))
+		for k, cl := range cells {
+			rs[k] = cl.r
+		}
+		starts := wrapLine(rs, tw)
+		for k, s := range starts {
+			end := len(cells)
+			if k+1 < len(starts) {
+				end = starts[k+1]
+			}
+			row := edRow{cells: cells[s:end]}
+			if level > 0 {
+				row.fill = level
+			}
+			row.pre = renderRow(row, tw, -1)
+			rows = append(rows, row)
+		}
+	}
+	c.preview[key] = rows
+	return rows
 }
 
 // renderRow draws a row of width tw. cx is the cursor column in the row, or -1.
 func renderRow(r edRow, tw, cx int) string {
-	if r.pre != "" || r.cells == nil && !r.source && !r.fill {
+	if r.pre != "" || r.cells == nil && !r.source && r.fill == 0 {
 		if r.pre == "" {
 			return ""
 		}
@@ -307,9 +363,9 @@ func renderRow(r edRow, tw, cx int) string {
 	if cx >= len(r.cells) { // the cursor after the last rune
 		b.WriteString(lipgloss.NewStyle().Reverse(true).Render(" "))
 	}
-	if r.fill { // fill the bar to the full width
+	if r.fill > 0 { // fill the bar to the full width
 		if n := tw - lipgloss.Width(b.String()); n > 0 {
-			b.WriteString(r.fillSt.Render(strings.Repeat(" ", n)))
+			b.WriteString(headingStyle(r.fill).Render(strings.Repeat(" ", n)))
 		}
 	}
 	return " " + b.String()

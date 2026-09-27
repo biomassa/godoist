@@ -76,6 +76,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- The description editor (`E`) and the comment editors use the markdown editor of notebook view, with the live preview, autosave, the format keys, and find and replace. The editor adds a new comment when it closes. The plain text editor is gone.
+- The text inputs have a steady cursor. A blinking cursor drew the screen again two times a second.
+- Faster screen draws: the editor formats a line again only when its text changes, and it draws only the visible lines. The model is smaller, because the text inputs are pointers.
 - The notebook editor shows a live preview. Each line shows formatted markdown, except the line with the cursor, which shows its source. A fenced code block or a table shows as source while the cursor is in it. While the find box is open, all lines show as source.
 - `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
 - All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.

@@ -111,8 +111,6 @@ func (m Model) render() string {
 		mid = box(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
 	case m.pick != nil && !m.wide():
 		mid = m.pickerBox(midW, h)
-	case m.edit != nil && !m.wide():
-		mid = m.editorBox(midW, h)
 	case m.detailOpen && !m.wide():
 		mid = box(detailTitle, m.detailLines(midW-2, h), midW, borderFor(paneDetail))
 	default:
@@ -125,8 +123,6 @@ func (m Model) render() string {
 		panes = append(panes, box(m.noteTitle(), m.noteLines(detW-2, h), detW, fg(hexAccent)))
 	case detW > 0 && m.pick != nil:
 		panes = append(panes, m.pickerBox(detW, h))
-	case detW > 0 && m.edit != nil:
-		panes = append(panes, m.editorBox(detW, h))
 	case detW > 0:
 		panes = append(panes, box(detailTitle, m.detailLines(detW-2, h), detW, borderFor(paneDetail)))
 	}
@@ -408,17 +404,6 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 	return left + title + base.Render(strings.Repeat(" ", max(0, gap))) + right
 }
 
-// editorBox draws the built-in editor with a key hint below it.
-func (m Model) editorBox(w, h int) string {
-	lines := append([]string{""}, strings.Split(m.editor.View(), "\n")...) // an empty line under the title
-	hint := "ctrl+enter or ctrl+s save · esc cancel · ctrl+e $EDITOR"
-	if m.edit.saving {
-		hint = "saving…"
-	}
-	lines = append(lines, "", " "+st(hexDim).Render(hint))
-	return box(st(fg(hexAccent)).Bold(true).Render(m.edit.title), padLines(lines, w-2, h), w, fg(hexAccent))
-}
-
 // headerLine renders a section or day header with a count and a rule.
 // selectedLook draws a selected task row inverted (reverse video). On the cursor row it is
 // also bold and has a ▸ in the left margin.
@@ -648,7 +633,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.note != nil && m.note.search != nil:
 		keys = [][2]string{{"enter", "next"}, {"shift+enter", "previous"}, {"^r", "replace"}, {"^a", "replace all"}, {"tab", "next field"}, {"esc", "close"}}
 	case m.note != nil:
-		keys = [][2]string{{"esc", "done"}, {"^f", "find"}, {"^b", "bold"}, {"^i", "italic"}, {"^k", "link"}, {"^t", "checkbox"}, {"^z", "undo"}, {"^y", "redo"}, {"alt+←/→", "word"}}
+		keys = [][2]string{{"esc", "done"}, {"^e", "$EDITOR"}, {"^f", "find"}, {"^b", "bold"}, {"^i", "italic"}, {"^k", "link"}, {"^t", "checkbox"}, {"^z", "undo"}, {"^y", "redo"}, {"alt+←/→", "word"}}
 	case m.cal != nil:
 		keys = [][2]string{{"tab", "text / calendar / time"}, {"enter", "save"}, {"esc", "cancel"}}
 	case m.menu != nil:
@@ -659,8 +644,6 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"space", "check"}, {"enter", "save"}, {"esc", "cancel"}}
 	case m.pick != nil:
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"enter", "move"}, {"esc", "cancel"}}
-	case m.edit != nil:
-		keys = [][2]string{{"^enter", "save"}, {"esc", "cancel"}, {"^e", "$EDITOR"}}
 	case m.focus == paneDetail && !m.notesMode() && m.noteChecks() > 0:
 		keys = [][2]string{{"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"h", "back"}}
 	case m.focus == paneDetail:
@@ -689,7 +672,7 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
-	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.edit == nil && m.focus != paneDetail {
+	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.note == nil && m.focus != paneDetail {
 		switch {
 		case m.find != "" && m.focus == paneTasks:
 			keys = append([][2]string{{"esc", "clear find"}}, keys...)
@@ -842,7 +825,7 @@ func helpSections() [][]string {
 			k("e", "edit name (parsed) and description"),
 			k("", "tab field · enter in description: new line"),
 			k("", "ctrl+enter save"),
-			k("E", "edit the description / note body"),
+			k("E", "edit the description / note body (markdown editor)"),
 			k("o", "open the first link of the task"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),
@@ -892,8 +875,8 @@ func helpSections() [][]string {
 			k("e / d", "edit / delete the selected comment"),
 			k("", "no comment selected: e edits the name")},
 		{h("Editor and pickers"),
-			k("ctrl+enter", "save the editor text and close"),
-			k("", "ctrl+s does the same"),
+			k("esc", "save the editor text and close"),
+			k("", "ctrl+enter and ctrl+s do the same"),
 			k("ctrl+e", "open the text in $EDITOR"),
 			k("type", "filter a picker list"),
 			k("↑ / ↓", "select in a picker"),

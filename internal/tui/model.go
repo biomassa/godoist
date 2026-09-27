@@ -174,16 +174,16 @@ type Model struct {
 	targetProject  string // project that inputRenameProject changes
 	targetLabel    string // label that inputRenameLabel changes
 
-	input     textinput.Model // bottom-bar input (find)
-	dlg       textarea.Model  // dialog input (all other text inputs)
-	dlgDesc   textarea.Model  // description field of the task dialog
-	dlgField  int             // focused field of the task dialog: 0 name, 1 description
+	// The text inputs are pointers: they are large (15 KB for a textarea), and Bubble Tea
+	// copies the Model for each message and each method call.
+	input     *textinput.Model // bottom-bar input (find)
+	dlg       *textarea.Model  // dialog input (all other text inputs), nil while closed
+	dlgDesc   *textarea.Model  // description field of the task dialog, nil while closed
+	dlgField  int              // focused field of the task dialog: 0 name, 1 description
 	inputMode inputMode
 
-	editor textarea.Model
-	edit   *editSession
-	note   *noteEditor // inline markdown editor of notebook view
-	pick   *picker
+	note *noteEditor // the inline markdown editor: descriptions, notes, and comments
+	pick *picker
 
 	confirm *confirmPrompt
 	cal     *calDialog // date dialog
@@ -209,9 +209,9 @@ type Model struct {
 
 // New returns a Model. If a cache exists for the token, the first frame shows the cached data.
 func New(client *todoist.Client, token string) Model {
-	ti := textinput.New()
+	ti := newTextInput()
 	ti.CharLimit = 500
-	m := Model{client: client, token: token, input: ti, comCur: -1, chkCur: -1, md: newMDCache()}
+	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache()}
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
 	// The offline queue keeps task changes while the computer is offline.
@@ -347,8 +347,9 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.input.SetWidth(max(10, m.width-4))
-		m.sizeEditor()
+		if m.input != nil {
+			m.input.SetWidth(max(10, m.width-4))
+		}
 		m.sizeDialog()
 		return m, nil
 
@@ -412,7 +413,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case filterMsg:
 		if msg.err != nil {
 			m.setStatus("filter failed: "+msg.err.Error()+" · see the examples in the dialog", true)
-			if m.focusFilterNav && m.inputMode == inputNone && m.edit == nil && m.pick == nil {
+			if m.focusFilterNav && m.inputMode == inputNone && m.note == nil && m.pick == nil {
 				// The dialog opens again with the query, so the user can correct it.
 				m.focusFilterNav = false
 				next := m.openDialog(inputQuery, msg.query)
@@ -457,13 +458,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.endQuit()
 		}
 		cmds := []tea.Cmd{m.startSync()}
-		if msg.err != nil && msg.retryMode != inputNone && m.inputMode == inputNone && m.edit == nil && !m.quitting {
+		if msg.err != nil && msg.retryMode != inputNone && m.inputMode == inputNone && m.note == nil && !m.quitting {
 			cmds = append(cmds, m.openTaskDialog(msg.retryMode, msg.retryText, msg.retryDesc))
 		}
 		return m, tea.Batch(cmds...)
-
-	case editSavedMsg:
-		return m.editSaved(msg)
 
 	case calParsedMsg:
 		return m.calParsed(msg)
@@ -519,19 +517,12 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updatePicker(msg)
 		case m.note != nil:
 			return m.updateNoteEditor(msg)
-		case m.edit != nil:
-			return m.updateEditor(msg)
 		case m.confirm != nil:
 			return m.answerConfirm(msg.String())
 		case m.inputMode != inputNone:
 			return m.updateInput(msg)
 		}
 		return m.updateKeys(msg)
-	}
-	if m.edit != nil { // cursor blink etc.
-		var cmd tea.Cmd
-		m.editor, cmd = m.editor.Update(msg)
-		return m, cmd
 	}
 	return m, nil
 }
@@ -579,7 +570,7 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		default:
 			if m.dlgField == 1 { // enter in the description adds a line break
 				var cmd tea.Cmd
-				m.dlgDesc, cmd = m.dlgDesc.Update(msg)
+				*m.dlgDesc, cmd = m.dlgDesc.Update(msg)
 				return m, cmd
 			}
 		}
@@ -597,10 +588,10 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	var cmd tea.Cmd
 	if isDialog(m.inputMode) {
-		m.dlg, cmd = m.dlg.Update(msg)
+		*m.dlg, cmd = m.dlg.Update(msg)
 		return m, cmd
 	}
-	m.input, cmd = m.input.Update(msg)
+	*m.input, cmd = m.input.Update(msg)
 	if m.inputMode == inputFind {
 		m.find = m.input.Value()
 		m.buildRows(true)
@@ -610,9 +601,11 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 // submitInput closes the input and runs the action of its mode with the typed text.
 func (m Model) submitInput() (tea.Model, tea.Cmd) {
-	val := strings.TrimSpace(m.input.Value())
+	var val string
 	if isDialog(m.inputMode) {
 		val = m.dialogValue()
+	} else {
+		val = strings.TrimSpace(m.input.Value())
 	}
 	desc, hasDesc := "", m.hasDescField(m.inputMode)
 	if hasDesc {
@@ -717,10 +710,11 @@ func withRetryDesc(cmd tea.Cmd, mode inputMode, text, desc string) tea.Cmd {
 
 func (m *Model) closeInput() {
 	m.inputMode = inputNone
-	m.input.Blur()
-	m.input.SetValue("")
-	m.dlg = textarea.Model{}
-	m.dlgDesc = textarea.Model{}
+	if m.input != nil {
+		m.input.Blur()
+		m.input.SetValue("")
+	}
+	m.dlg, m.dlgDesc = nil, nil
 	m.dlgField = 0
 }
 
@@ -1896,17 +1890,6 @@ func flatRows(ts []todoist.Task) []row {
 		out[i] = row{task: &ts[i]}
 	}
 	return out
-}
-
-func sortByDue(ts []todoist.Task) {
-	sort.SliceStable(ts, func(i, j int) bool {
-		a, _, _ := ts[i].Due.Time()
-		b, _, _ := ts[j].Due.Time()
-		if !a.Equal(b) {
-			return a.Before(b)
-		}
-		return ts[i].Priority > ts[j].Priority
-	})
 }
 
 // applyFind keeps tasks matching q (case-insensitive) and headers that still have tasks.

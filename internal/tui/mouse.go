@@ -46,7 +46,7 @@ func (m Model) layout() layout {
 
 // listRect is the area of the task list, or an empty rect if another view covers it.
 func (m Model) listRect() rect {
-	if !m.wide() && (m.detailOpen || m.edit != nil || m.pick != nil) {
+	if !m.wide() && (m.detailOpen || m.note != nil || m.pick != nil) {
 		return rect{}
 	}
 	return m.layout().mid
@@ -58,7 +58,7 @@ func (m Model) sideRect() rect {
 	if m.wide() {
 		return l.detail
 	}
-	if m.detailOpen || m.edit != nil || m.pick != nil {
+	if m.detailOpen || m.note != nil || m.pick != nil {
 		return l.mid
 	}
 	return rect{}
@@ -166,8 +166,6 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	case m.note != nil:
 		return m.noteClick(x, y)
-	case m.edit != nil: // keep unsaved text safe from stray clicks
-		return m, nil
 	case m.pick != nil:
 		return m.pickerClick(x, y, dbl)
 	case m.inputMode == inputFind: // a click keeps the find text, as enter does
@@ -386,7 +384,7 @@ func (m Model) mouseWheel(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		m.moveNav(d / 3)
 	case m.listRect().has(ms.X, ms.Y):
 		m.moveRow(d)
-	case m.sideRect().has(ms.X, ms.Y) && m.edit == nil:
+	case m.sideRect().has(ms.X, ms.Y) && m.note == nil:
 		m.detOff = max(0, m.detOff+d)
 	}
 	return m, nil

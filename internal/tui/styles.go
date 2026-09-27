@@ -21,7 +21,6 @@ var (
 	hexDim      string
 	hexBorder   string
 	hexText     string
-	hexBody     string
 	hexSelBg    string
 	hexSelBgDim string
 	baseBg      string // terminal background, used for tinting
@@ -37,14 +36,14 @@ func setTheme(dark bool) {
 	if dark {
 		hexOverdue, hexToday, hexTomorrow, hexWeek = "#FF7066", "#25B84C", "#FF9A14", "#A970FF"
 		hexMuted, hexDim, hexBorder = "#8A8A8A", "#5C5C5C", "#3D3D3D"
-		hexText, hexBody = "#E6E6E6", "#C8C8C8"
+		hexText = "#E6E6E6"
 		hexSelBg, hexSelBgDim, baseBg = "#363636", "#2A2A2A", "#1F1F1F"
 		priorityHex = map[int]string{1: "#FF7066", 2: "#FF9A14", 3: "#5297FF", 4: hexMuted}
 		return
 	}
 	hexOverdue, hexToday, hexTomorrow, hexWeek = "#D1453B", "#058527", "#AD6200", "#692FC2"
 	hexMuted, hexDim, hexBorder = "#666666", "#9A9A9A", "#D0D0D0"
-	hexText, hexBody = "#202020", "#3A3A3A"
+	hexText = "#202020"
 	hexSelBg, hexSelBgDim, baseBg = "#E4E4E4", "#EFEFEF", "#FFFFFF"
 	priorityHex = map[int]string{1: "#D1453B", 2: "#EB8909", 3: "#246FE0", 4: hexMuted}
 }

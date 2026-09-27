@@ -97,10 +97,10 @@ func TestTaskDialogCtrlS(t *testing.T) {
 	}
 }
 
-// ctrl+enter saves the E editor.
+// ctrl+enter saves the description editor (E) and closes it.
 func TestEditorCtrlEnterSaves(t *testing.T) {
 	m := send(t, onRow(t, 1), key("E"), pasteMsg("new text"), key("ctrl+enter"))
-	if m.edit == nil || !m.edit.saving || m.pending != 1 {
-		t.Errorf("ctrl+enter in the editor did not start a save")
+	if m.note != nil || m.pending != 1 || m.taskByID("t1").Description != "new text" {
+		t.Errorf("note = %v pending = %d description = %q", m.note != nil, m.pending, m.taskByID("t1").Description)
 	}
 }

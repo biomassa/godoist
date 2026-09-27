@@ -250,7 +250,7 @@ func (c *Client) syncCommand(ctx context.Context, typ string, args map[string]an
 		return err
 	}
 	if st := string(resp.SyncStatus[uuid]); st != `"ok"` {
-		return fmt.Errorf("Todoist did not accept %s: %s", typ, st)
+		return fmt.Errorf("Todoist did not accept %s: %s", typ, st) //lint:ignore ST1005 Todoist is a name
 	}
 	return nil
 }
