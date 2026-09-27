@@ -1,6 +1,6 @@
 # godoist
 
-godoist is a terminal program for [Todoist](https://todoist.com). It has a text user interface (TUI) with three panes and a command-line interface (CLI) for scripts. It is written in Go.
+godoist is a terminal program for [Todoist](https://todoist.com). It has a text user interface (TUI) with three panes and a command-line interface (CLI) for scripts. The program uses the Go language.
 
 > This software was developed with the assistance of a LLM.
 
@@ -170,7 +170,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `f` | Run a Todoist filter query. Plain words search the task names. |
 | `esc` | Clear the find or the filter. |
 | `r` | Sync now. |
-| `q` | Quit. godoist waits until all changes are saved. |
+| `q` | Quit. godoist waits until Todoist has all changes. |
 
 ### Task dialog
 
@@ -183,20 +183,20 @@ The `a`, `e`, and `A` keys open a dialog with two fields: the name and the descr
 | `ctrl+enter` or `ctrl+s` | Save from the two fields. For `ctrl+enter`, the terminal must send it as a separate key (for example kitty, WezTerm, foot, or Ghostty). macOS Terminal sends it as `enter`, so use `ctrl+s` there. |
 | `esc` | Close the dialog without a save. |
 
-Todoist parses the name as in quick add. The description is saved as typed. In notebook view, the dialog has only the name.
+Todoist parses the name as in quick add. godoist saves the description as typed. In notebook view, the dialog has only the name.
 
 ### Descriptions and comments
 
-The details pane shows task descriptions and comments as formatted markdown, as the notebook reader does. If a description or a comment has checkboxes (`- [ ] item`), `tab` and `shift+tab` move between them when the details pane has the focus, and `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` completes the task.
+The details pane shows task descriptions and comments as formatted markdown, as the notebook reader does. A description or a comment can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` completes the task.
 
 ### Notebook view
 
-Push `v` in a project to show it as a notebook. godoist writes the line `godoist:notes` at the end of the project description in Todoist, so the notebook view is the same on all your computers. Todoist shows this line in the project description. Push `v` again to go back to the task view and remove the line. The right pane shows the note under the cursor as formatted markdown: headings as colored bars (red, yellow, green, blue, orange, and purple for levels 1 to 6), lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
+Push `v` in a project to show it as a notebook. godoist writes the line `godoist:notes` at the end of the project description in Todoist. Thus the notebook view is the same on all your computers. Todoist shows this line in the project description. Push `v` again to go back to the task view and remove the line. The right pane shows the note under the cursor as formatted markdown. Headings show as colored bars: red, yellow, green, blue, orange, and purple for levels 1 to 6. The pane also shows lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
 
 - In a note with checkboxes, `tab` and `shift+tab` move between the checkboxes, and `space` or a click changes a checkbox.
 - To edit the note, push `enter` in the reader, push `E`, or double-click the text. The inline editor opens in the same pane. The editor shows the markdown source with styles. It saves by itself one second after you stop typing, and when you leave it with `esc`, `ctrl+enter`, or `ctrl+s`. The pane title shows `saved`, `saving…`, or `unsaved`.
 - Editor keys: `ctrl+b` bold, `ctrl+i` italic, `ctrl+k` link, `ctrl+t` checkbox, `ctrl+z` / `ctrl+y` undo and redo, `alt+←` / `alt+→` word moves, `alt+backspace` deletes a word. `enter` on a list item starts the next item, and `enter` on an empty item ends the list.
-- `ctrl+f` opens a find box at the top of the editor, with a replace field and the option **match case**. All matches are highlighted. `enter` goes to the next match and `shift+enter` to the previous match. `ctrl+r` replaces the current match and `ctrl+a` replaces all matches. They use the replace field as it is, so an empty field removes the matches (for example, all `**`). `tab` moves between the fields, `space` changes **match case**, and `esc` closes the box.
+- `ctrl+f` opens a find box at the top of the editor, with a replace field and the option **match case**. The box highlights all matches. `enter` goes to the next match and `shift+enter` to the previous match. `ctrl+r` replaces the current match and `ctrl+a` replaces all matches. They use the replace field as it is. Thus an empty field removes the matches (for example, all `**`). `tab` moves between the fields, `space` changes **match case**, and `esc` closes the box.
 
 ### Date dialog
 
@@ -252,7 +252,7 @@ The **Completed** item shows the tasks that you completed in the last 30 days, g
 
 ### Sub-tasks in Today, Upcoming, All tasks, labels, and filters
 
-These views show sub-tasks under their parent tasks. A task with sub-tasks is collapsed at first. Push `z`, or click `▸`, to expand it. If only a sub-task belongs to the view (for example, only the sub-task is due today), the parent comes into the view in gray and is expanded. A parent shows one time, in the group of its earliest date. Each view keeps its own expanded tasks in `~/.local/state/godoist/state.toml`.
+These views show sub-tasks under their parent tasks. At first, a task with sub-tasks shows collapsed. Push `z`, or click `▸`, to expand it. If only a sub-task belongs to the view (for example, only the sub-task is due today), the parent comes into the view, gray and expanded. A parent shows one time, in the group of its earliest date. Each view keeps its own expanded tasks in `~/.local/state/godoist/state.toml`.
 
 ### All tasks
 
@@ -333,7 +333,7 @@ If the computer is offline, godoist starts with the local copy, and the bottom l
 - Todoist parses dates, `#project`, and `@label` in a name when the network is back. Until then, the task shows the typed text with `⏳`.
 - The bottom line shows `offline · 3 changes waiting`.
 
-At the next sync with network, godoist sends the queue to Todoist in order. If Todoist refuses a change (for example, the task was deleted on another device), the status line shows it. Project, section, and label changes need the network: offline, they show `offline · try again later`. If changes wait when you quit, godoist asks first. The queue stays on disk, and godoist sends it at the next start.
+At the next sync with network, godoist sends the queue to Todoist in order. If Todoist refuses a change (for example, because another device deleted the task), the status line shows it. Project, section, and label changes need the network: offline, they show `offline · try again later`. If changes wait when you quit, godoist asks first. The queue stays on disk, and godoist sends it at the next start.
 
 The CLI does not use the queue: offline, its commands fail.
 

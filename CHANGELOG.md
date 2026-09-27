@@ -1,9 +1,9 @@
 # Changelog
 
-All notable changes to this project are documented in this file.
+This file records all notable changes to this project.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Task completion (`x`) and undo (`ctrl+z`). Undo is not available for recurring tasks.
 - Find in the current view (`/`) and server-side Todoist filter queries (`f`). An empty query removes the filter view. Plain words search the task names. A failed query opens the dialog again. `esc` clears the filter and goes back to the previous view. The legend shows `esc clear filter` and `esc clear find`.
 - Comments in the details pane, with attachments. Add (`c`), edit (`e`), and delete (`d`) comments.
-- Task name editing (`e`) in a dialog. Todoist parses the text as in quick add: a date, `#project`, `/section`, `@label`, or `p1`–`p4` changes only that field. In notebook view, the name is saved as typed.
+- Task name editing (`e`) in a dialog. Todoist parses the text as in quick add: a date, `#project`, `/section`, `@label`, or `p1`–`p4` changes only that field. In notebook view, godoist saves the name as typed.
 - A centered dialog for all text inputs except find. Long text wraps, `enter` saves, `esc` cancels.
 - Task dialog for add (`a`), edit (`e`), and sub-task (`A`) with two fields: the name (parsed) and the description (saved as typed). It uses 2/3 of the terminal height, and a long description scrolls. `tab` / `shift+tab` or a click go to the other field. `enter` in the name saves, `enter` in the description starts a new line, and `ctrl+enter` saves from the two fields. In notebook view, the dialog has only the name.
 - Task description editing (`E`).
@@ -38,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests for the mouse handling.
 - Sub-projects in the sidebar show tree lines (`├`, `└`, `│`). Top-level projects line up with Inbox. The `▾` / `▸` marker of a project with sub-projects is after its name.
 - Sub-project moves in the sidebar: `>` and `<` indent and outdent a project, `m` opens a parent picker, and a drag onto a project or onto "My Projects" changes the parent. The project menu has Indent, Outdent, and Move under. Sub-projects move with their parent.
-- Find and replace in the inline editor (`ctrl+f`): a box at the top of the editor with find, replace, and match case. `enter` finds the next match, `ctrl+r` replaces the current match, and `ctrl+a` replaces all. An empty replace field removes the matches. All matches are highlighted, and the box shows "3 of 7". Replace all is one undo step.
+- Find and replace in the inline editor (`ctrl+f`): a box at the top of the editor with find, replace, and match case. `enter` finds the next match, `ctrl+r` replaces the current match, and `ctrl+a` replaces all. An empty replace field removes the matches. The editor highlights all matches, and the box shows "3 of 7". Replace all is one undo step.
 - Sub-tasks in Today, Upcoming, All tasks, labels, and filters: nested under their parents, collapsed by default, expanded with `z` or a click. A due sub-task brings in its parent (gray, expanded). Each view keeps its expanded tasks locally.
 - The inline editor opens with `enter` in the reader, with `E`, or with a double-click on the note text. The reader shows the hint "enter or E · edit this note".
 - Headings in the reader and the editor are full-width bars, colored by level.
@@ -46,12 +46,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Inline markdown editor in notebook view (`E`): the source with live styles, autosave one second after the last change and on `esc`, the save state in the pane title, list continuation, `ctrl+b` / `ctrl+i` / `ctrl+k` / `ctrl+t`, word moves, and undo and redo.
 - Sub-tasks: `A` on a task adds a sub-task (Todoist parses the text). `>` indents a task under the task above it, and `<` outdents it.
 - Manual task order: `[` and `]` move a task among its siblings. At the edge of a section, a top-level task goes into the next section. In All tasks, this works for tasks without a due date.
-- Collapse with `z` for sections, tasks with sub-tasks, and sub-projects. The state is saved in Todoist. `▾` and `▸` markers show it, and a click on a marker toggles it.
+- Collapse with `z` for sections, tasks with sub-tasks, and sub-projects. Todoist keeps the state. `▾` and `▸` markers show it, and a click on a marker toggles it.
 - Multi-select: `s`, `S`, `ctrl`+click, and `shift`+click. Bulk complete, due date, priority, move, labels (with `[~]` for partial labels), and delete. One `ctrl+z` opens again the one-time tasks of a bulk completion.
 - Bulk date dialog: if the selected tasks have different dates, the text field shows `(mixed)`. One `backspace` or `delete` removes it and shows the hint "Clear dates for selected tasks". Then `enter` removes all the dates. Typed text replaces `(mixed)`. `enter` with `(mixed)` makes no change.
 - Labels group in the sidebar with a label view grouped by project. Label management: add, rename, color, favorite, reorder, and delete.
 - Completed view: the tasks completed in the last 30 days, grouped by project. `x` opens a task again.
-- Projects in the sidebar: `A` adds a project (name, then a color picker with a sub-project option), `e` renames, `C` changes the color, `*` adds to or removes from Favorites, `[` and `]` move it among its siblings, and `Delete` or `Backspace` deletes or archives it. Right-click opens a project menu. The Inbox is protected.
+- Projects in the sidebar: `A` adds a project (name, then a color picker with a sub-project option), `e` renames, `C` changes the color, `*` adds to or removes from Favorites, `[` and `]` move it among its siblings, and `Delete` or `Backspace` deletes or archives it. Right-click opens a project menu. godoist protects the Inbox.
 - All tasks view at the end of the sidebar: all tasks grouped by project, dated tasks first by due date.
 - Confirmations open a dialog with buttons. The action button is selected first. The arrows, `tab`, and `h`/`l` select a button, `enter` pushes it, the button keys and a click also work, and `esc` closes the dialog.
 - The sidebar starts with the Inbox. The sidebar and the details pane start with an empty line.
@@ -78,8 +78,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
 - All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.
-- The details pane shows descriptions and comments as formatted markdown in all views. Checkboxes in descriptions and in comments can be changed with `tab` / `space` or a click, in all views.
-- The notebook view setting is saved in Todoist as the line `godoist:notes` at the end of the project description, so it is the same on all computers. At the first start, godoist moves the settings from `~/.local/state/godoist/state.toml` to Todoist.
+- The details pane shows descriptions and comments as formatted markdown in all views. In all views, `tab` / `space` or a click changes the checkboxes in descriptions and in comments.
+- Todoist keeps the notebook view setting as the line `godoist:notes` at the end of the project description. Thus the setting is the same on all computers. At the first start, godoist moves the settings from `~/.local/state/godoist/state.toml` to Todoist.
 
 ### Fixed
 
