@@ -28,7 +28,7 @@ See the [changelog](CHANGELOG.md) for more details.
 
 - Go 1.27 or later, only to build from the source. Release binaries do not need Go. See [Install Go](#install-go).
 - A Todoist account and its API token.
-- A terminal with true color and mouse support. Most modern terminals have both.
+- A terminal with true color and (optional) mouse support. Most modern terminals have both.
 
 ## Installation
 
