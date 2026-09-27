@@ -385,3 +385,7 @@ To make a release:
 ## License
 
 [MIT](LICENSE)
+
+## Disclaimer
+
+godoist comes "as is", without a warranty of any kind (see the [MIT license](LICENSE)). The author is not liable for any loss of data or other damage that godoist causes, directly or indirectly. This includes the tasks, notes, comments, projects, labels, and settings in your Todoist account. Keep a backup of the data that is important to you.
