@@ -8,23 +8,27 @@ godoist is a terminal program for [Todoist](https://todoist.com). It has a text 
 
 ## Features
 
-- Three panes: sidebar, task list, and details.
-- Project colors from the Todoist palette. Light and dark terminal themes.
-- Inbox, Today, Upcoming, Favorites, the project tree, labels, All tasks, and Completed, with task counts.
-- Quick add with Todoist natural-language parsing: dates, `#project`, `/section`, `@label`, `p1`–`p4`.
-- A date dialog with a text field, a month calendar, and a time field.
+- Three panes: sidebar, task list, and details. Todoist project colors, and light and dark terminal themes.
+- Inbox, Today, Upcoming, Favorites, the project tree, labels, All tasks, and Completed, with task counts. All tasks and the label views group the tasks by project and section.
+- Quick add and edit with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description.
+- A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
 - Sub-tasks, manual order, priorities, labels, moves, comments, descriptions, sections, and projects.
 - Collapse and expand of sections, sub-tasks, and sub-projects.
 - Multi-select with bulk actions.
-- Notebook view per project, with a markdown reader and an inline markdown editor.
+- Markdown everywhere: descriptions, comments, and notes show formatted headings, lists, checkboxes, links, and code with syntax colors. Checkboxes toggle with a key or a click.
+- One markdown editor for notes, descriptions, and comments, with a live preview, format keys, autosave, find and replace, text selection, and the system clipboard.
+- Notebook view per project: note titles with previews and a markdown reader. Todoist keeps the setting, so it is the same on all computers.
+- Links in task names are clickable, and `o` opens them in the browser.
 - Todoist filter queries and a find in the current view.
-- Mouse support: click, double-click, right-click menus, drag to move, and the wheel.
-- A local cache. The program starts from the cache and syncs in the background.
+- Mouse support: click, double-click, right-click menus, drag to move, drag to select text, and the wheel.
+- A local cache: the program starts at once and syncs in the background. Offline, task changes wait in a queue and go to Todoist later.
+- Fast on old computers: a key press draws only what changes.
 - CLI commands with aligned columns, TSV, or JSON output.
+- Binaries for Linux and macOS in each release.
 
 ## Requirements
 
-- Go 1.27 or later, to build the program. See [Install Go](#install-go).
+- Go 1.27 or later, only to build from the source. Release binaries do not need Go. See [Install Go](#install-go).
 - A Todoist account and its API token.
 - A terminal with true color and mouse support. Most modern terminals have both.
 
@@ -161,13 +165,13 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
 | `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
-| `E` | Edit the description in the markdown editor (see [Notebook view](#notebook-view)). |
+| `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
 | `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |
 | `m` | Move the task to a project or a section. |
-| `c` | Add a comment in the markdown editor. godoist adds the comment when you close the editor. |
+| `c` | Add a comment in the [markdown editor](#markdown-editor). godoist adds the comment when you close the editor. |
 | `A` | Add a sub-task to the task under the cursor. The dialog has a name and a description. |
 | `>` / `<` | Indent the task under the task above it, or outdent it one level. |
 | `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
@@ -194,21 +198,36 @@ The `a`, `e`, and `A` keys open a dialog with two fields: the name and the descr
 
 Todoist parses the name as in quick add. godoist saves the description as typed. In notebook view, the dialog has only the name.
 
-### Descriptions and comments
+### Markdown
 
-The details pane shows task descriptions and comments as formatted markdown, as the notebook reader does. A description or a comment can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` completes the task.
+godoist shows markdown in descriptions and comments in the details pane, and in notes in the notebook reader:
 
-Descriptions and comments use the same markdown editor as notes, with the live preview. The editor saves a description or a changed comment by itself one second after you stop typing. It adds a new comment when you close the editor. It does not save an empty comment. `esc`, `ctrl+enter`, or `ctrl+s` closes the editor, and `ctrl+e` opens the text in `$EDITOR`.
+- Headings show as colored bars: red, yellow, green, blue, orange, and purple for levels 1 to 6.
+- **Bold**, *italic*, `code`, and ~~strike~~ show without their marks.
+- Lists show with `•`, and task lists with `☐` / `☑` checkboxes.
+- Links show as their text, as terminal hyperlinks.
+- Fenced code shows with syntax colors. Tables and quotes also show formatted.
+
+A description, a comment, or a note can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. In task view with no checkbox selected, `space` completes the task.
+
+### Markdown editor
+
+Notes, descriptions (`E`), and comments (`c`, and `e` on a selected comment) use one markdown editor. It opens in the details pane.
+
+- **Live preview.** Each line shows formatted markdown, as the reader does, except the line with the cursor, which shows its source. A fenced code block or a table shows as source while the cursor is in it. While the find box is open, all lines show as source.
+- **Autosave.** The editor saves a note, a description, or a changed comment by itself one second after you stop typing. It adds a new comment when you close the editor, and it does not save an empty comment. The pane title shows `saved`, `saving…`, or `unsaved`.
+- **Close.** `esc`, `ctrl+enter`, or `ctrl+s` saves and closes the editor. `ctrl+e` opens the text in `$VISUAL` or `$EDITOR`, and the text comes back into the editor.
+- **Format keys.** `ctrl+b` bold, `ctrl+i` italic, `ctrl+k` link, `ctrl+t` checkbox. `enter` on a list item starts the next item, and `enter` on an empty item ends the list.
+- **Move and undo.** `alt+←` / `alt+→` move word by word, `alt+backspace` deletes a word, and `ctrl+z` / `ctrl+y` undo and redo.
+- **Selection.** `shift` with the arrows, `home`, or `end` selects text. `alt+shift+←` / `alt+shift+→` (or `ctrl+shift`) select word by word, and `ctrl+a` selects all. A mouse drag also selects (`shift`+drag stays the terminal selection). Typed text, `enter`, `backspace`, `delete`, or a paste replaces the selection.
+- **Clipboard.** `ctrl+c` copies and `ctrl+x` cuts to the system clipboard, and `ctrl+v` pastes from it. The terminal sends the clipboard (OSC 52), so kitty can ask you to allow the paste the first time. The task dialog fields have the same keys.
+- **Find and replace.** `ctrl+f` opens a find box at the top of the editor, with a replace field and the option **match case**. The box highlights all matches. `enter` goes to the next match and `shift+enter` to the previous match. `ctrl+r` replaces the current match and `ctrl+a` replaces all matches. They use the replace field as it is. Thus an empty field removes the matches (for example, all `**`). `tab` moves between the fields, `space` changes **match case**, and `esc` closes the box.
 
 ### Notebook view
 
-Push `v` in a project to show it as a notebook. godoist writes the line `godoist:notes` at the end of the project description in Todoist. Thus the notebook view is the same on all your computers. Todoist shows this line in the project description. Push `v` again to go back to the task view and remove the line. The right pane shows the note under the cursor as formatted markdown. Headings show as colored bars: red, yellow, green, blue, orange, and purple for levels 1 to 6. The pane also shows lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
+Push `v` in a project to show it as a notebook. The list shows the note titles with previews. The right pane shows the note under the cursor as formatted markdown. godoist writes the line `godoist:notes` at the end of the project description in Todoist. Thus the notebook view is the same on all your computers. Todoist shows this line in the project description. Push `v` again to go back to the task view and remove the line.
 
-- In a note with checkboxes, `tab` and `shift+tab` move between the checkboxes, and `space` or a click changes a checkbox.
-- To edit the note, push `enter` in the reader, push `E`, or double-click the text. The inline editor opens in the same pane. The editor shows a live preview: each line shows formatted markdown, as the reader does, except the line with the cursor, which shows its source. A fenced code block or a table shows as source while the cursor is in it. While the find box is open, all lines show as source. It saves by itself one second after you stop typing, and when you leave it with `esc`, `ctrl+enter`, or `ctrl+s`. The pane title shows `saved`, `saving…`, or `unsaved`.
-- Editor keys: `ctrl+b` bold, `ctrl+i` italic, `ctrl+k` link, `ctrl+t` checkbox, `ctrl+z` / `ctrl+y` undo and redo, `alt+←` / `alt+→` word moves, `alt+backspace` deletes a word. `enter` on a list item starts the next item, and `enter` on an empty item ends the list.
-- Selection: `shift` with the arrows, `home`, or `end` selects text. `alt+shift+←` / `alt+shift+→` (or `ctrl+shift`) select word by word, and `ctrl+a` selects all. A mouse drag also selects (`shift`+drag stays the terminal selection). Typed text, `enter`, `backspace`, `delete`, or a paste replaces the selection. `ctrl+c` copies and `ctrl+x` cuts to the system clipboard, and `ctrl+v` pastes from it. The terminal sends the clipboard (OSC 52), so kitty can ask you to allow the paste the first time. The task dialog fields have the same keys.
-- `ctrl+f` opens a find box at the top of the editor, with a replace field and the option **match case**. The box highlights all matches. `enter` goes to the next match and `shift+enter` to the previous match. `ctrl+r` replaces the current match and `ctrl+a` replaces all matches. They use the replace field as it is. Thus an empty field removes the matches (for example, all `**`). `tab` moves between the fields, `space` changes **match case**, and `esc` closes the box.
+To edit a note, push `enter` in the reader, push `E`, or double-click the text. The [markdown editor](#markdown-editor) opens in the same pane. `a` adds a note with the title as typed.
 
 ### Date dialog
 
@@ -295,6 +314,8 @@ These keys work in a project:
 - Click a `▾` or `▸` marker to collapse or expand.
 - `ctrl`+click selects a task, and `shift`+click selects a range.
 - Drag a task to a sidebar project or a section header to move it.
+- In the markdown editor, click to put the cursor, and drag to select text.
+- Double-click a comment in the details pane to edit it.
 - Use the wheel to scroll.
 
 To select text in the terminal, hold `Shift` while you drag.
