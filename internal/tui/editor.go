@@ -149,7 +149,7 @@ func (m Model) editSaved(msg editSavedMsg) (tea.Model, tea.Cmd) {
 	m.edit = nil
 	m.setStatus("saved", false)
 	if m.quitting && m.pending == 0 {
-		return m, tea.Quit
+		return m.endQuit()
 	}
 	next := m.startSync()
 	return m, next

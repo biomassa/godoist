@@ -198,7 +198,9 @@ type Model struct {
 	statusErr bool
 	closed    [][]string // undo stack: each entry is the one-time tasks of one completion
 
-	notesMoved bool // this run wrote the local notebook settings to Todoist
+	notesMoved bool            // this run wrote the local notebook settings to Todoist
+	offline    bool            // the last sync could not reach Todoist
+	pendingIDs map[string]bool // tasks with a queued change that only Todoist can finish (⏳)
 
 	md *mdCache
 }
@@ -210,6 +212,14 @@ func New(client *todoist.Client, token string) Model {
 	m := Model{client: client, token: token, input: ti, comCur: -1, chkCur: -1, md: newMDCache()}
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
+	// The offline queue keeps task changes while the computer is offline.
+	if p, err := cache.QueuePath(token); err == nil {
+		q, err := todoist.OpenQueue(p)
+		if err != nil {
+			m.setStatus(err.Error(), true)
+		}
+		client.SetQueue(q)
+	}
 	if st := cache.Load(token); st.Token != "" {
 		m.applyState(st) // show the cached data at once. Init starts a sync.
 	}
@@ -273,14 +283,26 @@ func (m Model) runFilter(q string) tea.Cmd {
 
 // write runs an API change and counts it as pending, so that quit waits for it.
 // The actionMsg handler starts a sync after the change.
+// A task change that goes into the offline queue gets " · offline" after its message.
+// Other changes fail offline with "offline · try again later".
 func (m *Model) write(done string, f func(context.Context) (string, error)) tea.Cmd {
 	m.pending++
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
+		ctx = todoist.WithQueuedFlag(ctx)
 		text, err := f(ctx)
 		if text == "" {
 			text = done
+		}
+		switch {
+		case err != nil && todoist.IsOffline(err):
+			err = fmt.Errorf("offline · try again later")
+		case err == nil && todoist.Queued(ctx):
+			if text == "" {
+				text = "Saved"
+			}
+			text += " · offline"
 		}
 		return actionMsg{text: text, err: err}
 	}
@@ -366,10 +388,21 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, m.startSync())
 		}
 		if msg.err != nil {
-			m.setStatus("sync failed: "+msg.err.Error(), true)
+			if todoist.IsOffline(msg.err) {
+				m.offline = true // the status line shows it at the right
+				if m.status == "syncing…" {
+					m.setStatus("", false)
+				}
+			} else {
+				m.setStatus("sync failed: "+msg.err.Error(), true)
+			}
 			return m, tea.Batch(cmds...)
 		}
+		m.offline = false
 		m.applyState(msg.st)
+		if errs := m.client.Queue().TakeErrors(); len(errs) > 0 {
+			m.setStatus("Todoist refused a change made offline: "+strings.Join(errs, " · "), true)
+		}
 		cmds = append(cmds, m.moveNotesModes())
 		if m.status == "syncing…" { // the sync marker at the right now shows the time
 			m.setStatus("", false)
@@ -410,8 +443,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else if msg.text != "" {
 			m.setStatus(msg.text, false)
 		}
+		if m.client.Queue().Len() > 0 {
+			m.applyState(m.st) // show the queued changes. A sync cannot while offline.
+		}
 		if m.quitting && m.pending == 0 {
-			return m, tea.Quit
+			return m.endQuit()
 		}
 		cmds := []tea.Cmd{m.startSync()}
 		if msg.err != nil && msg.retryMode != inputNone && m.inputMode == inputNone && m.edit == nil && !m.quitting {
@@ -496,10 +532,31 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // quit stops the program. If writes are pending, it waits for them first.
 func (m Model) quit() (tea.Model, tea.Cmd) {
 	if m.pending == 0 {
-		return m, tea.Quit
+		return m.endQuit()
 	}
 	m.quitting = true
 	m.setStatus(fmt.Sprintf("saving %d change(s) before quitting… (ctrl+c to force)", m.pending), false)
+	return m, nil
+}
+
+// endQuit quits when no write runs. If changes wait in the offline queue, a dialog asks
+// first: the changes go to Todoist at the next start.
+func (m Model) endQuit() (tea.Model, tea.Cmd) {
+	m.quitting = false
+	n := m.client.Queue().Len()
+	if n == 0 {
+		return m, tea.Quit
+	}
+	verb := "are"
+	if n == 1 {
+		verb = "is"
+	}
+	m.confirm = &confirmPrompt{title: "Quit?",
+		text: plural(n, "change") + " " + verb + " not in Todoist yet. They go at the next start.",
+		buttons: []confirmButton{
+			{key: "q", label: "Quit", danger: true, run: func(*Model) tea.Cmd { return tea.Quit }},
+			{key: "s", label: "Stay"},
+		}}
 	return m, nil
 }
 
@@ -701,7 +758,7 @@ func (m *Model) quickAdd(text, desc string) tea.Cmd {
 	}
 	client, projects := m.client, m.projects
 	return m.write("", func(ctx context.Context) (string, error) {
-		t, err := client.QuickAdd(ctx, text)
+		t, err := client.QuickAddOn(ctx, text, date) // date only if the text has no date
 		if err != nil {
 			return "", err
 		}
@@ -711,16 +768,9 @@ func (m *Model) quickAdd(text, desc string) tea.Cmd {
 			}
 			t.ProjectID = projectID
 		}
-		fields := map[string]any{}
-		if date != "" && t.Due == nil {
-			fields["due_date"] = date
-		}
 		if desc != "" {
-			fields["description"] = desc
-		}
-		if len(fields) > 0 {
-			if _, err := client.UpdateTask(ctx, t.ID, fields); err != nil {
-				return "", fmt.Errorf("added, but setting the date or description failed: %w", err)
+			if _, err := client.UpdateTask(ctx, t.ID, map[string]any{"description": desc}); err != nil {
+				return "", fmt.Errorf("added, but the description was not saved: %w", err)
 			}
 		}
 		where := ""
@@ -794,44 +844,38 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 		return withRetry(cmd, inputRename, text)
 	}
 	projects, sections := m.projects, m.sections
+	var newDesc *string
+	if descChanged {
+		newDesc = desc
+	}
 	cmd := m.write("", func(ctx context.Context) (string, error) {
-		p, err := client.Parse(ctx, text)
+		// Offline, or while changes wait, the name waits in the queue. Todoist parses it later.
+		later := "Renamed to “" + text + "” · Todoist parses it later"
+		if client.Queue().Len() > 0 {
+			return later, client.QueueName(ctx, cur, text, newDesc, names)
+		}
+		p, fields, err := client.ApplyName(ctx, cur, text, newDesc, names)
+		if err != nil && todoist.IsOffline(err) && fields == nil { // the parse did not get to Todoist
+			return later, client.QueueName(ctx, cur, text, newDesc, names)
+		}
 		if err != nil {
 			return "", err
 		}
-		fields := map[string]any{"content": p.Content}
 		changes := []string{"Renamed to “" + p.Content + "”"}
-		if descChanged {
-			fields["description"] = *desc
+		if newDesc != nil {
 			changes = append(changes, "description saved")
 		}
-		if p.Due != nil {
-			fields["due_string"] = p.Due.String
-			changes = append(changes, "due "+p.Due.String)
+		if ds, ok := fields["due_string"].(string); ok {
+			changes = append(changes, "due "+ds)
 		}
-		if p.Priority > 1 && p.Priority != cur.Priority {
-			fields["priority"] = p.Priority
+		if _, ok := fields["priority"]; ok {
 			changes = append(changes, fmt.Sprintf("P%d", p.UIPriority()))
 		}
 		if len(p.Labels) > 0 {
-			labels := append([]string(nil), cur.Labels...)
-			for _, l := range p.Labels {
-				if !slices.Contains(labels, l) {
-					labels = append(labels, l)
-				}
-			}
-			fields["labels"] = labels
 			changes = append(changes, "@"+strings.Join(p.Labels, " @"))
 		}
-		if _, err := client.UpdateTask(ctx, id, fields); err != nil {
-			return "", err
-		}
-		// Quick add puts a task without #project in the Inbox. Move only if the text named a project.
-		if names && (p.ProjectID != cur.ProjectID || p.Section() != cur.Section()) {
-			if err := client.Move(ctx, id, p.ProjectID, p.Section()); err != nil {
-				return "", fmt.Errorf("renamed, but the move failed: %w", err)
-			}
-			where := "#" + projects[p.ProjectID].Name
+		if pr := projects[p.ProjectID]; pr != nil && names && (p.ProjectID != cur.ProjectID || p.Section() != cur.Section()) {
+			where := "#" + pr.Name
 			if s := sections[p.Section()]; s != nil {
 				where += " / " + s.Name
 			}
@@ -1327,7 +1371,10 @@ func (m Model) toggleNotes() (tea.Model, tea.Cmd) {
 // applyState shows a new replica.
 func (m *Model) applyState(st todoist.SyncState) {
 	m.st = st
-	m.snap = st.Snapshot()
+	// The screen shows the replica with the changes that wait in the offline queue.
+	view := st.Clone()
+	m.pendingIDs = m.client.Queue().Overlay(&view)
+	m.snap = view.Snapshot()
 	m.loaded = true
 	m.projects = map[string]*todoist.Project{}
 	for i := range m.snap.Projects {

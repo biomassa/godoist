@@ -35,7 +35,13 @@ func (s SyncState) Clone() SyncState {
 }
 
 // Sync pulls changes since the last sync (everything on first use) into s.
+// With an offline queue, Sync first sends the changes that wait.
 func (c *Client) Sync(ctx context.Context, s *SyncState) error {
+	if c.queue.Len() > 0 {
+		if err := c.flush(ctx, s); err != nil {
+			return err
+		}
+	}
 	token := s.Token
 	if token == "" {
 		token = "*"

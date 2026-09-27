@@ -544,9 +544,21 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 	if r.done || r.pulled {
 		contentHex = hexMuted
 	}
-	content := titleLine(t.Content, contentW, base.Foreground(c(contentHex)))
+	mark := ""
+	if m.pendingIDs[t.ID] { // a queued change that only Todoist can finish
+		mark = base.Render(" ⏳")
+	}
+	content := titleLine(t.Content, contentW-lipgloss.Width(mark), base.Foreground(c(contentHex))) + mark
 	gap := w - lipgloss.Width(left) - lipgloss.Width(content) - lipgloss.Width(right)
 	return left + content + base.Render(strings.Repeat(" ", max(0, gap))) + right
+}
+
+// plural is "1 change" or "3 changes".
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 // dueHex is the color of a due label, as in the Todoist app.
@@ -738,9 +750,16 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 
 	// Line 2: the sync state at the right.
 	sync := st(hexDim).Render("synced " + m.st.SyncedAt.Format("15:04") + " ")
+	waiting := m.client.Queue().Len()
 	switch {
 	case m.pending > 0:
 		sync = st(hexTomorrow).Render(fmt.Sprintf("saving %d… ", m.pending))
+	case waiting > 0 && m.offline:
+		sync = st(hexTomorrow).Render("offline · " + plural(waiting, "change") + " waiting ")
+	case waiting > 0:
+		sync = st(hexTomorrow).Render("sending " + plural(waiting, "change") + "… ")
+	case m.offline:
+		sync = st(hexTomorrow).Render("offline ")
 	case m.syncing > 0:
 		sync = st(hexTomorrow).Render("syncing… ")
 	}

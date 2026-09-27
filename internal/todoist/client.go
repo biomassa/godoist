@@ -20,12 +20,17 @@ const baseURL = "https://api.todoist.com/api/v1"
 type Client struct {
 	token string
 	http  *http.Client
+	queue *Queue // the offline queue of the TUI, or nil
+	base  string // the API address; tests change it
 }
 
 // New returns a client for the token.
 func New(token string) *Client {
-	return &Client{token: token, http: &http.Client{Timeout: 20 * time.Second}}
+	return &Client{token: token, http: &http.Client{Timeout: 20 * time.Second}, base: baseURL}
 }
+
+// SetBaseURL changes the API address. Tests use it for a fake server.
+func (c *Client) SetBaseURL(u string) { c.base = u }
 
 // APIError is a response with a status code of 300 or more.
 type APIError struct {
@@ -48,7 +53,7 @@ func (e *APIError) Error() string {
 // do sends a request and decodes the JSON response into out. It sends a url.Values body
 // as a form and other bodies as JSON.
 func (c *Client) do(ctx context.Context, method, path string, q url.Values, body, out any) error {
-	u := baseURL + path
+	u := c.base + path
 	if len(q) > 0 {
 		u += "?" + q.Encode()
 	}
@@ -139,7 +144,53 @@ func (c *Client) Filter(ctx context.Context, query string) ([]Task, error) {
 }
 
 // QuickAdd creates a task from natural-language text ("Buy milk tomorrow #home p2").
+// If the add goes into the offline queue, the task has a temporary ID and the text as
+// its name.
 func (c *Client) QuickAdd(ctx context.Context, text string) (Task, error) {
+	var t Task
+	temp := NewTempID()
+	queued, err := c.taskWrite(ctx, Op{Kind: OpQuick, Text: text, TempID: temp}, true, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/quick", nil, map[string]string{"text": text}, &t)
+	})
+	if queued {
+		t = Task{ID: temp, Content: text}
+	}
+	return t, err
+}
+
+// QuickAddOn is QuickAdd with a date for a text that has no date: if Todoist finds no
+// date in text, the task gets date ("2006-01-02"). Offline, the date goes into the queue
+// with the add, because only Todoist can tell if the text has a date.
+func (c *Client) QuickAddOn(ctx context.Context, text, date string) (Task, error) {
+	var t Task
+	temp := NewTempID()
+	queued, err := c.taskWrite(ctx, Op{Kind: OpQuick, Text: text, TempID: temp, Date: date}, true, func() error {
+		var err error
+		t, err = c.quickAddDated(ctx, text, date)
+		return err
+	})
+	if queued {
+		t = Task{ID: temp, Content: text}
+	}
+	return t, err
+}
+
+// quickAddDated creates a task with quick add at once, and gives it date if Todoist found
+// no date in text.
+func (c *Client) quickAddDated(ctx context.Context, text, date string) (Task, error) {
+	t, err := c.quickAddNow(ctx, text)
+	if err != nil || date == "" || t.Due != nil {
+		return t, err
+	}
+	if err := c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(t.ID), nil, map[string]any{"due_date": date}, nil); err != nil {
+		return t, fmt.Errorf("added, but setting the date failed: %w", err)
+	}
+	t.Due = &Due{Date: date, String: date}
+	return t, nil
+}
+
+// quickAddNow creates a task with quick add at once. The offline queue is not used.
+func (c *Client) quickAddNow(ctx context.Context, text string) (Task, error) {
 	var t Task
 	err := c.do(ctx, http.MethodPost, "/tasks/quick", nil, map[string]string{"text": text}, &t)
 	return t, err
@@ -148,14 +199,14 @@ func (c *Client) QuickAdd(ctx context.Context, text string) (Task, error) {
 // Parse returns the result of Todoist's natural-language parser for text. The API has no
 // parse-only call, so Parse quick-adds a temporary task and deletes it at once.
 func (c *Client) Parse(ctx context.Context, text string) (Task, error) {
-	t, err := c.QuickAdd(ctx, text)
+	t, err := c.quickAddNow(ctx, text) // a parse is never queued: it needs the answer now
 	if err != nil {
 		return t, err
 	}
 	if t.Content == "" {
 		return t, fmt.Errorf("the text has no name after parsing")
 	}
-	if err := c.Delete(ctx, t.ID); err != nil {
+	if err := c.do(ctx, http.MethodDelete, "/tasks/"+url.PathEscape(t.ID), nil, nil, nil); err != nil {
 		return t, fmt.Errorf("parsed, but the temporary task %s was not deleted: %w", t.ID, err)
 	}
 	return t, nil
@@ -178,8 +229,12 @@ func (c *Client) MoveOccurrence(ctx context.Context, id, date, rule, lang string
 	if lang == "" {
 		lang = "en"
 	}
-	return c.syncCommand(ctx, "item_update", map[string]any{"id": id, "due": map[string]any{
-		"date": date, "string": rule, "lang": lang, "is_recurring": true}})
+	args := map[string]any{"id": id, "due": map[string]any{
+		"date": date, "string": rule, "lang": lang, "is_recurring": true}}
+	_, err := c.taskWrite(ctx, command("item_update", args), false, func() error {
+		return c.syncCommand(ctx, "item_update", args)
+	})
+	return err
 }
 
 // syncCommand sends one Sync API command and returns an error if Todoist does not accept it.
@@ -253,7 +308,10 @@ func (c *Client) ReorderProjects(ctx context.Context, ids []string) error {
 
 // MoveToParent makes a task a sub-task of parentID, at the end of its sub-tasks.
 func (c *Client) MoveToParent(ctx context.Context, id, parentID string) error {
-	return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/move", nil, map[string]string{"parent_id": parentID}, nil)
+	_, err := c.taskWrite(ctx, command("item_move", map[string]any{"id": id, "parent_id": parentID}), false, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/move", nil, map[string]string{"parent_id": parentID}, nil)
+	})
+	return err
 }
 
 // ReorderTasks gives sibling tasks the order of ids (the first gets 1).
@@ -262,13 +320,24 @@ func (c *Client) ReorderTasks(ctx context.Context, ids []string) error {
 	for i, id := range ids {
 		list[i] = map[string]any{"id": id, "child_order": i + 1}
 	}
-	return c.syncCommand(ctx, "item_reorder", map[string]any{"items": list})
+	args := map[string]any{"items": list}
+	_, err := c.taskWrite(ctx, command("item_reorder", args), false, func() error {
+		return c.syncCommand(ctx, "item_reorder", args)
+	})
+	return err
 }
 
 // SetCollapsed saves the collapsed state of a task, a section, or a project.
 // kind is "tasks", "sections", or "projects".
 func (c *Client) SetCollapsed(ctx context.Context, kind, id string, collapsed bool) error {
-	return c.do(ctx, http.MethodPost, "/"+kind+"/"+url.PathEscape(id), nil, map[string]any{"is_collapsed": collapsed}, nil)
+	rest := func() error {
+		return c.do(ctx, http.MethodPost, "/"+kind+"/"+url.PathEscape(id), nil, map[string]any{"is_collapsed": collapsed}, nil)
+	}
+	if kind != "tasks" { // only task changes go into the offline queue
+		return rest()
+	}
+	_, err := c.taskWrite(ctx, command("item_update", map[string]any{"id": id, "is_collapsed": collapsed}), false, rest)
+	return err
 }
 
 // CompletedTasks returns the tasks completed between since and until, newest first.
@@ -341,28 +410,73 @@ func (c *Client) ReorderSections(ctx context.Context, ids []string) error {
 // AddTask creates a task with literal content (no natural-language parsing).
 func (c *Client) AddTask(ctx context.Context, content, projectID, sectionID string) (Task, error) {
 	body := map[string]string{"content": content, "project_id": projectID}
+	args := map[string]any{"content": content, "project_id": projectID}
 	if sectionID != "" {
 		body["section_id"] = sectionID
+		args["section_id"] = sectionID
 	}
 	var t Task
-	err := c.do(ctx, http.MethodPost, "/tasks", nil, body, &t)
+	temp := NewTempID()
+	op := command("item_add", args)
+	op.TempID = temp
+	queued, err := c.taskWrite(ctx, op, true, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks", nil, body, &t)
+	})
+	if queued {
+		t = Task{ID: temp, Content: content, ProjectID: projectID}
+		if sectionID != "" {
+			t.SectionID = &sectionID
+		}
+	}
 	return t, err
 }
 
 // Move moves a task to a project. If sectionID is not empty, it moves the task to that section.
 func (c *Client) Move(ctx context.Context, id, projectID, sectionID string) error {
 	body := map[string]string{"project_id": projectID}
+	args := map[string]any{"id": id, "project_id": projectID}
 	if sectionID != "" {
 		body = map[string]string{"section_id": sectionID}
+		args = map[string]any{"id": id, "section_id": sectionID}
 	}
-	return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/move", nil, body, nil)
+	_, err := c.taskWrite(ctx, command("item_move", args), false, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/move", nil, body, nil)
+	})
+	return err
 }
 
 // UpdateTask sets task fields, e.g. {"due_date": "2026-09-26"} or {"content": "…"}.
+// If the change goes into the offline queue, the task has only its ID.
 func (c *Client) UpdateTask(ctx context.Context, id string, fields map[string]any) (Task, error) {
 	var t Task
-	err := c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id), nil, fields, &t)
+	queued, err := c.taskWrite(ctx, command("item_update", syncFields(id, fields)), false, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id), nil, fields, &t)
+	})
+	if queued {
+		t = Task{ID: id}
+	}
 	return t, err
+}
+
+// syncFields converts REST task fields to the arguments of the Sync item_update command.
+// The Sync API has one "due" object in place of due_string, due_date, and due_datetime.
+func syncFields(id string, fields map[string]any) map[string]any {
+	args := map[string]any{"id": id}
+	for k, v := range fields {
+		switch k {
+		case "due_string":
+			if s, _ := v.(string); strings.EqualFold(strings.TrimSpace(s), "no date") {
+				args["due"] = nil
+			} else {
+				args["due"] = map[string]any{"string": v}
+			}
+		case "due_date", "due_datetime":
+			args["due"] = map[string]any{"date": v}
+		default:
+			args[k] = v
+		}
+	}
+	return args
 }
 
 // CreateLabel creates a personal label. A task can hold an unknown label name,
@@ -376,33 +490,58 @@ func (c *Client) CreateLabel(ctx context.Context, name string) (Label, error) {
 // AddComment adds a comment to a task.
 func (c *Client) AddComment(ctx context.Context, taskID, content string) (Comment, error) {
 	var cm Comment
-	err := c.do(ctx, http.MethodPost, "/comments", nil, map[string]string{"task_id": taskID, "content": content}, &cm)
+	temp := NewTempID()
+	op := command("note_add", map[string]any{"item_id": taskID, "content": content})
+	op.TempID = temp
+	queued, err := c.taskWrite(ctx, op, true, func() error {
+		return c.do(ctx, http.MethodPost, "/comments", nil, map[string]string{"task_id": taskID, "content": content}, &cm)
+	})
+	if queued {
+		cm = Comment{ID: temp, TaskID: taskID, Content: content, PostedAt: time.Now().UTC().Format(time.RFC3339)}
+	}
 	return cm, err
 }
 
 // UpdateComment replaces the text of a comment.
 func (c *Client) UpdateComment(ctx context.Context, id, content string) (Comment, error) {
 	var cm Comment
-	err := c.do(ctx, http.MethodPost, "/comments/"+url.PathEscape(id), nil, map[string]string{"content": content}, &cm)
+	queued, err := c.taskWrite(ctx, command("note_update", map[string]any{"id": id, "content": content}), false, func() error {
+		return c.do(ctx, http.MethodPost, "/comments/"+url.PathEscape(id), nil, map[string]string{"content": content}, &cm)
+	})
+	if queued {
+		cm = Comment{ID: id, Content: content}
+	}
 	return cm, err
 }
 
 // DeleteComment deletes a comment.
 func (c *Client) DeleteComment(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodDelete, "/comments/"+url.PathEscape(id), nil, nil, nil)
+	_, err := c.taskWrite(ctx, command("note_delete", map[string]any{"id": id}), false, func() error {
+		return c.do(ctx, http.MethodDelete, "/comments/"+url.PathEscape(id), nil, nil, nil)
+	})
+	return err
 }
 
 // Close completes a task. For a recurring task, it moves the due date to the next occurrence.
 func (c *Client) Close(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/close", nil, nil, nil)
+	_, err := c.taskWrite(ctx, command("item_close", map[string]any{"id": id}), false, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/close", nil, nil, nil)
+	})
+	return err
 }
 
 // Reopen makes a completed task active again.
 func (c *Client) Reopen(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/reopen", nil, nil, nil)
+	_, err := c.taskWrite(ctx, command("item_uncomplete", map[string]any{"id": id}), false, func() error {
+		return c.do(ctx, http.MethodPost, "/tasks/"+url.PathEscape(id)+"/reopen", nil, nil, nil)
+	})
+	return err
 }
 
 // Delete deletes a task permanently.
 func (c *Client) Delete(ctx context.Context, id string) error {
-	return c.do(ctx, http.MethodDelete, "/tasks/"+url.PathEscape(id), nil, nil, nil)
+	_, err := c.taskWrite(ctx, command("item_delete", map[string]any{"id": id}), false, func() error {
+		return c.do(ctx, http.MethodDelete, "/tasks/"+url.PathEscape(id), nil, nil, nil)
+	})
+	return err
 }

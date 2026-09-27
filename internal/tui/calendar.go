@@ -221,6 +221,8 @@ func (m Model) calParsed(msg calParsedMsg) (tea.Model, tea.Cmd) {
 	}
 	c.parsing = false
 	switch {
+	case msg.err != nil && todoist.IsOffline(msg.err):
+		c.note, c.noteErr = "offline · enter saves the text, and Todoist reads the date later", false
 	case msg.err != nil:
 		c.note, c.noteErr = "parse failed: "+msg.err.Error(), true
 	case msg.due == nil:
@@ -506,7 +508,7 @@ func (m Model) calSaved(msg calSavedMsg) (tea.Model, tea.Cmd) {
 	m.cal = nil
 	m.setStatus(msg.text, false)
 	if m.quitting && m.pending == 0 {
-		return m, tea.Quit
+		return m.endQuit()
 	}
 	next := m.startSync()
 	return m, next

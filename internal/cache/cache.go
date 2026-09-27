@@ -31,6 +31,17 @@ func path() (string, error) {
 	return filepath.Join(dir, "godoist", "sync.json"), nil
 }
 
+// QueuePath is the file of the offline queue of the account with token:
+// ~/.cache/godoist/queue-<fingerprint>.json on Linux. Each account has its own queue, so
+// that a change never goes to a different account.
+func QueuePath(token string) (string, error) {
+	dir, err := os.UserCacheDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "godoist", "queue-"+fingerprint(token)+".json"), nil
+}
+
 // fingerprint identifies the account without storing the token.
 func fingerprint(token string) string {
 	h := sha256.Sum256([]byte(token))

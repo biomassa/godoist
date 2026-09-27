@@ -177,7 +177,7 @@ func (m Model) noteSaved(msg noteSavedMsg) (tea.Model, tea.Cmd) {
 		e.saving, e.err, e.saved = false, "", msg.text
 	}
 	if m.quitting && m.pending == 0 {
-		return m, tea.Quit
+		return m.endQuit()
 	}
 	next := m.startSync()
 	return m, next

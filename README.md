@@ -129,6 +129,7 @@ godoist writes these files:
 |---|---|
 | `~/.config/godoist/config.toml` | The API token (after `godoist login`). |
 | `~/.cache/godoist/sync.json` | The local copy of your account (owner-only permissions). |
+| `~/.cache/godoist/queue-*.json` | The task changes that wait for the network (owner-only permissions). |
 | `~/.local/state/godoist/state.toml` | The expanded tasks of each overview. |
 
 ## TUI
@@ -322,7 +323,19 @@ godoist keeps a local copy of your account and uses the Todoist Sync API. It syn
 - when the terminal gets the focus,
 - when you push `r`.
 
-Each change goes to Todoist at once. godoist does not keep changes that only exist on your computer.
+Each change goes to Todoist at once.
+
+### Offline
+
+If the computer is offline, godoist starts with the local copy, and the bottom line shows `offline`. Task changes go into a queue on your computer, and the list shows them at once:
+
+- Add, complete, reopen, edit the name or the description, date, priority, move, labels, order, sub-tasks, comments, and delete.
+- Todoist parses dates, `#project`, and `@label` in a name when the network is back. Until then, the task shows the typed text with `⏳`.
+- The bottom line shows `offline · 3 changes waiting`.
+
+At the next sync with network, godoist sends the queue to Todoist in order. If Todoist refuses a change (for example, the task was deleted on another device), the status line shows it. Project, section, and label changes need the network: offline, they show `offline · try again later`. If changes wait when you quit, godoist asks first. The queue stays on disk, and godoist sends it at the next start.
+
+The CLI does not use the queue: offline, its commands fail.
 
 ## Changes
 
