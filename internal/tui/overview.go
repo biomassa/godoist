@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"maps"
+	"slices"
 	"sort"
 	"time"
 
@@ -247,6 +249,8 @@ func (m *Model) upcomingRows(now time.Time) []row {
 }
 
 // projectGroupedRows groups the view tasks by project in sidebar order (All tasks, labels).
+// In each project, the tasks without a section come first, then each section in its order
+// under its own header. In each group, dated tasks come first, by date.
 func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 	tr, roots := m.buildOverview(view)
 	byProject := map[string][]ovRoot{}
@@ -259,18 +263,42 @@ func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 		if len(rs) == 0 {
 			continue
 		}
-		sortRoots(rs)
 		glyph := "# "
 		if op.p.InboxProject {
 			glyph = "⌂ "
 		}
+		hex := fg(todoist.ColorHex(op.p.Color))
+		bySection := map[string][]ovRoot{}
 		n := 0
 		for _, r := range rs {
+			bySection[r.task.Section()] = append(bySection[r.task.Section()], r)
 			n += tr.viewCount(r.task.ID)
 		}
-		rows = append(rows, row{header: glyph + op.p.Name, headerHex: fg(todoist.ColorHex(op.p.Color)), count: n})
-		for _, r := range rs {
-			rows = tr.emit(rows, r.task, 0)
+		rows = append(rows, row{header: glyph + op.p.Name, headerHex: hex, count: n})
+		for _, sid := range append([]string{""}, m.projectSections(op.p.ID)...) {
+			group := bySection[sid]
+			if len(group) == 0 {
+				continue
+			}
+			sortRoots(group)
+			if s := m.sections[sid]; s != nil {
+				count := 0
+				for _, r := range group {
+					count += tr.viewCount(r.task.ID)
+				}
+				rows = append(rows, row{header: s.Name, headerHex: hex, count: count, inGroup: true})
+			}
+			for _, r := range group {
+				rows = tr.emit(rows, r.task, 0)
+			}
+			delete(bySection, sid)
+		}
+		rest := slices.Sorted(maps.Keys(bySection)) // sections that are archived or not in the replica
+		for _, sid := range rest {
+			sortRoots(bySection[sid])
+			for _, r := range bySection[sid] {
+				rows = tr.emit(rows, r.task, 0)
+			}
 		}
 	}
 	return rows

@@ -91,6 +91,7 @@ type row struct {
 	headerHex string
 	count     int
 	sectionID string // for headers in project view
+	inGroup   bool   // a section header under a project header (All tasks, labels): indented
 	date      string // YYYY-MM-DD for day headers in Today/Upcoming
 	task      *todoist.Task
 	depth     int

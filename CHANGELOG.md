@@ -76,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
+- All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.
 
 ### Fixed
 

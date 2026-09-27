@@ -138,8 +138,9 @@ func TestAllTasksView(t *testing.T) {
 			order = append(order, r.task.Content)
 		}
 	}
-	if got := strings.Join(order, " "); got != "[# work] beta alpha gamma" {
-		t.Errorf("rows = %q, want dated first, then undated", got)
+	// Tasks without a section first, then the sections. In each group, dated tasks first.
+	if got := strings.Join(order, " "); got != "[# work] beta alpha [urgent] gamma" {
+		t.Errorf("rows = %q, want the section groups with dated tasks first", got)
 	}
 }
 

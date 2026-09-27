@@ -450,7 +450,11 @@ func headerLine(r row, w int, base lipgloss.Style) string {
 	if r.hasKids {
 		mark = collapseMark(r.collapsed)
 	}
-	name := base.Foreground(c(r.headerHex)).Bold(true).Render(" " + mark + trunc(r.header, w-10))
+	indent := " "
+	if r.inGroup {
+		indent = "   "
+	}
+	name := base.Foreground(c(r.headerHex)).Bold(true).Render(indent + mark + trunc(r.header, w-10))
 	count := ""
 	if r.count > 0 {
 		count = base.Foreground(c(hexMuted)).Render(fmt.Sprintf(" %d", r.count))

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/biomassa/godoist/internal/todoist"
 )
 
@@ -91,5 +93,36 @@ func TestEnterAndDoubleClickOpenEditor(t *testing.T) {
 	}
 	if d := m.buildDetail(40); d.editStart == 0 {
 		t.Error("the reader has no editStart")
+	}
+}
+
+// A label view groups by section too, and a section header is indented under its project.
+func TestLabelViewSections(t *testing.T) {
+	m := testModel(t)
+	for i := range m.st.Tasks {
+		if m.st.Tasks[i].ID == "t3" {
+			m.st.Tasks[i].Labels = []string{"home"}
+		}
+	}
+	m.applyState(m.st)
+	m = send(t, m, click(5, 11)) // @home
+	var order []string
+	for _, r := range m.rows {
+		switch {
+		case r.header != "":
+			order = append(order, "["+r.header+"]")
+		case r.task != nil:
+			order = append(order, r.task.Content)
+		}
+	}
+	if got := strings.Join(order, " "); got != "[# work] alpha [urgent] gamma" {
+		t.Fatalf("rows = %q", got)
+	}
+	for _, r := range m.rows {
+		if r.header == "urgent" {
+			if got := stripANSI(headerLine(r, 40, lipgloss.NewStyle())); !strings.HasPrefix(got, "   urgent") {
+				t.Errorf("section header = %q, want it indented", got)
+			}
+		}
 	}
 }

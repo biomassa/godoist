@@ -230,7 +230,7 @@ In the label picker for several tasks, `[x]` shows a label that all tasks have, 
 
 ### Labels
 
-The **Labels** group in the sidebar shows your labels. Select a label to see its tasks, grouped by project. These keys work with the cursor on a label:
+The **Labels** group in the sidebar shows your labels. Select a label to see its tasks, grouped by project and section, as in **All tasks**. These keys work with the cursor on a label:
 
 | Key | Action |
 |---|---|
@@ -251,7 +251,7 @@ These views show sub-tasks under their parent tasks. A task with sub-tasks is co
 
 ### All tasks
 
-The **All tasks** item shows all tasks, grouped by project. In each project, the tasks with a due date come first, sorted by the date. In this view, `[` and `]` move only tasks without a due date.
+The **All tasks** item shows all tasks, grouped by project and then by section. In each project, the tasks without a section come first, then each section in its order, under an indented header. In each group, the tasks with a due date come first, sorted by the date. In this view, `[` and `]` move only tasks without a due date.
 
 ### Confirmations
 
