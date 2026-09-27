@@ -332,3 +332,39 @@ func TestSidebarMarkerAfterName(t *testing.T) {
 		t.Error("a click on the marker did not collapse work")
 	}
 }
+
+// In All tasks with section headers, ] at the end of the tasks without a section moves the
+// task into the next section, > / < still indent and outdent, and [ moves it back.
+func TestAllTasksOrderWithSections(t *testing.T) {
+	m := send(t, testModel(t), click(5, 13)) // All tasks
+	cursorOn := func(name string) {
+		for i, r := range m.rows {
+			if r.task != nil && r.task.Content == name {
+				m.rowCur = i
+			}
+		}
+	}
+	m.focus = paneTasks
+	cursorOn("alpha")
+	m = send(t, m, key("]"), key("]"))
+	if got := rowNames(m); got != "[# work] beta [urgent] alpha gamma" || m.taskByID("t1").Section() != "s1" {
+		t.Fatalf("after ] ]: rows = %q section = %q", got, m.taskByID("t1").Section())
+	}
+	cursorOn("gamma") // alpha is above gamma in the section now
+	m = send(t, m, key(">"))
+	if p := m.taskByID("t3").Parent(); p != "t1" {
+		t.Fatalf("> did not indent gamma under alpha: parent = %q rows = %q", p, rowNames(m))
+	}
+	cursorOn("alpha") // overviews start with sub-tasks collapsed: z shows gamma again
+	m = send(t, m, key("z"))
+	cursorOn("gamma")
+	m = send(t, m, key("<"))
+	if p := m.taskByID("t3").Parent(); p != "" {
+		t.Errorf("< did not outdent gamma: parent = %q", p)
+	}
+	cursorOn("alpha")
+	m = send(t, m, key("["))
+	if got := m.taskByID("t1").Section(); got != "" {
+		t.Errorf("[ did not move alpha back out of the section: section = %q rows = %q", got, rowNames(m))
+	}
+}
