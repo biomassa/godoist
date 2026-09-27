@@ -1,6 +1,6 @@
 # godoist
 
-godoist is a terminal program for [Todoist](https://todoist.com). It has a text user interface (TUI) with three panes and a command-line interface (CLI) for scripts. The program uses the Go language.
+godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a text user interface and a command-line interface (CLI) for scripts.
 
 > This software was developed with the assistance of a LLM.
 
@@ -9,7 +9,6 @@ godoist is a terminal program for [Todoist](https://todoist.com). It has a text 
 ## Features
 
 - Three panes: sidebar, task list, and details. Todoist project colors, and light and dark terminal themes.
-- Inbox, Today, Upcoming, Favorites, the project tree, labels, All tasks, and Completed, with task counts. All tasks and the label views group the tasks by project and section.
 - Quick add and edit with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description.
 - A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
 - Sub-tasks, manual order, priorities, labels, moves, comments, descriptions, sections, and projects.
@@ -17,14 +16,11 @@ godoist is a terminal program for [Todoist](https://todoist.com). It has a text 
 - Multi-select with bulk actions.
 - Markdown everywhere: descriptions, comments, and notes show formatted headings, lists, checkboxes, links, and code with syntax colors. Checkboxes toggle with a key or a click.
 - One markdown editor for notes, descriptions, and comments, with a live preview, format keys, autosave, find and replace, text selection, and the system clipboard.
-- Notebook view per project: note titles with previews and a markdown reader. Todoist keeps the setting, so it is the same on all computers.
 - Links in task names are clickable, and `o` opens them in the browser.
 - Todoist filter queries and a find in the current view.
 - Mouse support: click, double-click, right-click menus, drag to move, drag to select text, and the wheel.
 - A local cache: the program starts at once and syncs in the background. Offline, task changes wait in a queue and go to Todoist later.
-- Fast on old computers: a key press draws only what changes.
 - CLI commands with aligned columns, TSV, or JSON output.
-- Binaries for Linux and macOS in each release.
 
 ## Requirements
 
