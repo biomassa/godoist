@@ -410,7 +410,7 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 
 // editorBox draws the built-in editor with a key hint below it.
 func (m Model) editorBox(w, h int) string {
-	lines := strings.Split(m.editor.View(), "\n")
+	lines := append([]string{""}, strings.Split(m.editor.View(), "\n")...) // an empty line under the title
 	hint := "ctrl+enter or ctrl+s save · esc cancel · ctrl+e $EDITOR"
 	if m.edit.saving {
 		hint = "saving…"

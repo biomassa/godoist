@@ -701,12 +701,9 @@ func (m Model) noteLines(w, h int) []string {
 			out = append(out, " "+b.String())
 		}
 	}
-	// Keep the cursor line on the screen. An open find box covers the top lines of the
-	// pane, so the text starts below it.
-	top := 0
-	if e.search != nil {
-		top = min(7, h-1)
-	}
+	// Keep the cursor line on the screen. The text starts below an empty line, as in the
+	// other panes, or below the find box when it is open.
+	top := e.textTop(h)
 	view := h - top
 	if cy < e.off {
 		e.off = cy
@@ -721,6 +718,15 @@ func (m Model) noteLines(w, h int) []string {
 		out = append(make([]string, top), out...)
 	}
 	return padLines(out, w, h)
+}
+
+// textTop is the number of pane lines above the editor text: one empty line, or the
+// lines of the open find box.
+func (e *noteEditor) textTop(h int) int {
+	if e.search != nil {
+		return min(7, h-1)
+	}
+	return 1
 }
 
 // noteTitle is the title of the editor pane with the autosave state.
@@ -746,7 +752,7 @@ func (m Model) noteClick(x, y int) (tea.Model, tea.Cmd) {
 		return m.closeNoteEditor()
 	}
 	e := m.note
-	row := r.row(y)
+	row := r.row(y) - e.textTop(r.h-2)
 	if row < 0 {
 		return m, nil
 	}

@@ -82,4 +82,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The notebook editor and the description and comment editor start with an empty line under the title, as the other panes do.
 - Paste works in all text fields: the task dialog, the description and comment editors, the date dialog, find, the filter query, the pickers, and the find box of the notebook editor. One-line fields get the text without line breaks.

@@ -189,3 +189,31 @@ func TestReplaceWithNothing(t *testing.T) {
 		t.Errorf("after ctrl+a with an empty replace = %q", got)
 	}
 }
+
+// The inline editor starts with an empty line under the title, as the other panes do.
+// A click on the first text line puts the cursor on the first line of the note.
+func TestNoteEditorTopLine(t *testing.T) {
+	m := send(t, notesModel(t), key("E"))
+	if m.note == nil {
+		t.Fatal("E did not open the editor")
+	}
+	r := m.sideRect()
+	lines := m.noteLines(r.w-2, r.h-2)
+	if strings.TrimSpace(stripANSI(lines[0])) != "" || !strings.Contains(stripANSI(lines[1]), "Head") {
+		t.Fatalf("first lines = %q, %q", stripANSI(lines[0]), stripANSI(lines[1]))
+	}
+	m.note.row = 3
+	m = send(t, m, click(r.x+4, r.y+2))
+	if m.note.row != 0 {
+		t.Errorf("click on the first text line: row = %d, want 0", m.note.row)
+	}
+}
+
+// The E editor starts with an empty line under the title too.
+func TestEditorTopLine(t *testing.T) {
+	m := send(t, onRow(t, 1), key("E"))
+	box := strings.Split(stripANSI(m.editorBox(60, 20)), "\n")
+	if strings.Trim(box[1], "│ ") != "" {
+		t.Errorf("line under the title = %q, want empty", box[1])
+	}
+}

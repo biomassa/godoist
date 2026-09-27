@@ -46,7 +46,7 @@ func (m Model) editorSize() (w, h int) {
 	if m.wide() {
 		w = m.detailWidth() - 2
 	}
-	return max(10, w), max(3, m.paneHeight()-2)
+	return max(10, w), max(3, m.paneHeight()-3) // an empty line above, and the hint below
 }
 
 // sizeEditor fits the editor to its pane. It does nothing while no edit is open,
