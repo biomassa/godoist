@@ -22,6 +22,8 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 - A local cache: the program starts at once and syncs in the background. Offline, task changes wait in a queue and go to Todoist later.
 - CLI commands with aligned columns, TSV, or JSON output.
 
+See the [changelog](CHANGELOG.md) for more details.
+
 ## Requirements
 
 - Go 1.27 or later, only to build from the source. Release binaries do not need Go. See [Install Go](#install-go).
