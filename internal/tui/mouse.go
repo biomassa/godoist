@@ -315,7 +315,7 @@ func (m Model) detailClick(y int, dbl bool) (tea.Model, tea.Cmd) {
 	line := m.detOff + r
 	d := m.buildDetail(m.detailInnerWidth() - 1)
 	for k, cl := range d.checks { // a click on a checkbox toggles it
-		if cl == line && m.notesMode() {
+		if cl == line {
 			m.chkCur, m.comCur = k, -1
 			next := m.toggleNoteCheck(k)
 			return m, next

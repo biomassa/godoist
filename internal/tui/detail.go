@@ -214,13 +214,7 @@ func (m Model) buildDetail(w int) detailDoc {
 		d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("enter or E")+st(hexDim).Render(" · edit this note"), "")
 		d.editStart = len(d.lines)
 		if body := strings.TrimSpace(t.Description); body != "" {
-			start := len(d.lines)
-			d.lines = append(d.lines, m.md.render(body, w)...)
-			for i := start; i < len(d.lines); i++ {
-				if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
-					d.checks = append(d.checks, i)
-				}
-			}
+			d.addMarkdown(m.md.render(body, w))
 		} else {
 			d.lines = append(d.lines, " "+st(hexDim).Render("empty note"))
 		}
@@ -245,9 +239,7 @@ func (m Model) buildDetail(w int) detailDoc {
 		}
 		if desc := strings.TrimSpace(t.Description); desc != "" {
 			d.lines = append(d.lines, "", " "+st(hexMuted).Render("Description"))
-			for _, para := range strings.Split(desc, "\n") {
-				d.lines = append(d.lines, wrap(para, hexBody, false)...)
-			}
+			d.addMarkdown(m.md.render(desc, w))
 		}
 	}
 
@@ -259,19 +251,7 @@ func (m Model) buildDetail(w int) detailDoc {
 		stamp := " ── " + cm.Posted().Format("2 Jan 15:04") + " "
 		d.lines = append(d.lines, st(hexDim).Render(stamp+strings.Repeat("─", max(0, w-lipgloss.Width(stamp)-1))))
 		if body := strings.TrimSpace(cm.Content); body != "" {
-			if notes {
-				start := len(d.lines)
-				d.lines = append(d.lines, m.md.render(body, w)...)
-				for i := start; i < len(d.lines); i++ {
-					if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
-						d.checks = append(d.checks, i)
-					}
-				}
-			} else {
-				for _, para := range strings.Split(body, "\n") {
-					d.lines = append(d.lines, wrap(para, hexBody, false)...)
-				}
-			}
+			d.addMarkdown(m.md.render(body, w))
 		}
 		if a := cm.FileAttachment; a != nil {
 			if a.URL != "" && strings.Contains(cm.Content, a.URL) {
@@ -292,6 +272,17 @@ func (m Model) buildDetail(w int) detailDoc {
 	}
 	d.lines = append(d.lines, "", " "+st(hexDim).Render("id "+t.ID))
 	return d
+}
+
+// addMarkdown adds rendered markdown lines and records the lines with a ☐ or ☑ checkbox.
+func (d *detailDoc) addMarkdown(lines []string) {
+	start := len(d.lines)
+	d.lines = append(d.lines, lines...)
+	for i := start; i < len(d.lines); i++ {
+		if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
+			d.checks = append(d.checks, i)
+		}
+	}
 }
 
 // detailInnerWidth is the content width of the pane that shows details.

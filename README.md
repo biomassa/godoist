@@ -129,7 +129,7 @@ godoist writes these files:
 |---|---|
 | `~/.config/godoist/config.toml` | The API token (after `godoist login`). |
 | `~/.cache/godoist/sync.json` | The local copy of your account (owner-only permissions). |
-| `~/.local/state/godoist/state.toml` | The view mode of each project (tasks or notebook). |
+| `~/.local/state/godoist/state.toml` | The expanded tasks of each overview. |
 
 ## TUI
 
@@ -184,9 +184,13 @@ The `a`, `e`, and `A` keys open a dialog with two fields: the name and the descr
 
 Todoist parses the name as in quick add. The description is saved as typed. In notebook view, the dialog has only the name.
 
+### Descriptions and comments
+
+The details pane shows task descriptions and comments as formatted markdown, as the notebook reader does. If a description or a comment has checkboxes (`- [ ] item`), `tab` and `shift+tab` move between them when the details pane has the focus, and `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` completes the task.
+
 ### Notebook view
 
-Push `v` in a project to show it as a notebook. The right pane shows the note under the cursor as formatted markdown: headings as colored bars (red, yellow, green, blue, orange, and purple for levels 1 to 6), lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
+Push `v` in a project to show it as a notebook. godoist writes the line `godoist:notes` at the end of the project description in Todoist, so the notebook view is the same on all your computers. Todoist shows this line in the project description. Push `v` again to go back to the task view and remove the line. The right pane shows the note under the cursor as formatted markdown: headings as colored bars (red, yellow, green, blue, orange, and purple for levels 1 to 6), lists, `☐` / `☑` checkboxes, links (terminal hyperlinks), and code with syntax colors.
 
 - In a note with checkboxes, `tab` and `shift+tab` move between the checkboxes, and `space` or a click changes a checkbox.
 - To edit the note, push `enter` in the reader, push `E`, or double-click the text. The inline editor opens in the same pane. The editor shows the markdown source with styles. It saves by itself one second after you stop typing, and when you leave it with `esc`, `ctrl+enter`, or `ctrl+s`. The pane title shows `saved`, `saving…`, or `unsaved`.

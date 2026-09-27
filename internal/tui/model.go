@@ -198,6 +198,8 @@ type Model struct {
 	statusErr bool
 	closed    [][]string // undo stack: each entry is the one-time tasks of one completion
 
+	notesMoved bool // this run wrote the local notebook settings to Todoist
+
 	md *mdCache
 }
 
@@ -368,6 +370,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 		m.applyState(msg.st)
+		cmds = append(cmds, m.moveNotesModes())
 		if m.status == "syncing…" { // the sync marker at the right now shows the time
 			m.setStatus("", false)
 		}
@@ -893,7 +896,7 @@ func (m Model) propertyKeys(key string) (tea.Model, tea.Cmd, bool) {
 // notesMode reports whether the current project is in notebook view.
 func (m Model) notesMode() bool {
 	cur := m.currentNav()
-	return cur != nil && cur.kind == vkProject && m.ui.ProjectModes[cur.projectID] == state.ModeNotes
+	return cur != nil && cur.kind == vkProject && m.projectNotes(cur.projectID)
 }
 
 // visiblePanes lists focusable panes in tab order for the current layout.
@@ -1132,7 +1135,9 @@ func taskKey(key string) bool {
 }
 
 func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
-	if key == "space" && m.noteChecks() > 0 {
+	// space toggles the selected checkbox. In task view with no checkbox selected, space
+	// still completes the task.
+	if key == "space" && m.noteChecks() > 0 && (m.chkCur >= 0 || m.notesMode()) {
 		if m.chkCur < 0 {
 			m.setStatus("tab selects a checkbox", false)
 			return m, nil
@@ -1306,18 +1311,15 @@ func (m Model) toggleNotes() (tea.Model, tea.Cmd) {
 		m.setStatus("notes mode applies to projects", false)
 		return m, nil
 	}
-	if m.ui.ProjectModes[cur.projectID] == state.ModeNotes {
-		delete(m.ui.ProjectModes, cur.projectID)
-		m.setStatus("#"+cur.name+" · tasks view", false)
-	} else {
-		m.ui.ProjectModes[cur.projectID] = state.ModeNotes
+	on := !m.projectNotes(cur.projectID)
+	next := m.setProjectNotes(cur.projectID, on)
+	if on {
 		m.setStatus("#"+cur.name+" · notebook view", false)
-	}
-	if err := state.Save(m.ui); err != nil {
-		m.setStatus("could not save view mode: "+err.Error(), true)
+	} else {
+		m.setStatus("#"+cur.name+" · tasks view", false)
 	}
 	m.buildRows(false)
-	return m, nil
+	return m, next
 }
 
 // ---- data → view models ----

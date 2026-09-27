@@ -6,20 +6,50 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/biomassa/godoist/internal/todoist"
 )
 
 // checkboxLine matches a markdown task list item: "- [ ] text", "* [x] text", "1. [ ] text".
 var checkboxLine = regexp.MustCompile(`^(\s*(?:[-*+]|\d+[.)])\s+\[)([ xX])(\]\s)`)
 
-// checkboxLines returns the numbers of the source lines that are checkbox items.
+// checkboxLines returns the numbers of the source lines that are checkbox items. Lines
+// in fenced code are not items, because the reader shows them as code.
 func checkboxLines(src string) []int {
 	var out []int
+	inFence := false
 	for i, l := range strings.Split(src, "\n") {
-		if checkboxLine.MatchString(l) {
+		if strings.HasPrefix(strings.TrimSpace(l), "```") {
+			inFence = !inFence
+			continue
+		}
+		if !inFence && checkboxLine.MatchString(l) {
 			out = append(out, i)
 		}
 	}
 	return out
+}
+
+// checkRef is a checkbox in the details pane: checkbox k of the description (commentID
+// is empty) or of a comment.
+type checkRef struct {
+	commentID string
+	k         int
+}
+
+// checkRefs returns the checkboxes of task t in the order of the details pane: the
+// description first, then each comment.
+func (m Model) checkRefs(t *todoist.Task) []checkRef {
+	var refs []checkRef
+	for k := range checkboxLines(t.Description) {
+		refs = append(refs, checkRef{k: k})
+	}
+	for _, cm := range m.snap.Comments[t.ID] {
+		for k := range checkboxLines(cm.Content) {
+			refs = append(refs, checkRef{commentID: cm.ID, k: k})
+		}
+	}
+	return refs
 }
 
 // toggleCheckbox changes checkbox k of the markdown src between [ ] and [x].
@@ -41,17 +71,17 @@ func toggleCheckbox(src string, k int) (string, bool) {
 	return strings.Join(lines, "\n"), true
 }
 
-// noteChecks reports whether the reader shows a note with checkboxes, so that tab moves
-// between the checkboxes instead of between the panes.
+// noteChecks is the number of checkboxes in the focused details pane (the description and
+// the comments). If it is not 0, tab moves between the checkboxes instead of between the panes.
 func (m Model) noteChecks() int {
-	if m.focus != paneDetail || !m.notesMode() {
+	if m.focus != paneDetail {
 		return 0
 	}
 	t := m.currentTask()
 	if t == nil {
 		return 0
 	}
-	return len(checkboxLines(t.Description))
+	return len(m.checkRefs(t))
 }
 
 // moveCheck moves the checkbox cursor by d, with wrap-around, and scrolls to it.
@@ -76,21 +106,46 @@ func (m *Model) moveCheck(d int) {
 	}
 }
 
-// toggleNoteCheck toggles checkbox k of the note under the cursor and saves the note.
+// toggleNoteCheck toggles checkbox k of the details pane and saves the description or
+// the comment that has it.
 func (m *Model) toggleNoteCheck(k int) tea.Cmd {
 	t := m.taskByID(m.currentTaskID())
 	if t == nil {
 		return nil
 	}
-	desc, ok := toggleCheckbox(t.Description, k)
-	if !ok {
+	refs := m.checkRefs(t)
+	if k < 0 || k >= len(refs) {
 		return nil
 	}
-	t.Description = desc // show it at once. The sync confirms it.
-	m.buildRows(false)
-	id, client := t.ID, m.client
-	return m.simpleWrite("", func(ctx context.Context) error {
-		_, err := client.UpdateTask(ctx, id, map[string]any{"description": desc})
-		return err
-	})
+	ref, client := refs[k], m.client
+	if ref.commentID == "" {
+		desc, ok := toggleCheckbox(t.Description, ref.k)
+		if !ok {
+			return nil
+		}
+		t.Description = desc // show it at once. The sync confirms it.
+		m.buildRows(false)
+		id := t.ID
+		return m.simpleWrite("", func(ctx context.Context) error {
+			_, err := client.UpdateTask(ctx, id, map[string]any{"description": desc})
+			return err
+		})
+	}
+	comments := m.snap.Comments[t.ID]
+	for i := range comments {
+		if comments[i].ID != ref.commentID {
+			continue
+		}
+		content, ok := toggleCheckbox(comments[i].Content, ref.k)
+		if !ok {
+			return nil
+		}
+		comments[i].Content = content // show it at once. The sync confirms it.
+		id := ref.commentID
+		return m.simpleWrite("", func(ctx context.Context) error {
+			_, err := client.UpdateComment(ctx, id, content)
+			return err
+		})
+	}
+	return nil
 }

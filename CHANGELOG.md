@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Long hints in the date dialog, the pickers, and the details pane wrap to a second line.
 - Key hints in the bottom bar for the focused pane, in each input, and in each picker.
 - Built-in multi-line editor with `ctrl+s` to save. `ctrl+e` opens the text in `$VISUAL` or `$EDITOR`.
-- Notebook view per project (`v`): note titles with previews and a markdown reader. The view choice is saved in `~/.local/state/godoist/state.toml`.
+- Notebook view per project (`v`): note titles with previews and a markdown reader.
 - Local cache of the account in `~/.cache/godoist/sync.json`, kept current with the Todoist Sync API.
 - Sync at start, after each write, every 60 seconds, on terminal focus, and on `r`.
 - Quit waits for pending writes. The editor stays open until a save succeeds. A failed add opens the input again with the typed text.
@@ -77,6 +77,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
 - All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.
+- The details pane shows descriptions and comments as formatted markdown in all views. Checkboxes in descriptions and in comments can be changed with `tab` / `space` or a click, in all views.
+- The notebook view setting is saved in Todoist as the line `godoist:notes` at the end of the project description, so it is the same on all computers. At the first start, godoist moves the settings from `~/.local/state/godoist/state.toml` to Todoist.
 
 ### Fixed
 

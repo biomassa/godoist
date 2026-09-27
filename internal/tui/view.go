@@ -649,6 +649,8 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"enter", "move"}, {"esc", "cancel"}}
 	case m.edit != nil:
 		keys = [][2]string{{"^enter", "save"}, {"esc", "cancel"}, {"^e", "$EDITOR"}}
+	case m.focus == paneDetail && !m.notesMode() && m.noteChecks() > 0:
+		keys = [][2]string{{"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"h", "back"}}
 	case m.focus == paneDetail:
 		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
 	case m.focus == paneNav && m.inLabels() && m.navLabel() == nil:
