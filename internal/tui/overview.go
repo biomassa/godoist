@@ -315,6 +315,25 @@ func (m *Model) filterRows() []row {
 	return rows
 }
 
+// openInOverview expands task id in the current overview and saves the state, so that
+// its sub-tasks show. Other views have no overview state.
+func (m *Model) openInOverview(id string) {
+	key := m.overviewKey()
+	if key == "" {
+		return
+	}
+	if m.ui.OverviewOpen == nil {
+		m.ui.OverviewOpen = map[string]map[string]bool{}
+	}
+	if m.ui.OverviewOpen[key] == nil {
+		m.ui.OverviewOpen[key] = map[string]bool{}
+	}
+	m.ui.OverviewOpen[key][id] = true
+	if err := state.Save(m.ui); err != nil {
+		m.setStatus("could not save the view state: "+err.Error(), true)
+	}
+}
+
 // toggleOverview opens or closes the task of row r in this overview and saves the state.
 func (m *Model) toggleOverview(r row) tea.Cmd {
 	key := m.overviewKey()

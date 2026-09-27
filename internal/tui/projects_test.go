@@ -333,8 +333,9 @@ func TestSidebarMarkerAfterName(t *testing.T) {
 	}
 }
 
-// In All tasks with section headers, ] at the end of the tasks without a section moves the
-// task into the next section, > / < still indent and outdent, and [ moves it back.
+// In All tasks with section headers, ] skips the dated tasks (they show first), so one ]
+// at the end of the tasks without a section moves the task into the next section. After >,
+// the new parent is expanded and the cursor stays on the task. [ moves the task back.
 func TestAllTasksOrderWithSections(t *testing.T) {
 	m := send(t, testModel(t), click(5, 13)) // All tasks
 	cursorOn := func(name string) {
@@ -346,18 +347,18 @@ func TestAllTasksOrderWithSections(t *testing.T) {
 	}
 	m.focus = paneTasks
 	cursorOn("alpha")
-	m = send(t, m, key("]"), key("]"))
+	m = send(t, m, key("]"))
 	if got := rowNames(m); got != "[# work] beta [urgent] alpha gamma" || m.taskByID("t1").Section() != "s1" {
-		t.Fatalf("after ] ]: rows = %q section = %q", got, m.taskByID("t1").Section())
+		t.Fatalf("after ]: rows = %q section = %q", got, m.taskByID("t1").Section())
 	}
 	cursorOn("gamma") // alpha is above gamma in the section now
 	m = send(t, m, key(">"))
 	if p := m.taskByID("t3").Parent(); p != "t1" {
 		t.Fatalf("> did not indent gamma under alpha: parent = %q rows = %q", p, rowNames(m))
 	}
-	cursorOn("alpha") // overviews start with sub-tasks collapsed: z shows gamma again
-	m = send(t, m, key("z"))
-	cursorOn("gamma")
+	if cur := m.currentTask(); cur == nil || cur.ID != "t3" {
+		t.Fatalf("after >: rows = %q, want gamma visible under alpha with the cursor on it", rowNames(m))
+	}
 	m = send(t, m, key("<"))
 	if p := m.taskByID("t3").Parent(); p != "" {
 		t.Errorf("< did not outdent gamma: parent = %q", p)

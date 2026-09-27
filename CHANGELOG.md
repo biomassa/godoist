@@ -82,5 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- In All tasks and the label views, `[` and `]` move a task past the next task without a date, so each press moves the row. Before, a move past a dated task did not show.
+- In Today, Upcoming, All tasks, labels, and filters, `>` expands the new parent, so the indented task stays in view with the cursor on it.
 - The notebook editor and the description and comment editor start with an empty line under the title, as the other panes do.
 - Paste works in all text fields: the task dialog, the description and comment editors, the date dialog, find, the filter query, the pickers, and the find box of the notebook editor. One-line fields get the text without line breaks.

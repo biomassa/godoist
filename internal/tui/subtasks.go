@@ -166,6 +166,16 @@ func (m *Model) moveTaskOrder(t *todoist.Task, d int) tea.Cmd {
 	order := m.siblingIDs(t)
 	i := slices.Index(order, t.ID)
 	j := i + d
+	// All tasks and the label views show the dated tasks first, so a move past a dated
+	// task does not show. There, the task moves past the next task without a date.
+	if cur := m.currentNav(); cur != nil && (cur.kind == vkAll || cur.kind == vkLabel) {
+		for j >= 0 && j < len(order) {
+			if x := m.taskByID(order[j]); x == nil || x.Due == nil {
+				break
+			}
+			j += d
+		}
+	}
 	id, name, client := t.ID, plain(t.Content), m.client
 	if j >= 0 && j < len(order) {
 		order[i], order[j] = order[j], order[i]
@@ -227,6 +237,7 @@ func (m *Model) indent(t *todoist.Task) tea.Cmd {
 	if pt != nil && pt.IsCollapsed {
 		pt.IsCollapsed = false // show the task in its new place
 	}
+	m.openInOverview(parent)
 	m.buildRows(false)
 	id, name, client := t.ID, plain(t.Content), m.client
 	return m.simpleWrite("Indented “"+name+"”", func(ctx context.Context) error {
