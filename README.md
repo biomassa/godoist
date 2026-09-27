@@ -81,7 +81,16 @@ GOTOOLCHAIN=go1.27.1 go install github.com/biomassa/godoist/cmd/godoist@latest
 
 ### Install godoist
 
-Install the latest version with Go:
+Each [release](https://github.com/biomassa/godoist/releases) has binaries for Linux and macOS (amd64 and arm64). You do not need Go for them. Download the archive for your system, then extract `godoist` to a directory in your `PATH`:
+
+```sh
+tar -xzf godoist_0.1.0_linux_amd64.tar.gz
+install godoist_0.1.0_linux_amd64/godoist ~/.local/bin/
+```
+
+On macOS, a downloaded binary can get a quarantine flag. If macOS refuses to start it, remove the flag with `xattr -d com.apple.quarantine ~/.local/bin/godoist`.
+
+Or install the latest release with Go:
 
 ```sh
 go install github.com/biomassa/godoist/cmd/godoist@latest
@@ -306,6 +315,7 @@ Use the CLI in scripts. On a terminal, the output has aligned columns. In a pipe
 | `godoist rm <id>...` | Delete tasks. |
 | `godoist projects` | List the projects. |
 | `godoist login` | Save the API token. |
+| `godoist version` | Print the version (also `godoist --version`). |
 
 Examples:
 
@@ -340,6 +350,13 @@ At the next sync with network, godoist sends the queue to Todoist in order. If T
 
 The CLI does not use the queue: offline, its commands fail.
 
-## Changes
+## Versions
 
-See [CHANGELOG.md](CHANGELOG.md).
+godoist uses [Semantic Versioning](https://semver.org). Before version 1.0.0, a minor version (0.2.0) can change keys, commands, and file formats. [CHANGELOG.md](CHANGELOG.md) lists the changes of each version. `godoist --version` and the help screen (`?`) show the version.
+
+To make a release:
+
+1. Move the notes under `## [Unreleased]` in CHANGELOG.md to a new section `## [0.2.0] - YYYY-MM-DD`, and update the links at the end of the file.
+2. Commit the change on `main`.
+3. Run `scripts/release.sh --dry-run v0.2.0`, and examine `dist/notes.md`.
+4. Run `scripts/release.sh v0.2.0`. The script runs the tests, builds the binaries, pushes the tag, and publishes the GitHub release with the `gh` CLI.

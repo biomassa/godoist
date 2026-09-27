@@ -17,3 +17,6 @@ CLAUDE.local.md
 .claude-work/
 .mcp.json
 AGENTS.md
+
+# Release builds (scripts/release.sh)
+/dist/

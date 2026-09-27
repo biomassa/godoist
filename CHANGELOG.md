@@ -7,89 +7,76 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-09-27
+
+The first release.
+
 ### Added
 
-- Terminal UI with three panes: sidebar, task list, and details.
-- Sidebar with Today, Upcoming, Inbox, Favorites, and the project tree, with task counts.
-- Project colors from the Todoist palette on the sidebar, the selected row, and the focused border.
-- Priority colors on task circles. Due date colors for overdue, today, tomorrow, and this week.
-- Task list grouped by section in project order, with empty sections.
-- Today view with Overdue and Today groups. Upcoming view grouped by day.
-- Quick add (`a`) with Todoist natural-language parsing for dates, `#project`, `@label`, and `p1`–`p4`.
-- Quick add in a project puts the task in the section under the cursor. A `#` that does not name a project stays in the task text.
-- Quick add in Today or Upcoming sets the date of that day if the text has no date.
-- Task completion (`x`) and undo (`ctrl+z`). Undo is not available for recurring tasks.
-- Find in the current view (`/`) and server-side Todoist filter queries (`f`). An empty query removes the filter view. Plain words search the task names. A failed query opens the dialog again. `esc` clears the filter and goes back to the previous view. The legend shows `esc clear filter` and `esc clear find`.
-- Comments in the details pane, with attachments. Add (`c`), edit (`e`), and delete (`d`) comments.
-- Task name editing (`e`) in a dialog. Todoist parses the text as in quick add: a date, `#project`, `/section`, `@label`, or `p1`–`p4` changes only that field. In notebook view, godoist saves the name as typed.
-- A centered dialog for all text inputs except find. Long text wraps, `enter` saves, `esc` cancels.
-- Task dialog for add (`a`), edit (`e`), and sub-task (`A`) with two fields: the name (parsed) and the description (saved as typed). It uses 2/3 of the terminal height, and a long description scrolls. `tab` / `shift+tab` or a click go to the other field. `enter` in the name saves, `enter` in the description starts a new line, and `ctrl+enter` saves from the two fields. In notebook view, the dialog has only the name.
-- Task description editing (`E`).
-- Date dialog (`t`): a text field that Todoist parses, a month calendar, and a time field. `tab` moves between them and parses a changed text once, so the calendar shows the result. `enter` saves the input changed last. `no date` removes the date.
-- Calendar: arrows, PgUp/PgDn, Home, quick picks (Today, Tomorrow, Next week, Weekend, No date), a dot on days with tasks, and the week start from the Todoist settings. The mouse selects days and quick picks, a double-click saves, and the wheel changes the month.
-- A calendar date on a recurring task asks: `o` moves only this occurrence and keeps the repeat, `r` replaces the repeat with the date.
-- Priority keys `1` to `4`.
-- Label checklist picker (`@`) with a filter. A new name creates the label.
-- Move picker (`m`) for projects and sections, with a filter.
-- Mouse support: click to select, click `○` to complete (recurring tasks ask first), double-click to rename a task or edit a comment, wheel to scroll, and click a legend item to run its key.
-- Right-click menu on a task: rename, due date, priority, labels, move, description, comment, complete.
-- Drag a task to a sidebar project or a section header to move it.
-- An empty line before sidebar groups, before section headers, and under the title of each task list. Section headers use the project color.
-- Unit tests for the mouse handling.
-- Sub-projects in the sidebar show tree lines (`├`, `└`, `│`). Top-level projects line up with Inbox. The `▾` / `▸` marker of a project with sub-projects is after its name.
-- Sub-project moves in the sidebar: `>` and `<` indent and outdent a project, `m` opens a parent picker, and a drag onto a project or onto "My Projects" changes the parent. The project menu has Indent, Outdent, and Move under. Sub-projects move with their parent.
-- Find and replace in the inline editor (`ctrl+f`): a box at the top of the editor with find, replace, and match case. `enter` finds the next match, `ctrl+r` replaces the current match, and `ctrl+a` replaces all. An empty replace field removes the matches. The editor highlights all matches, and the box shows "3 of 7". Replace all is one undo step.
-- Sub-tasks in Today, Upcoming, All tasks, labels, and filters: nested under their parents, collapsed by default, expanded with `z` or a click. A due sub-task brings in its parent (gray, expanded). Each view keeps its expanded tasks locally.
-- The inline editor opens with `enter` in the reader, with `E`, or with a double-click on the note text. The reader shows the hint "enter or E · edit this note".
-- Headings in the reader and the editor are full-width bars, colored by level.
-- Markdown reader in notebook view: headings without `#` marks, `☐` / `☑` checkboxes, terminal hyperlinks, and syntax colors for fenced code. `tab` moves between the checkboxes of a note, and `space` or a click changes one.
-- Inline markdown editor in notebook view (`E`): the source with live styles, autosave one second after the last change and on `esc`, the save state in the pane title, list continuation, `ctrl+b` / `ctrl+i` / `ctrl+k` / `ctrl+t`, word moves, and undo and redo.
-- Sub-tasks: `A` on a task adds a sub-task (Todoist parses the text). `>` indents a task under the task above it, and `<` outdents it.
-- Manual task order: `[` and `]` move a task among its siblings. At the edge of a section, a top-level task goes into the next section. In All tasks, this works for tasks without a due date.
-- Collapse with `z` for sections, tasks with sub-tasks, and sub-projects. Todoist keeps the state. `▾` and `▸` markers show it, and a click on a marker toggles it.
-- Multi-select: `s`, `S`, `ctrl`+click, and `shift`+click. Bulk complete, due date, priority, move, labels (with `[~]` for partial labels), and delete. One `ctrl+z` opens again the one-time tasks of a bulk completion.
-- Bulk date dialog: if the selected tasks have different dates, the text field shows `(mixed)`. One `backspace` or `delete` removes it and shows the hint "Clear dates for selected tasks". Then `enter` removes all the dates. Typed text replaces `(mixed)`. `enter` with `(mixed)` makes no change.
-- Labels group in the sidebar with a label view grouped by project. Label management: add, rename, color, favorite, reorder, and delete.
-- Completed view: the tasks completed in the last 30 days, grouped by project. `x` opens a task again.
-- Projects in the sidebar: `A` adds a project (name, then a color picker with a sub-project option), `e` renames, `C` changes the color, `*` adds to or removes from Favorites, `[` and `]` move it among its siblings, and `Delete` or `Backspace` deletes or archives it. Right-click opens a project menu. godoist protects the Inbox.
-- All tasks view at the end of the sidebar: all tasks grouped by project, dated tasks first by due date.
-- Confirmations open a dialog with buttons. The action button is selected first. The arrows, `tab`, and `h`/`l` select a button, `enter` pushes it, the button keys and a click also work, and `esc` closes the dialog.
-- The sidebar starts with the Inbox. The sidebar and the details pane start with an empty line.
-- Task deletion: `Delete` or `Backspace` on a task, or "Delete" in the right-click menu. It asks y/n first.
-- Sections: `A` adds a section after the section under the cursor. With the cursor on a section header, `e` renames it, `[` and `]` move it, and `Delete` or `Backspace` deletes it and its tasks after a y/n prompt with the task count. Right-click on a header opens a section menu.
-- Two bottom lines: the key legend, and the last operation with the sync state. Legend items that do not fit on the first line start the second line, and the status follows them.
-- Long hints in the date dialog, the pickers, and the details pane wrap to a second line.
-- Key hints in the bottom bar for the focused pane, in each input, and in each picker.
-- Built-in multi-line editor with `ctrl+s` to save. `ctrl+e` opens the text in `$VISUAL` or `$EDITOR`.
-- Notebook view per project (`v`): note titles with previews and a markdown reader.
-- Local cache of the account in `~/.cache/godoist/sync.json`, kept current with the Todoist Sync API.
-- Sync at start, after each write, every 60 seconds, on terminal focus, and on `r`.
-- Quit waits for pending writes. The editor stays open until a save succeeds. A failed add opens the input again with the typed text.
+Screen and navigation:
+
+- Terminal UI with three panes: sidebar, task list, and details. On a narrow terminal, the details and the editor replace the task list.
+- Sidebar: Inbox, Today, Upcoming, Favorites, the project tree with tree lines, Labels, All tasks, and Completed, with task counts. Top-level projects line up with Inbox, and the `▾` / `▸` marker of a project with sub-projects is after its name.
+- Todoist project colors on the sidebar, the selected row, the section headers, and the focused border. Priority colors on task circles. Due date colors for overdue, today, tomorrow, and this week.
 - Light and dark palettes, selected from the terminal background color.
-- Layout for narrow terminals: the details and the editor replace the task list.
-- CLI commands for scripts: `ls`, `add`, `done`, `reopen`, `rm`, `projects`, and `login`.
-- CLI output as aligned columns on a terminal, as TSV in a pipe, and as JSON with `--json`.
-- `add` output: in a terminal, a summary line with the name, project, section, due date, and task ID. In a pipe, only the task ID.
+- Two bottom lines: the key legend for the focused pane, and the last operation with the sync state. Legend items that do not fit on the first line start the second line.
+- Key hints in each input, dialog, and picker, and a help screen (`?`) that shows the version.
+
+Views:
+
+- Project view: tasks grouped by section in project order, with empty sections.
+- Today with Overdue and Today groups. Upcoming grouped by day.
+- All tasks: all tasks grouped by project and section. In each group, dated tasks come first, by date.
+- Label views, grouped by project and section as in All tasks.
+- Completed: the tasks completed in the last 30 days, grouped by project. `x` opens a task again.
+- Sub-tasks in Today, Upcoming, All tasks, labels, and filters: nested under their parents, collapsed at first, expanded with `z` or a click. A due sub-task brings in its parent (gray, expanded). Each view keeps its expanded tasks in `~/.local/state/godoist/state.toml`.
+- Find in the current view (`/`), and Todoist filter queries (`f`). Plain words search the task names. `esc` clears the find or the filter.
+
+Tasks:
+
+- Task dialog for add (`a`), edit (`e`), and sub-task (`A`), with a name and a description. Todoist parses the name as in quick add: a date, `#project`, `/section`, `@label`, or `p1`–`p4`. In edit, only the fields that the name gives change. godoist saves the description as typed. `enter` in the name saves, `tab` goes to the description, and `ctrl+enter` or `ctrl+s` saves from the two fields.
+- Quick add in a project puts the task in the section under the cursor. Quick add in Today or Upcoming gives the date of that day if the text has no date.
+- Complete (`x`) and undo (`ctrl+z`) for one-time tasks. Delete (`Delete` or `Backspace`) after a confirmation.
+- Date dialog (`t`): a text field that Todoist parses, a month calendar with quick picks, and a time field. On a recurring task, a calendar date asks: `o` moves only this occurrence, `r` replaces the repeat.
+- Priority keys `1` to `4`, a label picker (`@`) that can make a new label, and a move picker (`m`) for projects and sections.
+- Sub-tasks: `A` adds one, `>` indents, `<` outdents. The new parent expands, so the task stays in view.
+- Manual order: `[` and `]` move a task among its siblings, and into the next section at the edge. In All tasks and the label views, they skip the dated tasks.
+- Collapse with `z` for sections, tasks with sub-tasks, and projects. Todoist keeps the state.
+- Multi-select: `s`, `S`, `ctrl`+click, and `shift`+click, with bulk complete, date, priority, move, labels, and delete. In the bulk date dialog, `(mixed)` shows for different dates, and one `backspace` clears all the dates.
+- Links in task names, as `[text](url)` or as a bare URL, are terminal hyperlinks. `o` opens the first link of the task in the browser.
+
+Notes, descriptions, and comments:
+
+- Notebook view per project (`v`): note titles with previews and a markdown reader. The setting is the line `godoist:notes` at the end of the project description, so it is the same on all computers.
+- The details pane shows descriptions and comments as formatted markdown. `tab` and `space` or a click change checkboxes in descriptions and comments.
+- One markdown editor for notes, descriptions (`E`), and comments (`c`, `e`), with a live preview: each line shows formatted markdown, except the line with the cursor. A code block or a table shows as source while the cursor is in it.
+- Editor keys: `ctrl+b` bold, `ctrl+i` italic, `ctrl+k` link, `ctrl+t` checkbox, list continuation, word moves, `ctrl+z` / `ctrl+y` undo and redo, `ctrl+f` find and replace, and `ctrl+e` to open the text in `$VISUAL` or `$EDITOR`.
+- The editor saves a note, a description, or a changed comment one second after the last change. It adds a new comment when it closes. `esc`, `ctrl+enter`, or `ctrl+s` closes it.
+- Text selection with `shift` and the arrows, `home`, or `end`, word selection, `ctrl+a`, and a mouse drag. `ctrl+c`, `ctrl+x`, and `ctrl+v` copy, cut, and paste through the system clipboard (OSC 52). The task dialog fields have the same keys.
+- Paste works in all text fields. One-line fields get the text without line breaks.
+
+Projects, sections, and labels:
+
+- Projects: add (`A`, with a color picker and a sub-project option), rename, color, favorite, reorder, indent and outdent, move under a parent (`m` or a drag), and delete or archive. godoist protects the Inbox.
+- Sections: add after the section under the cursor, rename, reorder, and delete with its tasks after a confirmation.
+- Labels: add, rename, color, favorite, reorder, and delete.
+- Confirmations open a dialog with buttons. The action button is selected first.
+
+Mouse:
+
+- Click to select, click `○` to complete, double-click to edit a task or a comment, wheel to scroll, and click a legend item to run its key. Right-click menus for tasks, sections, projects, and labels. Drag a task to a project or a section header to move it.
+
+Sync and offline:
+
+- A local copy of the account in `~/.cache/godoist/sync.json`, kept current with the Todoist Sync API: at start, after each change, every 60 seconds, on terminal focus, and on `r`.
+- Offline queue: offline, task changes wait in `~/.cache/godoist/queue-*.json` and show in the list at once. godoist sends them in order at the next sync. A name that Todoist must parse shows with `⏳` until then. The bottom line shows `offline · N changes waiting`, and quit asks first while changes wait.
+- Quit waits for the running changes. A failed add opens the dialog again with the typed text.
+
+CLI:
+
+- Commands for scripts: `ls`, `add`, `done`, `reopen`, `rm`, `projects`, `login`, and `version` (also `--version`).
+- Output as aligned columns on a terminal, as TSV in a pipe, and as JSON with `--json`. `add` prints a summary line on a terminal and the task ID in a pipe.
 - API token from `TODOIST_TOKEN` or `~/.config/godoist/config.toml`.
-- Links in task names, as `[text](url)` or as a bare URL, are underlined terminal hyperlinks in the task list and in the details pane. `o` opens the first link of the task (name first, then description) in the browser.
-- Offline queue: offline, task changes wait in `~/.cache/godoist/queue-*.json` and show in the list at once. godoist sends them in order at the next sync. A name that Todoist must parse shows with `⏳` until then. The bottom line shows `offline · N changes waiting`, and quit asks first while changes wait. Project, section, and label changes show `offline · try again later`.
-- Text selection and the system clipboard in the markdown editor and the task dialog fields. `shift` with the arrows, `home`, or `end` selects. `alt+shift` or `ctrl+shift` selects words, `ctrl+a` selects all, and a mouse drag selects in the editor. `ctrl+c` copies, `ctrl+x` cuts, and `ctrl+v` pastes through the terminal (OSC 52). Typed text and a paste replace the selection.
 
-### Changed
-
-- In the markdown editor, `ctrl+c` copies. It does not close the editor (use `esc`). In the task dialog fields, `ctrl+a` selects all, and `home` goes to the line start.
-- The description editor (`E`) and the comment editors use the markdown editor of notebook view, with the live preview, autosave, the format keys, and find and replace. The editor adds a new comment when it closes. The plain text editor is gone.
-- The text inputs have a steady cursor. A blinking cursor drew the screen again two times a second.
-- Faster screen draws: the editor formats a line again only when its text changes, and it draws only the visible lines. The model is smaller, because the text inputs are pointers.
-- The notebook editor shows a live preview. Each line shows formatted markdown, except the line with the cursor, which shows its source. A fenced code block or a table shows as source while the cursor is in it. While the find box is open, all lines show as source.
-- `ctrl+enter` saves and closes the description editor (`E`), the comment editor, and the task dialog. `ctrl+s` does the same, for terminals that send `ctrl+enter` as `enter` (for example macOS Terminal). In the notebook editor, both keys save and go back to the reader.
-- All tasks and the label views show the section headers of each project. The tasks without a section come first. In each group, dated tasks come first, by date.
-- The details pane shows descriptions and comments as formatted markdown in all views. In all views, `tab` / `space` or a click changes the checkboxes in descriptions and in comments.
-- Todoist keeps the notebook view setting as the line `godoist:notes` at the end of the project description. Thus the setting is the same on all computers. At the first start, godoist moves the settings from `~/.local/state/godoist/state.toml` to Todoist.
-
-### Fixed
-
-- In All tasks and the label views, `[` and `]` move a task past the next task without a date, so each press moves the row. Before, a move past a dated task did not show.
-- In Today, Upcoming, All tasks, labels, and filters, `>` expands the new parent, so the indented task stays in view with the cursor on it.
-- The notebook editor and the description and comment editor start with an empty line under the title, as the other panes do.
-- Paste works in all text fields: the task dialog, the description and comment editors, the date dialog, find, the filter query, the pickers, and the find box of the notebook editor. One-line fields get the text without line breaks.
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/biomassa/godoist/releases/tag/v0.1.0

@@ -20,6 +20,7 @@ import (
 	"github.com/biomassa/godoist/internal/config"
 	"github.com/biomassa/godoist/internal/todoist"
 	"github.com/biomassa/godoist/internal/tui"
+	"github.com/biomassa/godoist/internal/version"
 )
 
 func main() {
@@ -84,6 +85,7 @@ func rootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "godoist",
 		Short:         "Todoist in the terminal — run without arguments for the TUI",
+		Version:       version.String(),
 		SilenceUsage:  true,
 		SilenceErrors: false,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,9 +97,21 @@ func rootCmd() *cobra.Command {
 			return err
 		},
 	}
+	root.SetVersionTemplate("godoist {{.Version}}\n") // the same line as "godoist version"
 	root.AddCommand(loginCmd(), projectsCmd(), lsCmd(), addCmd(), closeCmd("done", "Complete tasks by ID"),
-		closeCmd("reopen", "Reopen completed tasks by ID"), rmCmd())
+		closeCmd("reopen", "Reopen completed tasks by ID"), rmCmd(), versionCmd())
 	return root
+}
+
+func versionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "Print the version",
+		Args:  cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println("godoist " + version.String())
+		},
+	}
 }
 
 func loginCmd() *cobra.Command {

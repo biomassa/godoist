@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/biomassa/godoist/internal/todoist"
+	"github.com/biomassa/godoist/internal/version"
 )
 
 const wideWidth = 110
@@ -105,7 +106,7 @@ func (m Model) render() string {
 		// The help spans the task list and the details pane.
 		helpW := midW + detW
 		return lipgloss.JoinHorizontal(lipgloss.Top, nav,
-			box(st(hexText).Bold(true).Render("Help"), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
+			box(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
 			"\n" + m.bottomBar()
 	case m.note != nil && !m.wide():
 		mid = box(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
