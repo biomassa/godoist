@@ -64,8 +64,8 @@ func TestUnknownTheme(t *testing.T) {
 func TestThemeLegend(t *testing.T) {
 	m := onRow(t, 1)
 	keys := m.legendKeys()
-	if keys[len(keys)-1][0] != "T" {
-		t.Errorf("task list legend ends with %v, want T theme", keys[len(keys)-1])
+	if n := len(keys); keys[n-2][0] != "{ }" || keys[n-1][0] != "T" {
+		t.Errorf("task list legend ends with %v, want { } resize, T theme", keys[n-2:])
 	}
 	m.focus = paneNav
 	for i, n := range m.nav { // Inbox: the sidebar legend with "q quit"
@@ -74,8 +74,8 @@ func TestThemeLegend(t *testing.T) {
 		}
 	}
 	keys = m.legendKeys()
-	if n := len(keys); keys[n-2][0] != "T" || keys[n-1][0] != "q" {
-		t.Errorf("sidebar legend ends with %v, want T theme, q quit", keys[n-2:])
+	if n := len(keys); keys[n-3][0] != "{ }" || keys[n-2][0] != "T" || keys[n-1][0] != "q" {
+		t.Errorf("sidebar legend ends with %v, want { } resize, T theme, q quit", keys[n-3:])
 	}
 	m.focus = paneTasks
 	defer applyTheme(todoistTheme, true)

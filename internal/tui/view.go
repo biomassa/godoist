@@ -689,14 +689,19 @@ func (m Model) legendKeys() [][2]string {
 	if m.inputMode == inputFind {
 		keys = [][2]string{{"enter", "keep the find"}, {"esc", "clear the find"}}
 	}
-	// T works in the panes, not in an editor, a dialog, or a picker. It is at the end of the
-	// legend, before "q quit".
+	// { } and T work in the panes, not in an editor, a dialog, or a picker. They are at the
+	// end of the legend, before "q quit". { } is there only when the details pane is next to
+	// the task list.
 	if m.themes == nil && m.note == nil && m.cal == nil && m.menu == nil && m.pick == nil &&
 		m.confirm == nil && m.inputMode == inputNone {
+		tail := [][2]string{{"T", "theme"}}
+		if m.wide() {
+			tail = append([][2]string{{"{ }", "resize"}}, tail...)
+		}
 		if n := len(keys); n > 0 && keys[n-1][0] == "q" {
-			keys = append(keys[:n-1:n-1], [2]string{"T", "theme"}, keys[n-1])
+			keys = append(append(keys[:n-1:n-1], tail...), keys[n-1])
 		} else {
-			keys = append(keys, [2]string{"T", "theme"})
+			keys = append(keys, tail...)
 		}
 	}
 	return append([][2]string{{"?", "help"}}, keys...)
