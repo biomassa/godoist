@@ -60,12 +60,24 @@ func TestUnknownTheme(t *testing.T) {
 	}
 }
 
-// The legend of the task list has T, and the open picker has its own keys.
+// T is at the end of a pane legend, before "q quit". The open picker has its own keys.
 func TestThemeLegend(t *testing.T) {
 	m := onRow(t, 1)
-	if !strings.Contains(stripANSI(m.bottomBar()), "T theme") {
-		t.Errorf("bottom bar = %q, want T theme", stripANSI(m.bottomBar()))
+	keys := m.legendKeys()
+	if keys[len(keys)-1][0] != "T" {
+		t.Errorf("task list legend ends with %v, want T theme", keys[len(keys)-1])
 	}
+	m.focus = paneNav
+	for i, n := range m.nav { // Inbox: the sidebar legend with "q quit"
+		if p := m.projects[n.projectID]; p != nil && p.InboxProject {
+			m.navCur = i
+		}
+	}
+	keys = m.legendKeys()
+	if n := len(keys); keys[n-2][0] != "T" || keys[n-1][0] != "q" {
+		t.Errorf("sidebar legend ends with %v, want T theme, q quit", keys[n-2:])
+	}
+	m.focus = paneTasks
 	defer applyTheme(todoistTheme, true)
 	m = send(t, m, key("T"))
 	if bar := stripANSI(m.bottomBar()); !strings.Contains(bar, "enter keep") || !strings.Contains(bar, "esc back") {

@@ -698,11 +698,15 @@ func (m Model) legendKeys() [][2]string {
 	if m.inputMode == inputFind {
 		keys = [][2]string{{"enter", "keep the find"}, {"esc", "clear the find"}}
 	}
-	// T works in the panes, not in an editor, a dialog, or a picker. It comes near the
-	// front, because the end of a long legend does not fit.
+	// T works in the panes, not in an editor, a dialog, or a picker. It is at the end of the
+	// legend, before "q quit".
 	if m.themes == nil && m.note == nil && m.cal == nil && m.menu == nil && m.pick == nil &&
 		m.confirm == nil && m.inputMode == inputNone {
-		return append([][2]string{{"?", "help"}, {"T", "theme"}}, keys...)
+		if n := len(keys); n > 0 && keys[n-1][0] == "q" {
+			keys = append(keys[:n-1:n-1], [2]string{"T", "theme"}, keys[n-1])
+		} else {
+			keys = append(keys, [2]string{"T", "theme"})
+		}
 	}
 	return append([][2]string{{"?", "help"}}, keys...)
 }
