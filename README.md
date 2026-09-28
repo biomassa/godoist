@@ -78,7 +78,7 @@ echo 'export PATH="$PATH:/usr/local/go/bin"' >> ~/.profile
 Examine the version with `go version`. Some distributions have a Go version that is older than 1.27. Go 1.21 or later can download the necessary version itself. If `go install` fails because the version is too old, add `GOTOOLCHAIN=go1.27.1` before the command:
 
 ```sh
-GOTOOLCHAIN=go1.27.1 go install github.com/biomassa/godoist/cmd/godoist@latest
+GOTOOLCHAIN=go1.27.1 go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest
 ```
 
 ### Install godoist
@@ -95,8 +95,10 @@ On macOS, a downloaded binary can get a quarantine flag. If macOS refuses to sta
 Or install the latest release with Go:
 
 ```sh
-go install github.com/biomassa/godoist/cmd/godoist@latest
+go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest
 ```
+
+The flags remove the debug data, as in the release binaries. The program is then about 7 MB smaller, and it works the same.
 
 Go puts the binary in `$(go env GOPATH)/bin`, usually `~/go/bin`. Make sure that this directory is in your `PATH`:
 
@@ -109,7 +111,7 @@ To build from the source:
 ```sh
 git clone https://github.com/biomassa/godoist.git
 cd godoist
-go build -o godoist ./cmd/godoist
+go build -trimpath -ldflags="-s -w" -o godoist ./cmd/godoist
 ```
 
 ## Configuration
