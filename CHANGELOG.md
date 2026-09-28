@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Color themes. `T` opens a theme picker: a move previews the theme on the whole screen, `enter` keeps it and saves it as `theme` in `~/.config/godoist/config.toml`, and `esc` goes back. The themes are `todoist` (the Todoist colors on the terminal background, the default) and 19 palettes from tideui: Catppuccin, Nord, Dracula, Gruvbox, Tokyo Night, Rose Pine, One Dark, and others. They set the terminal background while godoist runs. `--theme NAME` selects a theme for one run.
+
+### Fixed
+
+- `godoist login` keeps the other settings of the config file.
+
 ## [0.1.0] - 2026-09-27
 
 The first release.

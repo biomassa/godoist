@@ -146,6 +146,8 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	switch {
+	case m.themes != nil:
+		return m.themeClick(x, y, dbl)
 	case m.confirm != nil:
 		return m.confirmClick(x, y)
 	case m.cal != nil:
@@ -593,6 +595,10 @@ func (m Model) overlays(screen string) string {
 	if m.menu != nil {
 		r := m.menuRect()
 		layers = append(layers, lipgloss.NewLayer(m.menuBox()).X(r.x).Y(r.y).Z(2))
+	}
+	if m.themes != nil {
+		r := m.themeRect()
+		layers = append(layers, lipgloss.NewLayer(m.themeBox()).X(r.x).Y(r.y).Z(5))
 	}
 	if m.drag != nil && m.drag.active {
 		label := lipgloss.NewStyle().Background(c(hexSelBg)).Foreground(c(fg(hexAccent))).

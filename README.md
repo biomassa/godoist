@@ -8,7 +8,7 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 
 ## Features
 
-- Three panes: sidebar, task list, and details. Todoist project colors, and light and dark terminal themes.
+- Three panes: sidebar, task list, and details. Todoist project colors, and 20 color themes with a live preview.
 - Quick add and edit with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description.
 - A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
 - Sub-tasks, manual order, priorities, labels, moves, comments, descriptions, sections, and projects.
@@ -138,7 +138,7 @@ godoist writes these files:
 
 | File | Content |
 |---|---|
-| `~/.config/godoist/config.toml` | The API token (after `godoist login`). |
+| `~/.config/godoist/config.toml` | The API token (after `godoist login`) and the theme that you keep in the theme picker. |
 | `~/.cache/godoist/sync.json` | The local copy of your account (owner-only permissions). |
 | `~/.cache/godoist/queue-*.json` | The task changes that wait for the network (owner-only permissions). |
 | `~/.local/state/godoist/state.toml` | The expanded tasks of each overview. |
@@ -182,6 +182,14 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `esc` | Clear the find or the filter. |
 | `r` | Sync now. |
 | `q` | Quit. godoist waits until Todoist has all changes. |
+
+### Themes
+
+Push `T` to open the theme picker at the right of the screen. When you move through the list with `↑` / `↓`, the whole screen shows the highlighted theme with your data. `enter` keeps the theme and saves it in `~/.config/godoist/config.toml` for the next start. `esc` goes back to the theme that you had.
+
+The first theme, `todoist`, uses the colors of the Todoist app and the background of your terminal. The other themes set the terminal background while godoist runs: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, nord, dracula, gruvbox-dark, gruvbox-light, tokyo-night, tokyo-night-day, rose-pine, rose-pine-moon, rose-pine-dawn, one-dark, magenta-geode, coral-sunset, lavender-fields-forever, vt100, and vt52. In each theme, overdue tasks and p1 use the error color of the theme, and tasks for today use its green. Project colors stay the Todoist colors, adjusted so that you can read them.
+
+To use a theme for one run only, start godoist with `--theme NAME`. The theme palettes come from [tideui](https://github.com/allisonhere/tideui) by Allie Bayless (MIT license).
 
 ### Task dialog
 

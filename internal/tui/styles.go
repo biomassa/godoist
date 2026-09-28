@@ -30,9 +30,11 @@ var (
 
 func init() { setTheme(true) }
 
-// setTheme selects the dark or the light palette. The values come from the Todoist app themes.
+// setTheme selects the dark or the light colors of the "todoist" theme. The values come
+// from the Todoist app themes.
 func setTheme(dark bool) {
 	darkTheme = dark
+	hexAccent = "#DC4C3E" // Todoist red
 	if dark {
 		hexOverdue, hexToday, hexTomorrow, hexWeek = "#FF7066", "#25B84C", "#FF9A14", "#A970FF"
 		hexMuted, hexDim, hexBorder = "#8A8A8A", "#5C5C5C", "#3D3D3D"

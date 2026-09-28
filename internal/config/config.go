@@ -1,4 +1,4 @@
-// Package config reads and writes the godoist settings. At this time, the only setting is the API token.
+// Package config reads and writes the godoist settings: the API token and the color theme.
 package config
 
 import (
@@ -13,6 +13,7 @@ import (
 // Config is the content of the config file.
 type Config struct {
 	Token string `toml:"token"`
+	Theme string `toml:"theme,omitempty"` // the theme kept in the theme picker (T)
 }
 
 // Path returns the config file location (~/.config/godoist/config.toml).
@@ -24,13 +25,24 @@ func Path() (string, error) {
 	return filepath.Join(dir, "godoist", "config.toml"), nil
 }
 
-// Load reads the token from $TODOIST_TOKEN, falling back to the config file.
+// Load reads the config file. $TODOIST_TOKEN, if set, replaces the token of the file.
 func Load() (Config, error) {
-	var c Config
+	c, err := loadFile()
+	if err != nil {
+		return c, err
+	}
 	if t := os.Getenv("TODOIST_TOKEN"); t != "" {
 		c.Token = t
-		return c, nil
 	}
+	if c.Token == "" {
+		return c, fmt.Errorf("no API token: set TODOIST_TOKEN or run `godoist login`")
+	}
+	return c, nil
+}
+
+// loadFile reads the config file as it is. A missing file gives an empty Config.
+func loadFile() (Config, error) {
+	var c Config
 	p, err := Path()
 	if err != nil {
 		return c, err
@@ -38,10 +50,30 @@ func Load() (Config, error) {
 	if _, err := toml.DecodeFile(p, &c); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return c, fmt.Errorf("reading %s: %w", p, err)
 	}
-	if c.Token == "" {
-		return c, fmt.Errorf("no API token: set TODOIST_TOKEN or run `godoist login`")
-	}
 	return c, nil
+}
+
+// SaveTheme writes the theme into the config file and keeps the other settings. A token
+// from $TODOIST_TOKEN does not go into the file.
+func SaveTheme(name string) error {
+	c, err := loadFile()
+	if err != nil {
+		return err
+	}
+	c.Theme = name
+	_, err = Save(c)
+	return err
+}
+
+// SaveToken writes the API token into the config file and keeps the other settings.
+// It returns the file path.
+func SaveToken(token string) (string, error) {
+	c, err := loadFile()
+	if err != nil {
+		return "", err
+	}
+	c.Token = token
+	return Save(c)
 }
 
 // Save writes the config file with owner-only permissions.

@@ -71,6 +71,9 @@ func (m Model) View() tea.View {
 	v.MouseMode = tea.MouseModeCellMotion // clicks, wheel, and motion while a button is down
 	v.AltScreen = true
 	v.WindowTitle = "godoist"
+	if themeBg != "" { // a palette theme sets the terminal background while godoist runs
+		v.BackgroundColor = c(themeBg)
+	}
 	v.ReportFocus = true // a FocusMsg triggers a sync
 	return v
 }
@@ -656,7 +659,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.focus == paneNav && m.navProject() != nil && !m.navProject().InboxProject:
 		keys = [][2]string{{"A", "new project"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"m", "move under"}, {"z", "collapse"}, {"del", "delete/archive"}, {"a", "add task"}, {"v", "notes view"}, {"enter", "open"}}
 	case m.focus == paneNav:
-		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
+		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"T", "theme"}, {"q", "quit"}}
 	case m.headerSection() != nil:
 		keys = [][2]string{{"a", "add task here"}, {"A", "new section"}, {"e", "rename section"}, {"[", "move up"}, {"]", "move down"}, {"z", "collapse"}, {"del", "delete section"}}
 	case m.inCompleted():
@@ -905,6 +908,7 @@ func helpSections() [][]string {
 			k("f", "Todoist filter: today | overdue"),
 			k("esc", "clear the filter or the find"),
 			k("r", "sync now (also every 60 s, on focus)"),
+			k("T", "theme: preview, enter keeps it"),
 			k("?", "this help"),
 			k("q", "quit (waits for pending saves)")},
 	}

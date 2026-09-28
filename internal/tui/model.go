@@ -200,18 +200,25 @@ type Model struct {
 	statusErr bool
 	closed    [][]string // undo stack: each entry is the one-time tasks of one completion
 
-	notesMoved bool            // this run wrote the local notebook settings to Todoist
-	offline    bool            // the last sync could not reach Todoist
-	pendingIDs map[string]bool // tasks with a queued change that only Todoist can finish (⏳)
+	notesMoved bool                    // this run wrote the local notebook settings to Todoist
+	themes     *themePicker            // the open theme picker (T), or nil
+	termDark   bool                    // the terminal background is dark (for the "todoist" theme)
+	saveTheme  func(name string) error // saves a kept theme in the config file, or nil
+	offline    bool                    // the last sync could not reach Todoist
+	pendingIDs map[string]bool         // tasks with a queued change that only Todoist can finish (⏳)
 
 	md *mdCache
 }
 
 // New returns a Model. If a cache exists for the token, the first frame shows the cached data.
-func New(client *todoist.Client, token string) Model {
+// theme is the color theme to start with (see ThemeNames). saveTheme saves a theme that the
+// user keeps in the theme picker, or it is nil.
+func New(client *todoist.Client, token, theme string, saveTheme func(string) error) Model {
 	ti := newTextInput()
 	ti.CharLimit = 500
-	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache()}
+	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(),
+		termDark: true, saveTheme: saveTheme}
+	applyTheme(theme, true)
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
 	// The offline queue keeps task changes while the computer is offline.
@@ -353,7 +360,14 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.sizeDialog()
 		return m, nil
 
+	case themeSavedMsg:
+		return m.themeSaved(msg)
+
 	case tea.BackgroundColorMsg:
+		m.termDark = msg.IsDark()
+		if themeName != todoistTheme {
+			return m, nil // a palette theme paints its own background
+		}
 		setTheme(msg.IsDark())
 		r, g, b, _ := msg.RGBA()
 		baseBg = fmt.Sprintf("#%02X%02X%02X", r>>8, g>>8, b>>8)
@@ -511,6 +525,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 			return m, nil
+		case m.themes != nil:
+			return m.updateThemePicker(msg)
 		case m.cal != nil:
 			return m.updateCalendar(msg)
 		case m.menu != nil:
@@ -996,6 +1012,9 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m.quit()
 	case "?":
 		m.showHelp = true
+		return m, nil
+	case "T":
+		m.openThemePicker()
 		return m, nil
 	case "r":
 		m.setStatus("syncing…", false)
