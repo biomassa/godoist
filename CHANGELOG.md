@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-09-28
+
+### Changed
+
+- The install and build commands in the README use `-trimpath -ldflags="-s -w"`. They remove the debug data, as in the release binaries, so the program is about 7 MB smaller. It works the same.
+
 ## [0.2.0] - 2026-09-28
 
 ### Added
@@ -94,6 +100,7 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/biomassa/godoist/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/biomassa/godoist/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/biomassa/godoist/releases/tag/v0.1.0
