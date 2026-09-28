@@ -27,15 +27,6 @@ func (m Model) navWidth() int {
 	return 28
 }
 
-// detailWidth is the width of the details pane, borders included. It is 0 on narrow terminals.
-// The task list and the details pane share the space after the sidebar equally.
-func (m Model) detailWidth() int {
-	if m.wide() {
-		return (m.width - m.navWidth()) / 2
-	}
-	return 0
-}
-
 // paneHeight is the inner (content) height of each pane.
 func (m Model) paneHeight() int { return max(1, m.height-2-2) } // two bottom lines, two borders
 
@@ -921,6 +912,7 @@ func helpSections() [][]string {
 			k("esc", "clear the filter or the find"),
 			k("r", "sync now (also every 60 s, on focus)"),
 			k("T", "theme: preview, enter keeps it"),
+			k("{ / }", "narrow / widen the task list"),
 			k("?", "this help"),
 			k("q", "quit (waits for pending saves)")},
 	}

@@ -138,7 +138,7 @@ godoist writes these files:
 
 | File | Content |
 |---|---|
-| `~/.config/godoist/config.toml` | The API token (after `godoist login`) and the theme that you keep in the theme picker. |
+| `~/.config/godoist/config.toml` | The API token (after `godoist login`), the theme that you keep in the theme picker, and the width of the task list. |
 | `~/.cache/godoist/sync.json` | The local copy of your account (owner-only permissions). |
 | `~/.cache/godoist/queue-*.json` | The task changes that wait for the network (owner-only permissions). |
 | `~/.local/state/godoist/state.toml` | The expanded tasks of each overview. |
@@ -180,6 +180,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `/` | Find in the current view. |
 | `f` | Run a Todoist filter query. Plain words search the task names. |
 | `esc` | Clear the find or the filter. |
+| `{` / `}` | Make the task list narrower or wider, and the details pane wider or narrower (only when the details pane is next to the list). godoist keeps the width. |
 | `r` | Sync now. |
 | `q` | Quit. godoist waits until Todoist has all changes. |
 
@@ -322,6 +323,7 @@ These keys work in a project:
 - Drag a task to a sidebar project or a section header to move it.
 - In the markdown editor, click to put the cursor, and drag to select text.
 - Double-click a comment in the details pane to edit it.
+- Drag the border between the task list and the details pane to change their widths.
 - Use the wheel to scroll.
 
 To select text in the terminal, hold `Shift` while you drag.

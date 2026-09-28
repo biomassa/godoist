@@ -30,6 +30,12 @@ func TestSaveKeepsOtherSettings(t *testing.T) {
 	if c.Token != "xyz" || c.Theme != "nord" {
 		t.Errorf("after SaveToken: %+v", c)
 	}
+	if err := SaveListShare(0.4); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ = Load(); c.ListShare != 0.4 || c.Theme != "nord" || c.Token != "xyz" {
+		t.Errorf("after SaveListShare: %+v", c)
+	}
 	p, _ := Path()
 	if !strings.HasPrefix(p, dir) {
 		t.Fatalf("config path %s is not in the test directory", p)

@@ -104,7 +104,8 @@ func rootCmd() *cobra.Command {
 			if name != "" && !slices.Contains(tui.ThemeNames(), name) {
 				return fmt.Errorf("unknown theme %q. The themes: %s", name, strings.Join(tui.ThemeNames(), ", "))
 			}
-			_, err = tea.NewProgram(tui.New(c, token, name, config.SaveTheme)).Run()
+			_, err = tea.NewProgram(tui.New(c, token, tui.Settings{Theme: name, ListShare: cfg.ListShare,
+				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare})).Run()
 			return err
 		},
 	}

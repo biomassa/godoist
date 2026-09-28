@@ -204,21 +204,33 @@ type Model struct {
 	themes     *themePicker            // the open theme picker (T), or nil
 	termDark   bool                    // the terminal background is dark (for the "todoist" theme)
 	saveTheme  func(name string) error // saves a kept theme in the config file, or nil
+	listShare  float64                 // the share of the task list next to the details (see panes.go)
+	shareGen   int                     // counts the border moves, for the pause before the save
+	saveShare  func(float64) error     // saves the share in the config file, or nil
+	paneDrag   bool                    // the mouse drags the border of the task list
+	dragFrom   [2]int                  // the drag start: the mouse x and the list width
 	offline    bool                    // the last sync could not reach Todoist
 	pendingIDs map[string]bool         // tasks with a queued change that only Todoist can finish (⏳)
 
 	md *mdCache
 }
 
+// Settings are the saved settings that the TUI starts with, and the functions that save
+// them. A nil function does not save.
+type Settings struct {
+	Theme         string  // the color theme (see ThemeNames)
+	ListShare     float64 // the share of the task list next to the details pane, 0 for half
+	SaveTheme     func(name string) error
+	SaveListShare func(share float64) error
+}
+
 // New returns a Model. If a cache exists for the token, the first frame shows the cached data.
-// theme is the color theme to start with (see ThemeNames). saveTheme saves a theme that the
-// user keeps in the theme picker, or it is nil.
-func New(client *todoist.Client, token, theme string, saveTheme func(string) error) Model {
+func New(client *todoist.Client, token string, set Settings) Model {
 	ti := newTextInput()
 	ti.CharLimit = 500
 	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(),
-		termDark: true, saveTheme: saveTheme}
-	applyTheme(theme, true)
+		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare}
+	applyTheme(set.Theme, true)
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
 	// The offline queue keeps task changes while the computer is offline.
@@ -362,6 +374,13 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case themeSavedMsg:
 		return m.themeSaved(msg)
+	case shareSaveMsg:
+		return m.shareSave(msg)
+	case shareSavedMsg:
+		if msg.err != nil {
+			m.setStatus("the pane width was not saved: "+msg.err.Error(), true)
+		}
+		return m, nil
 
 	case tea.BackgroundColorMsg:
 		m.termDark = msg.IsDark()
@@ -1016,6 +1035,12 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "T":
 		m.openThemePicker()
 		return m, nil
+	case "{", "}": // the border between the task list and the details pane
+		d := paneStep
+		if key == "{" {
+			d = -paneStep
+		}
+		return m.moveBorder(d)
 	case "r":
 		m.setStatus("syncing…", false)
 		next := m.startSync()

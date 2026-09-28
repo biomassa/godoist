@@ -135,6 +135,12 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		m.showHelp = false
 		return m, nil
 	}
+	// A press on the border between the task list and the details pane starts a drag of it.
+	if ms.Button == tea.MouseLeft && m.onPaneBorder(x, y) && m.themes == nil && m.confirm == nil &&
+		m.menu == nil && m.cal == nil && m.pick == nil && !isDialog(m.inputMode) {
+		m.paneDrag, m.dragFrom = true, [2]int{x, m.layout().mid.w}
+		return m, nil
+	}
 	// The legend runs its key in every mode, for example "enter save" in a dialog.
 	if bar := m.layout().bar; (y == bar || y == bar+1) && ms.Button == tea.MouseLeft {
 		_, hits := m.bottomBarLayout()
@@ -393,6 +399,10 @@ func (m Model) mouseWheel(ms tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
+	if m.paneDrag { // the border follows the mouse
+		next := m.setListWidth(m.dragFrom[1] + ms.X - m.dragFrom[0])
+		return m, next
+	}
 	if m.note != nil && m.note.dragging { // a drag in the editor selects text
 		return m.noteDrag(ms.X, ms.Y)
 	}
@@ -412,6 +422,7 @@ func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) mouseRelease(ms tea.Mouse) (tea.Model, tea.Cmd) {
+	m.paneDrag = false
 	if m.note != nil {
 		m.note.dragging = false
 	}

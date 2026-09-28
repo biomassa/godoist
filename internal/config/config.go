@@ -14,6 +14,9 @@ import (
 type Config struct {
 	Token string `toml:"token"`
 	Theme string `toml:"theme,omitempty"` // the theme kept in the theme picker (T)
+	// ListShare is the share of the task list in the space next to the details pane
+	// ({ and } in the TUI). 0 gives half.
+	ListShare float64 `toml:"list_share,omitempty"`
 }
 
 // Path returns the config file location (~/.config/godoist/config.toml).
@@ -61,6 +64,18 @@ func SaveTheme(name string) error {
 		return err
 	}
 	c.Theme = name
+	_, err = Save(c)
+	return err
+}
+
+// SaveListShare writes the share of the task list into the config file and keeps the
+// other settings.
+func SaveListShare(share float64) error {
+	c, err := loadFile()
+	if err != nil {
+		return err
+	}
+	c.ListShare = share
 	_, err = Save(c)
 	return err
 }

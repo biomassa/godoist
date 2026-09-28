@@ -36,7 +36,8 @@ func (c *mdCache) reset() {
 // render returns markdown as lines that are at most w cells wide.
 // If glamour fails, it returns plain wrapped text.
 func (c *mdCache) render(src string, w int) []string {
-	if c.out == nil {
+	// A drag of the pane border makes many widths: the cache starts again when it gets large.
+	if c.out == nil || len(c.out) > 4000 || len(c.renderers) > 12 {
 		c.reset()
 	}
 	key := fmt.Sprintf("%d\x00%s", w, src)
