@@ -95,8 +95,13 @@ func TestThemeMarkdownColors(t *testing.T) {
 	}
 	applyTheme("nord", true)
 	st := readerStyle()
-	if headingHex(1) != hexOverdue || headingHex(4) != hexLink || st.CodeBlock.Theme != "nord" {
-		t.Errorf("nord: h1 = %s h4 = %s code theme = %q", headingHex(1), headingHex(4), st.CodeBlock.Theme)
+	_, bar1 := headingColors(1)
+	_, bar6 := headingColors(6)
+	if headingHex(1) != hexLink || headingHex(6) != hexLink || st.CodeBlock.Theme != "nord" {
+		t.Errorf("nord: h1 = %s h6 = %s code theme = %q", headingHex(1), headingHex(6), st.CodeBlock.Theme)
+	}
+	if contrast(bar1, baseBg) <= contrast(bar6, baseBg) {
+		t.Errorf("nord: the H1 bar %s is not stronger than the H6 bar %s", bar1, bar6)
 	}
 	if st.Link.Color == nil || *st.Link.Color != hexLink {
 		t.Errorf("nord: link color = %v, want %s", st.Link.Color, hexLink)
@@ -108,8 +113,8 @@ func TestThemeMarkdownColors(t *testing.T) {
 	for _, p := range palettes {
 		applyTheme(p.name, true)
 		for lv := 1; lv <= 6; lv++ {
-			if cr := contrast(headingHex(lv), baseBg); cr < 2.9 {
-				t.Errorf("%s: heading %d %s has contrast %.2f", p.name, lv, headingHex(lv), cr)
+			if text, bar := headingColors(lv); contrast(text, bar) < 4.4 {
+				t.Errorf("%s: heading %d text %s on %s has contrast %.2f", p.name, lv, text, bar, contrast(text, bar))
 			}
 		}
 	}

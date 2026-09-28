@@ -96,8 +96,8 @@ func applyPalette(p palette) {
 	priorityHex = map[int]string{1: hexOverdue, 2: hexTomorrow, 3: readable(p.focus, p.bg, 3), 4: hexMuted}
 	hexLink = readable(p.focus, p.bg, 3)
 	hexCode = hexWeek
-	yellow := readable(mix(p.errorHex, "#FFD000", 0.75), p.bg, 3)
-	headingHexes = [6]string{hexOverdue, yellow, hexToday, hexLink, hexTomorrow, hexWeek}
+	// All heading levels use the accent. headingStyle makes the bar fainter for each level.
+	headingHexes = [6]string{hexLink, hexLink, hexLink, hexLink, hexLink, hexLink}
 	chromaStyle = chromaStyles[p.name]
 }
 

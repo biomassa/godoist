@@ -10,7 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - Color themes. `T` opens a theme picker: a move previews the theme on the whole screen, `enter` keeps it and saves it as `theme` in `~/.config/godoist/config.toml`, and `esc` goes back. The themes are `todoist` (the Todoist colors on the terminal background, the default) and 19 palettes from tideui: Catppuccin, Nord, Dracula, Gruvbox, Tokyo Night, Rose Pine, One Dark, and others. They set the terminal background while godoist runs. `--theme NAME` selects a theme for one run.
-- The markdown colors follow the theme: the heading bars (red, yellow, green, blue, orange, and purple from the theme colors), links, inline code, quotes, and rules. Code blocks use the matching Chroma style (for example `nord` or `catppuccin-mocha`), or colors from the theme when there is no match.
+- The markdown colors follow the theme: the heading bars (the accent of the theme, strongest for level 1 and fainter for each lower level), links, inline code, quotes, and rules. Code blocks use the matching Chroma style (for example `nord` or `catppuccin-mocha`), or colors from the theme when there is no match.
 
 ### Fixed
 

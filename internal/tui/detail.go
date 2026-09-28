@@ -114,18 +114,36 @@ func headingLevel(l string) (int, string) {
 	return n, strings.TrimSpace(strings.TrimRight(strings.TrimSpace(t[n:]), "#"))
 }
 
-// headingHex is the color of a heading level. In each theme, the levels are red, yellow,
-// green, blue, orange, and purple.
+// headingHex is the color of a heading level. The todoist theme has red, yellow, green,
+// blue, orange, and purple. A palette theme uses its accent for all levels.
 func headingHex(level int) string { return headingHexes[max(1, min(level, 6))-1] }
 
-// headingStyle is the bar style of a heading level: a tinted background and bright text.
-func headingStyle(level int) lipgloss.Style {
+// headingShades is how far the bar of each level goes toward the background in a palette
+// theme: level 1 is the strongest.
+var headingShades = [6]float64{0.45, 0.58, 0.68, 0.76, 0.82, 0.87}
+
+// headingColors returns the text and the bar color of a heading level.
+func headingColors(level int) (text, bar string) {
 	h := headingHex(level)
-	text := mix(h, "#FFFFFF", 0.55)
+	shade := 0.62 // the todoist theme: one strength, a color for each level
+	if themeBg != "" {
+		shade = headingShades[max(1, min(level, 6))-1]
+	}
+	text = mix(h, "#FFFFFF", 0.55)
 	if !darkTheme {
 		text = mix(h, "#000000", 0.45)
 	}
-	return lipgloss.NewStyle().Background(c(mix(h, baseBg, 0.62))).Foreground(c(text)).Bold(true)
+	bar = mix(h, baseBg, shade)
+	for ; shade < 0.95 && contrast(readable(text, bar, 4.5), bar) < 4.5; shade += 0.03 {
+		bar = mix(h, baseBg, shade) // a bright accent: a fainter bar, so that the text stays readable
+	}
+	return readable(text, bar, 4.5), bar
+}
+
+// headingStyle is the bar style of a heading level: a tinted background and bright text.
+func headingStyle(level int) lipgloss.Style {
+	text, bar := headingColors(level)
+	return lipgloss.NewStyle().Background(c(bar)).Foreground(c(text)).Bold(true)
 }
 
 // headingBar draws a heading as a full-width bar.
