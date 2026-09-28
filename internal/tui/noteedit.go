@@ -696,9 +696,9 @@ func kindStyle(kind int) lipgloss.Style {
 	case skItalic:
 		return s.Italic(true)
 	case skCode, skFence:
-		return s.Foreground(c(hexWeek))
+		return s.Foreground(c(hexCode))
 	case skLink:
-		return s.Foreground(c(hexToday)).Underline(true)
+		return s.Foreground(c(hexLink)).Underline(true)
 	case skQuote:
 		return s.Foreground(c(hexMuted)).Italic(true)
 	}

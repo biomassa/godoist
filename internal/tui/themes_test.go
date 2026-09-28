@@ -84,3 +84,33 @@ func TestThemeLegend(t *testing.T) {
 		t.Errorf("picker bottom bar = %q", bar)
 	}
 }
+
+// The markdown colors follow the theme: the heading bars, links, code, and the code style
+// of the reader. The todoist theme keeps its colors.
+func TestThemeMarkdownColors(t *testing.T) {
+	defer applyTheme(todoistTheme, true)
+	applyTheme(todoistTheme, true)
+	if headingHex(1) != "#DC4C3E" || readerStyle().CodeBlock.Chroma == nil && readerStyle().CodeBlock.Theme != "" {
+		t.Errorf("todoist: h1 = %s", headingHex(1))
+	}
+	applyTheme("nord", true)
+	st := readerStyle()
+	if headingHex(1) != hexOverdue || headingHex(4) != hexLink || st.CodeBlock.Theme != "nord" {
+		t.Errorf("nord: h1 = %s h4 = %s code theme = %q", headingHex(1), headingHex(4), st.CodeBlock.Theme)
+	}
+	if st.Link.Color == nil || *st.Link.Color != hexLink {
+		t.Errorf("nord: link color = %v, want %s", st.Link.Color, hexLink)
+	}
+	applyTheme("vt100", true) // no Chroma style: code colors from the palette
+	if st := readerStyle(); st.CodeBlock.Chroma == nil || *st.CodeBlock.Chroma.Keyword.Color != hexLink {
+		t.Error("vt100: no code colors from the palette")
+	}
+	for _, p := range palettes {
+		applyTheme(p.name, true)
+		for lv := 1; lv <= 6; lv++ {
+			if cr := contrast(headingHex(lv), baseBg); cr < 2.9 {
+				t.Errorf("%s: heading %d %s has contrast %.2f", p.name, lv, headingHex(lv), cr)
+			}
+		}
+	}
+}

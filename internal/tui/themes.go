@@ -3,6 +3,8 @@ package tui
 import (
 	"fmt"
 	"math"
+
+	gansi "charm.land/glamour/v2/ansi"
 )
 
 // A palette is a color theme. The "todoist" theme has no palette: it uses the Todoist app
@@ -92,6 +94,53 @@ func applyPalette(p palette) {
 	hexTomorrow = readable(mix(p.errorHex, "#FFC000", 0.55), p.bg, 3)
 	hexWeek = readable(mix(p.errorHex, p.focus, 0.6), p.bg, 3)
 	priorityHex = map[int]string{1: hexOverdue, 2: hexTomorrow, 3: readable(p.focus, p.bg, 3), 4: hexMuted}
+	hexLink = readable(p.focus, p.bg, 3)
+	hexCode = hexWeek
+	yellow := readable(mix(p.errorHex, "#FFD000", 0.75), p.bg, 3)
+	headingHexes = [6]string{hexOverdue, yellow, hexToday, hexLink, hexTomorrow, hexWeek}
+	chromaStyle = chromaStyles[p.name]
+}
+
+// chromaStyles are the Chroma code styles that match a palette. A palette without a match
+// gets code colors from its own colors (see themeReader).
+var chromaStyles = map[string]string{
+	"catppuccin-mocha": "catppuccin-mocha", "catppuccin-latte": "catppuccin-latte",
+	"catppuccin-frappe": "catppuccin-frappe", "catppuccin-macchiato": "catppuccin-macchiato",
+	"nord": "nord", "dracula": "dracula", "gruvbox-dark": "gruvbox", "gruvbox-light": "gruvbox-light",
+	"tokyo-night": "tokyonight-night", "tokyo-night-day": "tokyonight-day",
+	"rose-pine": "rose-pine", "rose-pine-moon": "rose-pine-moon", "rose-pine-dawn": "rose-pine-dawn",
+	"one-dark": "onedark",
+}
+
+// themeReader gives the markdown reader the colors of a palette theme: the text, links,
+// quotes, rules, inline code, and the code blocks.
+func themeReader(st *gansi.StyleConfig) {
+	col := func(h string) *string { return &h }
+	st.Document.Color = col(hexText)
+	st.Paragraph.Color = col(hexText)
+	st.BlockQuote.Color = col(hexMuted)
+	st.HorizontalRule.Color = col(hexBorder)
+	st.Link.Color, st.LinkText.Color = col(hexLink), col(hexLink)
+	st.Item.Color, st.Enumeration.Color = col(hexText), col(hexText)
+	st.Code.Color = col(hexCode)
+	st.Code.BackgroundColor = col(mix(hexCode, baseBg, 0.85))
+	st.Table.Color = col(hexText)
+	st.CodeBlock.Color = col(hexText)
+	if chromaStyle != "" {
+		st.CodeBlock.Theme, st.CodeBlock.Chroma = chromaStyle, nil
+		return
+	}
+	prim := func(h string) gansi.StylePrimitive { return gansi.StylePrimitive{Color: col(h)} }
+	st.CodeBlock.Theme = ""
+	st.CodeBlock.Chroma = &gansi.Chroma{
+		Text: prim(hexText), Error: prim(hexOverdue), Comment: prim(hexMuted), CommentPreproc: prim(hexMuted),
+		Keyword: prim(hexLink), KeywordReserved: prim(hexLink), KeywordNamespace: prim(hexLink), KeywordType: prim(hexWeek),
+		Operator: prim(hexText), Punctuation: prim(hexMuted), Name: prim(hexText), NameBuiltin: prim(hexWeek),
+		NameTag: prim(hexLink), NameAttribute: prim(hexTomorrow), NameClass: prim(hexWeek), NameConstant: prim(hexTomorrow),
+		NameDecorator: prim(hexTomorrow), NameFunction: prim(hexLink), Literal: prim(hexTomorrow),
+		LiteralNumber: prim(hexTomorrow), LiteralString: prim(hexToday), LiteralStringEscape: prim(hexWeek),
+		GenericDeleted: prim(hexOverdue), GenericInserted: prim(hexToday),
+	}
 }
 
 // contrast is the WCAG contrast ratio of two colors, from 1 to 21.

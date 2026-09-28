@@ -71,7 +71,7 @@ func inlineCells(s string, offset int, base lipgloss.Style) []pcell {
 		plainPart(at, a)
 		switch {
 		case tok[0] == '`':
-			part(a+1, b-1, base.Foreground(c(hexWeek)))
+			part(a+1, b-1, base.Foreground(c(hexCode)))
 		case strings.HasPrefix(tok, "**") || strings.HasPrefix(tok, "__"):
 			part(a+2, b-2, base.Bold(true))
 		case strings.HasPrefix(tok, "~~"):
@@ -80,9 +80,9 @@ func inlineCells(s string, offset int, base lipgloss.Style) []pcell {
 			close := strings.Index(tok, "](")
 			text := []rune(tok[1:close])
 			url := tok[close+2 : len(tok)-1]
-			part(a+1, a+1+len(text), base.Foreground(c(hexToday)).Underline(true).Hyperlink(url))
+			part(a+1, a+1+len(text), base.Foreground(c(hexLink)).Underline(true).Hyperlink(url))
 		case strings.HasPrefix(tok, "http"):
-			part(a, b, base.Foreground(c(hexToday)).Underline(true).Hyperlink(tok))
+			part(a, b, base.Foreground(c(hexLink)).Underline(true).Hyperlink(tok))
 		default: // *italic* or _italic_
 			part(a+1, b-1, base.Italic(true))
 		}

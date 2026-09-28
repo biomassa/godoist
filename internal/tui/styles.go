@@ -26,6 +26,10 @@ var (
 	baseBg      string // terminal background, used for tinting
 	darkTheme   bool
 	priorityHex map[int]string
+	// The markdown colors: links, code, and the heading bars of levels 1 to 6.
+	hexLink, hexCode string
+	headingHexes     [6]string
+	chromaStyle      string // the code block style of a palette theme (see mdStyle), or ""
 )
 
 func init() { setTheme(true) }
@@ -35,12 +39,15 @@ func init() { setTheme(true) }
 func setTheme(dark bool) {
 	darkTheme = dark
 	hexAccent = "#DC4C3E" // Todoist red
+	headingHexes = [6]string{"#DC4C3E", "#E0B000", "#369307", "#4180FF", "#FF9A14", "#A970FF"}
+	chromaStyle = ""
 	if dark {
 		hexOverdue, hexToday, hexTomorrow, hexWeek = "#FF7066", "#25B84C", "#FF9A14", "#A970FF"
 		hexMuted, hexDim, hexBorder = "#8A8A8A", "#5C5C5C", "#3D3D3D"
 		hexText = "#E6E6E6"
 		hexSelBg, hexSelBgDim, baseBg = "#363636", "#2A2A2A", "#1F1F1F"
 		priorityHex = map[int]string{1: "#FF7066", 2: "#FF9A14", 3: "#5297FF", 4: hexMuted}
+		hexLink, hexCode = hexToday, hexWeek
 		return
 	}
 	hexOverdue, hexToday, hexTomorrow, hexWeek = "#D1453B", "#058527", "#AD6200", "#692FC2"
@@ -48,6 +55,7 @@ func setTheme(dark bool) {
 	hexText = "#202020"
 	hexSelBg, hexSelBgDim, baseBg = "#E4E4E4", "#EFEFEF", "#FFFFFF"
 	priorityHex = map[int]string{1: "#D1453B", 2: "#EB8909", 3: "#246FE0", 4: hexMuted}
+	hexLink, hexCode = hexToday, hexWeek
 }
 
 // c converts a hex string to a color.

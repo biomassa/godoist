@@ -114,11 +114,9 @@ func headingLevel(l string) (int, string) {
 	return n, strings.TrimSpace(strings.TrimRight(strings.TrimSpace(t[n:]), "#"))
 }
 
-// headingHex is the color of a heading level: red, yellow, green, blue, orange, purple.
-func headingHex(level int) string {
-	hexes := []string{"#DC4C3E", "#E0B000", "#369307", "#4180FF", "#FF9A14", "#A970FF"}
-	return hexes[max(1, min(level, 6))-1]
-}
+// headingHex is the color of a heading level. In each theme, the levels are red, yellow,
+// green, blue, orange, and purple.
+func headingHex(level int) string { return headingHexes[max(1, min(level, 6))-1] }
 
 // headingStyle is the bar style of a heading level: a tinted background and bright text.
 func headingStyle(level int) lipgloss.Style {
@@ -148,6 +146,9 @@ func readerStyle() gansi.StyleConfig {
 		h.Prefix = ""
 	}
 	st.Task.Ticked, st.Task.Unticked = "☑ ", "☐ "
+	if themeBg != "" {
+		themeReader(&st)
+	}
 	return st
 }
 
