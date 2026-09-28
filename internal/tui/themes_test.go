@@ -59,3 +59,16 @@ func TestUnknownTheme(t *testing.T) {
 		t.Errorf("theme = %s bg = %q", themeName, themeBg)
 	}
 }
+
+// The legend of the task list has T, and the open picker has its own keys.
+func TestThemeLegend(t *testing.T) {
+	m := onRow(t, 1)
+	if !strings.Contains(stripANSI(m.bottomBar()), "T theme") {
+		t.Errorf("bottom bar = %q, want T theme", stripANSI(m.bottomBar()))
+	}
+	defer applyTheme(todoistTheme, true)
+	m = send(t, m, key("T"))
+	if bar := stripANSI(m.bottomBar()); !strings.Contains(bar, "enter keep") || !strings.Contains(bar, "esc back") {
+		t.Errorf("picker bottom bar = %q", bar)
+	}
+}

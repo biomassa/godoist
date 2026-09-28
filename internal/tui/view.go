@@ -634,6 +634,8 @@ func legendKey(label string) string {
 func (m Model) legendKeys() [][2]string {
 	var keys [][2]string
 	switch {
+	case m.themes != nil:
+		keys = [][2]string{{"↑/↓", "preview"}, {"enter", "keep"}, {"esc", "back"}}
 	case m.note != nil && m.note.search != nil:
 		keys = [][2]string{{"enter", "next"}, {"shift+enter", "previous"}, {"^r", "replace"}, {"^a", "replace all"}, {"tab", "next field"}, {"esc", "close"}}
 	case m.note != nil:
@@ -659,7 +661,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.focus == paneNav && m.navProject() != nil && !m.navProject().InboxProject:
 		keys = [][2]string{{"A", "new project"}, {"e", "rename"}, {"C", "color"}, {"*", "favorite"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"m", "move under"}, {"z", "collapse"}, {"del", "delete/archive"}, {"a", "add task"}, {"v", "notes view"}, {"enter", "open"}}
 	case m.focus == paneNav:
-		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"T", "theme"}, {"q", "quit"}}
+		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
 	case m.headerSection() != nil:
 		keys = [][2]string{{"a", "add task here"}, {"A", "new section"}, {"e", "rename section"}, {"[", "move up"}, {"]", "move down"}, {"z", "collapse"}, {"del", "delete section"}}
 	case m.inCompleted():
@@ -695,6 +697,12 @@ func (m Model) legendKeys() [][2]string {
 	}
 	if m.inputMode == inputFind {
 		keys = [][2]string{{"enter", "keep the find"}, {"esc", "clear the find"}}
+	}
+	// T works in the panes, not in an editor, a dialog, or a picker. It comes near the
+	// front, because the end of a long legend does not fit.
+	if m.themes == nil && m.note == nil && m.cal == nil && m.menu == nil && m.pick == nil &&
+		m.confirm == nil && m.inputMode == inputNone {
+		return append([][2]string{{"?", "help"}, {"T", "theme"}}, keys...)
 	}
 	return append([][2]string{{"?", "help"}}, keys...)
 }
