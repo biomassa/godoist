@@ -7,11 +7,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-28
+
 ### Added
 
-- Color themes. `T` opens a theme picker: a move previews the theme on the whole screen, `enter` keeps it and saves it as `theme` in `~/.config/godoist/config.toml`, and `esc` goes back. The themes are `todoist` (the Todoist colors on the terminal background, the default) and 19 palettes from tideui: Catppuccin, Nord, Dracula, Gruvbox, Tokyo Night, Rose Pine, One Dark, and others. They set the terminal background while godoist runs. `--theme NAME` selects a theme for one run.
+- Color themes. `T` opens a theme picker: a move previews the theme on the whole screen, `enter` keeps it and saves it as `theme` in `~/.config/godoist/config.toml`, and `esc` goes back. The themes are `todoist` (the Todoist colors on the terminal background, the default) and 19 palettes from tideui: Catppuccin, Nord, Dracula, Gruvbox, Tokyo Night, Rose Pine, One Dark, and others. They set the terminal background while godoist runs. `--theme NAME` selects a theme for one run. The legends show `T theme`.
 - The markdown colors follow the theme: the heading bars (the accent of the theme, strongest for level 1 and fainter for each lower level), links, inline code, quotes, and rules. Code blocks use the matching Chroma style (for example `nord` or `catppuccin-mocha`), or colors from the theme when there is no match.
-- `{` and `}` move the border between the task list and the details pane by two columns, and a mouse drag on the border moves it too. The width persists as `list_share` in `~/.config/godoist/config.toml`, as a share of the space, so that it fits any terminal width.
+- `{` and `}` move the border between the task list and the details pane by two columns, and a mouse drag on the border moves it too. The width persists as `list_share` in `~/.config/godoist/config.toml`, as a share of the space, so that it fits any terminal width. The legends show `{ } resize`.
 
 ### Fixed
 
@@ -92,5 +94,6 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/biomassa/godoist/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/biomassa/godoist/releases/tag/v0.1.0
