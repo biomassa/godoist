@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Delete on a recurring task asks what to do. `s` skips only the current date: the task moves to its next date and keeps its repeat. Todoist records no completion. `d` deletes the task with all its dates.
+- Bulk delete asks one time when the selection has recurring tasks. `s` skips the dates of the recurring tasks and deletes the other tasks. `d` deletes all the tasks.
+
 ## [0.3.0] - 2026-09-30
 
 ### Added

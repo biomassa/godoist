@@ -176,8 +176,7 @@ func (m *Model) askBulkDelete(sel []*todoist.Task) {
 		ids = append(ids, t.ID)
 	}
 	client := m.client
-	text := fmt.Sprintf("Delete %d tasks? This cannot be undone.", len(ids))
-	m.confirm = yesNo("Delete tasks", text, "Delete", func(m *Model) tea.Cmd {
+	deleteIDs := func(m *Model, ids []string) tea.Cmd {
 		for _, id := range ids {
 			m.removeTask(id)
 		}
@@ -190,7 +189,36 @@ func (m *Model) askBulkDelete(sel []*todoist.Task) {
 			}
 			return nil
 		})
-	})
+	}
+	var recurring []todoist.Task
+	var oneTime []string
+	for _, t := range sel {
+		if t.Due != nil && t.Due.IsRecurring {
+			recurring = append(recurring, *t)
+		} else {
+			oneTime = append(oneTime, t.ID)
+		}
+	}
+	if len(recurring) == 0 {
+		text := fmt.Sprintf("Delete %d tasks? This cannot be undone.", len(ids))
+		m.confirm = yesNo("Delete tasks", text, "Delete", func(m *Model) tea.Cmd { return deleteIDs(m, ids) })
+		return
+	}
+	// Some tasks repeat: skip only their dates (and delete the others), or delete all.
+	text := fmt.Sprintf("%d of the %d tasks repeat. Skip only the current dates of these tasks and delete the other %d, or delete all %d with all their dates? A deletion cannot be undone.",
+		len(recurring), len(ids), len(oneTime), len(ids))
+	m.confirm = &confirmPrompt{title: "Delete tasks", text: text, buttons: []confirmButton{
+		{key: "s", label: "Skip dates", run: func(m *Model) tea.Cmd {
+			skip := m.skipDates(recurring)
+			if len(oneTime) == 0 {
+				m.clearSelection()
+				return skip
+			}
+			return tea.Batch(skip, deleteIDs(m, oneTime))
+		}},
+		{key: "d", label: "Delete all", danger: true, run: func(m *Model) tea.Cmd { return deleteIDs(m, ids) }},
+		{key: "n", label: "Cancel"},
+	}}
 }
 
 // selectionTitle is the "· N selected" part of the task list title.

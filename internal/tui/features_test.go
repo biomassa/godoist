@@ -231,3 +231,35 @@ func TestMoveLabelKeepsName(t *testing.T) {
 		t.Errorf("order = %v / %v, want work first", m.snap.Labels, m.st.Labels)
 	}
 }
+
+// Delete on a recurring task asks: skip only this date (selected first), or delete all.
+func TestDeleteRecurringAsks(t *testing.T) {
+	m := onRow(t, 2) // beta repeats every day
+	if cur := m.currentTask(); cur == nil || cur.ID != "t2" {
+		t.Fatalf("cursor on %v", cur)
+	}
+	m = send(t, m, key("delete"))
+	if m.confirm == nil || m.confirm.title != "Delete recurring task" || m.confirm.buttons[0].key != "s" || m.confirm.sel != 0 {
+		t.Fatalf("confirm = %+v", m.confirm)
+	}
+	m = send(t, m, key("s"))
+	if m.confirm != nil || m.pending != 1 || m.taskByID("t2") == nil {
+		t.Errorf("skip: confirm = %v pending = %d, want a write and the task kept", m.confirm != nil, m.pending)
+	}
+	m = send(t, onRow(t, 2), key("delete"), key("d"))
+	if m.taskByID("t2") != nil || m.pending != 1 {
+		t.Errorf("delete all: the task is still there or no write (pending %d)", m.pending)
+	}
+}
+
+// Bulk delete with a recurring task in the selection asks one time.
+func TestBulkDeleteRecurringAsks(t *testing.T) {
+	m := send(t, onRow(t, 1), key("s"), key("j"), key("s"), key("delete"))
+	if m.confirm == nil || m.confirm.buttons[0].label != "Skip dates" || !strings.Contains(m.confirm.text, "1 of the 2 tasks repeat") {
+		t.Fatalf("confirm = %+v", m.confirm)
+	}
+	m = send(t, m, key("s"))
+	if m.taskByID("t1") != nil || m.taskByID("t2") == nil {
+		t.Errorf("skip: the one-time task must go and the recurring task stay")
+	}
+}

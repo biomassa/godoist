@@ -1351,11 +1351,45 @@ func (m *Model) askDeleteTask() {
 	if n := len(m.snap.Comments[id]); n > 0 {
 		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone.", name, n)
 	}
-	m.confirm = yesNo("Delete task", text, "Delete", func(m *Model) tea.Cmd {
+	del := func(m *Model) tea.Cmd {
 		m.removeTask(id)
 		return m.simpleWrite("Deleted “"+name+"”", func(ctx context.Context) error {
 			return client.Delete(ctx, id)
 		})
+	}
+	if t.Due == nil || !t.Due.IsRecurring {
+		m.confirm = yesNo("Delete task", text, "Delete", del)
+		return
+	}
+	// A recurring task: skip only this date, or delete the task with all its dates.
+	task := *t
+	date := todoist.FormatDue(t.Due, time.Now())
+	m.confirm = &confirmPrompt{title: "Delete recurring task",
+		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A deletion cannot be undone.",
+			name, t.Due.String, date),
+		buttons: []confirmButton{
+			{key: "s", label: "Skip this date", run: func(m *Model) tea.Cmd { return m.skipDates([]todoist.Task{task}) }},
+			{key: "d", label: "Delete all", danger: true, run: del},
+			{key: "n", label: "Cancel"},
+		}}
+}
+
+// skipDates moves recurring tasks to their next dates and keeps their repeats.
+func (m *Model) skipDates(ts []todoist.Task) tea.Cmd {
+	client := m.client
+	return m.write("", func(ctx context.Context) (string, error) {
+		var last *todoist.Due
+		for _, t := range ts {
+			next, err := client.SkipOccurrence(ctx, t)
+			if err != nil {
+				return "", fmt.Errorf("skip “%s”: %w", plain(t.Content), err)
+			}
+			last = next
+		}
+		if len(ts) == 1 {
+			return "Skipped to " + todoist.FormatDue(last, time.Now()) + " · repeats " + ts[0].Due.String, nil
+		}
+		return fmt.Sprintf("Skipped the dates of %d recurring task(s)", len(ts)), nil
 	})
 }
 

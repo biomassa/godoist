@@ -178,7 +178,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
 | `s` / `S` | Select the task, or select all tasks from the last selected task to the cursor. |
-| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. |
+| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. |
 | `v` | Change the project between task view and notebook view. |
 | `/` | Find in the current view. |
 | `f` | Run a Todoist filter query. Plain words search the task names. |
