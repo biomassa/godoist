@@ -227,6 +227,9 @@ func (m Model) buildDetail(w int) detailDoc {
 		if at, err := time.Parse(time.RFC3339, t.AddedAt); err == nil {
 			meta = append(meta, "added "+at.Local().Format("2 Jan 2006"))
 		}
+		if len(t.Labels) > 0 {
+			meta = append(meta, "@"+strings.Join(t.Labels, " @"))
+		}
 		switch n := len(comments); {
 		case n == 1:
 			meta = append(meta, "1 comment")

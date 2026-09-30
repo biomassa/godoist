@@ -7,6 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `y` copies to the system clipboard: the name of the task or note in the task list, and the selected comment or the description in the details pane.
+- Notebook view shows the labels: on each note row and in the reader. The label picker (`@`) works there as in task view.
+- `pgup` and `pgdown` in the sidebar go to the top and the bottom.
+
+### Fixed
+
+- In the label picker, `enter` on "+ create" makes the label and puts it on the task. Before, only `space` checked the new label, and `enter` saved nothing.
+- A label change shows at once in the task list and in the details pane, not only after the next sync.
+
 ## [0.2.1] - 2026-09-28
 
 ### Changed

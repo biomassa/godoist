@@ -390,9 +390,19 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 		marker = "▸ "
 	}
 	left := base.Render(" "+strings.Repeat("  ", r.depth)) + base.Foreground(c(fg(hexAccent))).Render(marker)
-	right := ""
+	var parts []string
+	for _, l := range r.task.Labels {
+		parts = append(parts, base.Foreground(c(hexTomorrow)).Render("@"+l))
+	}
 	if n := len(m.snap.Comments[r.task.ID]); n > 0 && firstLine(r.task.Description) != "" {
-		right = base.Foreground(c(hexMuted)).Render(fmt.Sprintf("✎%d ", n))
+		parts = append(parts, base.Foreground(c(hexMuted)).Render(fmt.Sprintf("✎%d", n)))
+	}
+	right := ""
+	if len(parts) > 0 {
+		right = strings.Join(parts, base.Render("  ")) + base.Render(" ")
+		if lipgloss.Width(right) > w/2 { // a long label list: the title keeps half the row
+			right = trunc(right, w/2)
+		}
 	}
 	title := titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(right)-1, base.Foreground(c(hexText)).Bold(true))
 	gap := w - lipgloss.Width(left) - lipgloss.Width(title) - lipgloss.Width(right)
@@ -644,7 +654,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.focus == paneDetail && !m.notesMode() && m.noteChecks() > 0:
 		keys = [][2]string{{"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"h", "back"}}
 	case m.focus == paneDetail:
-		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
+		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"y", "copy"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
 	case m.focus == paneNav && m.inLabels() && m.navLabel() == nil:
 		keys = [][2]string{{"A", "new label"}, {"j/k", "move"}}
 	case m.focus == paneNav && m.navLabel() != nil:
@@ -662,11 +672,11 @@ func (m Model) legendKeys() [][2]string {
 	case m.notesMode() && m.focus == paneDetail && m.noteChecks() > 0:
 		keys = [][2]string{{"enter", "edit note"}, {"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "comments"}, {"h", "back"}}
 	case m.notesMode() && m.focus == paneDetail:
-		keys = [][2]string{{"enter", "edit note"}, {"j/k", "comments"}, {"c", "comment"}, {"h", "back"}}
+		keys = [][2]string{{"enter", "edit note"}, {"j/k", "comments"}, {"c", "comment"}, {"y", "copy"}, {"h", "back"}}
 	case m.notesMode():
-		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"v", "tasks view"}, {"/", "find"}}
+		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.note == nil && m.focus != paneDetail {
@@ -839,6 +849,8 @@ func helpSections() [][]string {
 			k("", "ctrl+enter save"),
 			k("E", "edit the description / note body (markdown editor)"),
 			k("o", "open the first link of the task"),
+			k("y", "copy the name (task list), the description or"),
+			k("", "the selected comment (details) to the clipboard"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),
 			k("1 – 4", "priority p1 – p4"),

@@ -1127,9 +1127,9 @@ func (m Model) navKeys(key string) (tea.Model, tea.Cmd) {
 		m.moveNav(1)
 	case "k", "up":
 		m.moveNav(-1)
-	case "g", "home":
+	case "g", "home", "pgup":
 		m.moveNav(-len(m.nav))
-	case "G", "end":
+	case "G", "end", "pgdown":
 		m.moveNav(len(m.nav))
 	case "enter", "l", "right":
 		m.focus = paneTasks
@@ -1197,6 +1197,8 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "o":
 		return m.openLink()
+	case "y":
+		return m.yank(false)
 	case "c":
 		if t := m.currentTask(); t != nil {
 			next := m.openEditor(editCommentNew, t.ID, "", "New comment · "+plain(t.Content), "")
@@ -1285,6 +1287,8 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		return m.completeTask()
 	case "o":
 		return m.openLink()
+	case "y":
+		return m.yank(true)
 	case "c":
 		if t != nil {
 			next := m.openEditor(editCommentNew, t.ID, "", "New comment · "+plain(t.Content), "")

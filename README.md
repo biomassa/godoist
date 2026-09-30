@@ -160,13 +160,14 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | Key | Action |
 |---|---|
 | `tab`, `h` / `l` | Go to the next or previous pane. |
-| `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. |
+| `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. In the sidebar, `pgup` / `pgdown` also go to the top or the bottom. |
 | `enter` | Open the project, or open the details. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
 | `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
+| `y` | Copy to the system clipboard: in the task list, the name of the task or note. In the details pane, the selected comment, or the description when no comment is selected. |
 | `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |
 | `@` | Select labels. |

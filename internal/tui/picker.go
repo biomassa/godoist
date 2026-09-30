@@ -241,6 +241,9 @@ func (m Model) updatePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		}
 	case "enter":
 		if p.kind == pickLabels {
+			if p.cur >= 0 && p.cur < len(vis) && vis[p.cur].create {
+				p.toggle(vis) // enter on "+ create" makes the label and checks it
+			}
 			next := m.saveLabels()
 			return m, next
 		}
@@ -358,6 +361,7 @@ func (m *Model) saveLabels() tea.Cmd {
 		newLabels[id] = ls
 		t.Labels = ls // show the labels at once. The sync confirms them.
 	}
+	m.buildRows(false)
 	var parts []string
 	if len(add) > 0 {
 		parts = append(parts, "+@"+strings.Join(add, " +@"))
