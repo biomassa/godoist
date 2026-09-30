@@ -291,7 +291,7 @@ func (m Model) buildDetail(w int) detailDoc {
 	}
 	if m.focus == paneDetail {
 		d.lines = append(d.lines, "")
-		d.lines = append(d.lines, wrapHint("j/k select comment · c add · e edit · d delete · y copy", hexDim, w-1)...)
+		d.lines = append(d.lines, wrapHint("j/k select comment · c add · e edit · y copy · d delete", hexDim, w-1)...)
 	} else {
 		d.lines = append(d.lines, "")
 		d.lines = append(d.lines, wrapHint("enter or l · comments and editing here", hexDim, w-1)...)
