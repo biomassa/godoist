@@ -7,10 +7,17 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-30
+
 ### Added
 
 - Delete on a recurring task asks what to do. `s` skips only the current date: the task moves to its next date and keeps its repeat. Todoist records no completion. `d` deletes the task with all its dates.
 - Bulk delete asks one time when the selection has recurring tasks. `s` skips the dates of the recurring tasks and deletes the other tasks. `d` deletes all the tasks.
+- The hint of the details pane shows `y copy`.
+
+### Changed
+
+- The changelog follows the STE writing rules: short sentences with one topic each, in the active voice.
 
 ## [0.3.0] - 2026-09-30
 
@@ -139,7 +146,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/biomassa/godoist/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/biomassa/godoist/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/biomassa/godoist/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/biomassa/godoist/compare/v0.1.0...v0.2.0
