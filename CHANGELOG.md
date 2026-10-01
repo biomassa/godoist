@@ -7,6 +7,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- godoist does not use temporary tasks to parse text anymore. The Google Calendar sync of Todoist kept calendar events of these tasks, also after godoist deleted them.
+- In the date dialog, `tab` does not parse the text. Todoist parses the text when you save it, on the real task.
+- `e` reads `#project`, `/section`, `@label`, and `p1`–`p4` in the name itself. It does not read dates. Use `t` for a date.
+- Skip on a recurring task finds the next date without the Todoist parser. It knows the intervals, the weekdays, Monday to Friday, and a day of the month. For another repeat, the dialog offers only Delete all.
+
 ## [0.4.0] - 2026-09-30
 
 ### Added

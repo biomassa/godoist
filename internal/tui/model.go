@@ -496,9 +496,6 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
-	case calParsedMsg:
-		return m.calParsed(msg)
-
 	case noteTickMsg:
 		return m.noteTick(msg)
 
@@ -868,7 +865,7 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 	if desc != nil {
 		retryDesc = *desc
 	}
-	client, cur, names := m.client, *old, m.namesProject(text)
+	client, cur := m.client, *old
 	if text == old.Content { // only the description changed: no parse
 		cmd := m.simpleWrite("Description saved", func(ctx context.Context) error {
 			_, err := client.UpdateTask(ctx, id, map[string]any{"description": *desc})
@@ -888,16 +885,9 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 	if descChanged {
 		newDesc = desc
 	}
+	st := m.st // ApplyName only reads the projects and the sections
 	cmd := m.write("", func(ctx context.Context) (string, error) {
-		// Offline, or while changes wait, the name waits in the queue. Todoist parses it later.
-		later := "Renamed to “" + text + "” · Todoist parses it later"
-		if client.Queue().Len() > 0 {
-			return later, client.QueueName(ctx, cur, text, newDesc, names)
-		}
-		p, fields, err := client.ApplyName(ctx, cur, text, newDesc, names)
-		if err != nil && todoist.IsOffline(err) && fields == nil { // the parse did not get to Todoist
-			return later, client.QueueName(ctx, cur, text, newDesc, names)
-		}
+		p, fields, err := client.ApplyName(ctx, &st, cur, text, newDesc)
 		if err != nil {
 			return "", err
 		}
@@ -905,18 +895,16 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 		if newDesc != nil {
 			changes = append(changes, "description saved")
 		}
-		if ds, ok := fields["due_string"].(string); ok {
-			changes = append(changes, "due "+ds)
-		}
 		if _, ok := fields["priority"]; ok {
-			changes = append(changes, fmt.Sprintf("P%d", p.UIPriority()))
+			changes = append(changes, fmt.Sprintf("P%d", 5-p.Priority))
 		}
 		if len(p.Labels) > 0 {
 			changes = append(changes, "@"+strings.Join(p.Labels, " @"))
 		}
-		if pr := projects[p.ProjectID]; pr != nil && names && (p.ProjectID != cur.ProjectID || p.Section() != cur.Section()) {
+		moved := (p.ProjectID != "" && p.ProjectID != cur.ProjectID) || (p.SectionID != "" && p.SectionID != cur.Section())
+		if pr := projects[p.ProjectID]; pr != nil && moved {
 			where := "#" + pr.Name
-			if s := sections[p.Section()]; s != nil {
+			if s := sections[p.SectionID]; s != nil {
 				where += " / " + s.Name
 			}
 			changes = append(changes, "→ "+where)
@@ -1364,6 +1352,16 @@ func (m *Model) askDeleteTask() {
 	// A recurring task: skip only this date, or delete the task with all its dates.
 	task := *t
 	date := todoist.FormatDue(t.Due, time.Now())
+	if !todoist.CanSkip(t.Due.String) { // godoist cannot find the next date of this rule
+		m.confirm = &confirmPrompt{title: "Delete recurring task",
+			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? A deletion cannot be undone.",
+				name, t.Due.String),
+			buttons: []confirmButton{
+				{key: "d", label: "Delete all", danger: true, run: del},
+				{key: "n", label: "Cancel"},
+			}}
+		return
+	}
 	m.confirm = &confirmPrompt{title: "Delete recurring task",
 		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A deletion cannot be undone.",
 			name, t.Due.String, date),

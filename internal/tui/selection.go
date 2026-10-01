@@ -199,6 +199,21 @@ func (m *Model) askBulkDelete(sel []*todoist.Task) {
 			oneTime = append(oneTime, t.ID)
 		}
 	}
+	cannot := 0 // recurring tasks with a rule that godoist cannot skip
+	for _, t := range recurring {
+		if !todoist.CanSkip(t.Due.String) {
+			cannot++
+		}
+	}
+	if len(recurring) > 0 && cannot > 0 {
+		text := fmt.Sprintf("%d of the %d tasks repeat with a rule that godoist cannot skip. Delete all %d with all their dates? A deletion cannot be undone.",
+			cannot, len(ids), len(ids))
+		m.confirm = &confirmPrompt{title: "Delete tasks", text: text, buttons: []confirmButton{
+			{key: "d", label: "Delete all", danger: true, run: func(m *Model) tea.Cmd { return deleteIDs(m, ids) }},
+			{key: "n", label: "Cancel"},
+		}}
+		return
+	}
 	if len(recurring) == 0 {
 		text := fmt.Sprintf("Delete %d tasks? This cannot be undone.", len(ids))
 		m.confirm = yesNo("Delete tasks", text, "Delete", func(m *Model) tea.Cmd { return deleteIDs(m, ids) })

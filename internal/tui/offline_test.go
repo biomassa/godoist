@@ -109,7 +109,7 @@ func TestOfflineAddAndUndo(t *testing.T) {
 	}
 }
 
-// Offline, e puts the name into the queue for Todoist to parse later.
+// Offline, e reads the name locally and the change waits in the queue as a plain update.
 func TestOfflineRename(t *testing.T) {
 	m := offlineModel(t)
 	x := m.layout().mid.x + 10
@@ -118,14 +118,14 @@ func TestOfflineRename(t *testing.T) {
 	for range len("alpha") {
 		m = send(t, m, key("backspace"))
 	}
-	m = typeText(t, m, "omega fri")
+	m = typeText(t, m, "omega fri p1")
 	m = press(t, m, "enter")
 	ops := m.client.Queue().Ops()
-	if len(ops) != 1 || ops[0].Kind != todoist.OpRename || !strings.Contains(m.status, "parses it later") {
+	if len(ops) != 1 || ops[0].Type != "item_update" || ops[0].Args["content"] != "omega fri" || ops[0].Args["priority"] != float64(4) {
 		t.Fatalf("ops = %+v status = %q", ops, m.status)
 	}
 	if !strings.Contains(rowNames(m), "omega fri") {
-		t.Errorf("rows = %q, want the typed name", rowNames(m))
+		t.Errorf("rows = %q, want the new name", rowNames(m))
 	}
 }
 

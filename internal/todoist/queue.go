@@ -30,7 +30,7 @@ import (
 const (
 	OpCommand = "command" // a Sync API command
 	OpQuick   = "quick"   // a quick add: Todoist parses Text
-	OpRename  = "rename"  // a new name that Todoist parses, as the TUI rename does
+	OpRename  = "rename"  // a new name, from an older version (see ApplyName)
 )
 
 // Op is a change in the offline queue.
@@ -405,7 +405,7 @@ func (c *Client) flush(ctx context.Context, s *SyncState) error {
 				err = fmt.Errorf("the task is not in Todoist")
 				break
 			}
-			_, _, err = raw.ApplyName(ctx, cur, op.Text, op.Desc, op.Names)
+			_, _, err = raw.ApplyName(ctx, s, cur, op.Text, op.Desc) // a rename queued by an older version
 		default:
 			err = fmt.Errorf("unknown change %q", op.Kind)
 		}
@@ -500,64 +500,6 @@ func (s *SyncState) task(id string) (Task, bool) {
 		}
 	}
 	return Task{}, false
-}
-
-// ApplyName gives task cur a new name that Todoist parses, as quick add does. A date,
-// p1–p4, or @labels in text change those fields. The other fields stay. If names is true
-// (the text names a project), the task moves to the parsed project and section. desc, if
-// not nil, is the new description. ApplyName returns the parsed task and the fields that
-// changed.
-func (c *Client) ApplyName(ctx context.Context, cur Task, text string, desc *string, names bool) (Task, map[string]any, error) {
-	p, err := c.Parse(ctx, text)
-	if err != nil {
-		return p, nil, err
-	}
-	fields := map[string]any{"content": p.Content}
-	if desc != nil {
-		fields["description"] = *desc
-	}
-	if p.Due != nil {
-		fields["due_string"] = p.Due.String
-	}
-	if p.Priority > 1 && p.Priority != cur.Priority {
-		fields["priority"] = p.Priority
-	}
-	if len(p.Labels) > 0 {
-		labels := append([]string(nil), cur.Labels...)
-		for _, l := range p.Labels {
-			found := false
-			for _, x := range labels {
-				found = found || x == l
-			}
-			if !found {
-				labels = append(labels, l)
-			}
-		}
-		fields["labels"] = labels
-	}
-	if _, err := c.UpdateTask(ctx, cur.ID, fields); err != nil {
-		return p, fields, err
-	}
-	// Quick add puts a task without #project in the Inbox. Move only if the text named a project.
-	if names && (p.ProjectID != cur.ProjectID || p.Section() != cur.Section()) {
-		if err := c.Move(ctx, cur.ID, p.ProjectID, p.Section()); err != nil {
-			return p, fields, fmt.Errorf("renamed, but the move failed: %w", err)
-		}
-	}
-	return p, fields, nil
-}
-
-// QueueName puts a parsed name change into the queue. The TUI uses it when the parser is
-// not available because the computer is offline, or when changes wait.
-func (c *Client) QueueName(ctx context.Context, cur Task, text string, desc *string, names bool) error {
-	if c.queue == nil {
-		return fmt.Errorf("no offline queue")
-	}
-	if err := c.queue.add(Op{Kind: OpRename, TaskID: cur.ID, Text: text, Desc: desc, Names: names}); err != nil {
-		return err
-	}
-	markQueued(ctx, c.queue.Len() == 1) // the only change: it waits because the parser was not available
-	return nil
 }
 
 // Queue returns the offline queue of the client, or nil.

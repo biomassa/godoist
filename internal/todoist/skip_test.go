@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 )
 
 // skipServer answers a quick add with the due date next (for the parser), and records the
@@ -68,24 +69,38 @@ func TestSkipInterval(t *testing.T) {
 	}
 }
 
-// "every weekday" is not an interval: it goes to the parser.
-func TestSkipWeekdayIsNotInterval(t *testing.T) {
-	if intervalRule.MatchString("every weekday") || intervalRule.MatchString("every workday") {
-		t.Error("every weekday matches the interval rule")
+// The other rules get their next date locally: weekdays, Monday to Friday, and a day of
+// the month. No request goes to the parser.
+func TestNextDateLocal(t *testing.T) {
+	wed := time.Date(2026, 9, 30, 9, 0, 0, 0, time.Local) // a Wednesday
+	fri := time.Date(2026, 10, 2, 0, 0, 0, 0, time.Local)
+	jan31 := time.Date(2026, 1, 31, 0, 0, 0, 0, time.Local)
+	for _, c := range []struct {
+		rule string
+		cur  time.Time
+		want string
+	}{
+		{"every mon", wed, "2026-10-05"},
+		{"every monday, thursday", wed, "2026-10-01"},
+		{"every tue and fri", fri, "2026-10-06"},
+		{"every weekday", fri, "2026-10-05"},
+		{"every workday at 9am", wed, "2026-10-01"},
+		{"every 15th", wed, "2026-10-15"},
+		{"every 31st", jan31, "2026-03-31"}, // February has no 31st
+		{"daily", wed, "2026-10-01"},
+		{"every mon at 9am", wed, "2026-10-05"},
+	} {
+		got, ok := nextDate(c.rule, c.cur)
+		if !ok || got.Format("2006-01-02") != c.want {
+			t.Errorf("%s from %s: %v %v, want %s", c.rule, c.cur.Format("Mon 2006-01-02"), got.Format("2006-01-02"), ok, c.want)
+		}
 	}
-}
-
-// Another rule gets the date from the parser ("<rule> starting <the next day>").
-func TestSkipParsed(t *testing.T) {
-	var cmds []map[string]any
-	srv := skipServer(t, "2026-10-12", &cmds)
-	defer srv.Close()
-	c := New("test")
-	c.base = srv.URL
-	if _, err := c.SkipOccurrence(context.Background(), Task{ID: "t1", Due: &Due{Date: "2026-10-05", String: "every mon", IsRecurring: true}}); err != nil {
-		t.Fatal(err)
+	if got, _ := nextDate("every mon at 9am", wed); got.Hour() != 9 {
+		t.Errorf("the time changed: %v", got)
 	}
-	if got := skipDate(t, cmds); got != "2026-10-12" {
-		t.Errorf("next = %s, want 2026-10-12", got)
+	for _, rule := range []string{"every other monday", "every 3rd friday", "every last day", "every mon except holidays"} {
+		if CanSkip(rule) {
+			t.Errorf("%q: godoist cannot know its next date, but CanSkip is true", rule)
+		}
 	}
 }

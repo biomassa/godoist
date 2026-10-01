@@ -49,35 +49,28 @@ const (
 	calGridWidth = 28 // seven cells of four columns
 )
 
-// calDialog is the date dialog: a text field that Todoist parses, a month calendar,
-// and a time field. Tab from a changed text parses it once and moves the calendar there.
+// calDialog is the date dialog: a text field that Todoist parses when the dialog saves, a
+// month calendar, and a time field.
 type calDialog struct {
-	taskIDs    []string
-	rules      map[string][2]string // recurring tasks: ID → {rule, lang}
-	title      string
-	text       textinput.Model
-	origText   string
-	lastParsed string // the text of the last parse, so that tab does not parse it again
-	timeIn     textinput.Model
-	focus      calFocus
-	source     calSource
-	day        time.Time // selected day, local midnight
-	month      time.Time // first day of the shown month
-	cleared    bool      // "No date" is selected
-	parsing    bool
-	saving     bool
-	askRecur   bool   // waiting for o or r after enter on a recurring task
-	recurring  bool   // at least one task repeats
-	note       string // parse result or error, under the text
-	noteErr    bool
+	taskIDs   []string
+	rules     map[string][2]string // recurring tasks: ID → {rule, lang}
+	title     string
+	text      textinput.Model
+	origText  string
+	timeIn    textinput.Model
+	focus     calFocus
+	source    calSource
+	day       time.Time // selected day, local midnight
+	month     time.Time // first day of the shown month
+	cleared   bool      // "No date" is selected
+	saving    bool
+	askRecur  bool   // waiting for o or r after enter on a recurring task
+	recurring bool   // at least one task repeats
+	note      string // a note or an error, under the text
+	noteErr   bool
 }
 
 type (
-	calParsedMsg struct {
-		text string
-		due  *todoist.Due
-		err  error
-	}
 	calSavedMsg struct {
 		text string
 		err  error
@@ -143,7 +136,7 @@ func (m *Model) openCalendarWith(ts []*todoist.Task, text string) tea.Cmd {
 	if len(ts) > 1 {
 		title = fmt.Sprintf("Due date · %d tasks", len(ts))
 	}
-	c := &calDialog{taskIDs: joinIDs(ts), rules: map[string][2]string{}, title: title, origText: text, lastParsed: text}
+	c := &calDialog{taskIDs: joinIDs(ts), rules: map[string][2]string{}, title: title, origText: text}
 	for _, x := range ts {
 		if x.Due != nil && x.Due.IsRecurring {
 			c.recurring = true
@@ -193,53 +186,13 @@ func (c *calDialog) selectDay(d time.Time) {
 	c.day, c.month, c.cleared, c.source = dayOf(d), monthOf(d), false, srcCal
 }
 
-// calTab moves the focus by d. Leaving a changed text parses it once.
+// calTab moves the focus by d. The text is not parsed here: Todoist parses it when the
+// dialog saves, on the real task. A parse here needs a temporary task, and the Google
+// Calendar sync of Todoist can keep an event of it.
 func (m Model) calTab(d int) (tea.Model, tea.Cmd) {
 	c := m.cal
-	leaving := c.focus == calText
 	next := c.setCalFocus(calFocus((int(c.focus) + d + 3) % 3))
-	text := strings.TrimSpace(c.text.Value())
-	if !leaving || text == "" || text == c.lastParsed || strings.EqualFold(text, "no date") {
-		return m, next
-	}
-	c.lastParsed, c.parsing, c.note, c.noteErr = text, true, "parsing…", false
-	m.pending++ // the parse adds and deletes a temporary task, so quit waits for it
-	client := m.client
-	return m, tea.Batch(next, func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		due, err := client.ParseDue(ctx, text)
-		return calParsedMsg{text: text, due: due, err: err}
-	})
-}
-
-func (m Model) calParsed(msg calParsedMsg) (tea.Model, tea.Cmd) {
-	m.pending = max(0, m.pending-1)
-	c := m.cal
-	if c == nil || msg.text != c.lastParsed {
-		return m, nil
-	}
-	c.parsing = false
-	switch {
-	case msg.err != nil && todoist.IsOffline(msg.err):
-		c.note, c.noteErr = "offline · enter saves the text, and Todoist reads the date later", false
-	case msg.err != nil:
-		c.note, c.noteErr = "parse failed: "+msg.err.Error(), true
-	case msg.due == nil:
-		c.note, c.noteErr = "Todoist found no date in the text", true
-	default:
-		t, hasTime, _ := msg.due.Time()
-		c.day, c.month = dayOf(t), monthOf(t)
-		c.timeIn.SetValue("")
-		if hasTime {
-			c.timeIn.SetValue(t.Format("15:04"))
-		}
-		c.note, c.noteErr = "Todoist reads: "+todoist.FormatDue(msg.due, time.Now()), false
-		if msg.due.IsRecurring {
-			c.note += " ↻ " + msg.due.String
-		}
-	}
-	return m, nil
+	return m, next
 }
 
 // quickPick is a shortcut in the row above the calendar.
@@ -310,9 +263,6 @@ func (m Model) updateCalendar(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.setStatus("cancelled", false)
 		return m, nil
 	case "enter":
-		if c.parsing {
-			return m, nil
-		}
 		return m.saveCalendar()
 	case "tab":
 		return m.calTab(1)
@@ -634,7 +584,7 @@ func (m Model) calBox() string {
 	var hint string
 	switch cd.focus {
 	case calText:
-		hint = "tab parses the text and moves to the calendar · enter save · esc cancel"
+		hint = "tab moves to the calendar · Todoist reads the text when you save · enter save · esc cancel"
 	case calGrid:
 		hint = "arrows day · PgUp/PgDn month · Home today · 1–5 picks · enter save"
 	case calTime:

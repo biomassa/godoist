@@ -9,7 +9,7 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 ## Features
 
 - Three panes: sidebar, task list, and details. Todoist project colors, and 20 color themes with a live preview.
-- Quick add and edit with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description.
+- Quick add with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description. Edit reads `#project`, `/section`, `@label`, and `p1`–`p4`.
 - A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
 - Sub-tasks, manual order, priorities, labels, moves, comments, descriptions, sections, and projects.
 - Collapse and expand of sections, sub-tasks, and sub-projects.
@@ -164,7 +164,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `enter` | Open the project, or open the details. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. `ctrl+z` undoes the last completion of a one-time task. |
-| `e` | Edit the name and the description. Todoist parses dates, `#project`, `@label`, and `p1`–`p4` in the name. |
+| `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
 | `y` | Copy to the system clipboard: in the task list, the name of the task or note. In the details pane, the selected comment, or the description when no comment is selected. |
@@ -206,7 +206,7 @@ The `a`, `e`, and `A` keys open a dialog with two fields: the name and the descr
 | `ctrl+enter` or `ctrl+s` | Save from the two fields. For `ctrl+enter`, the terminal must send it as a separate key (for example kitty, WezTerm, foot, or Ghostty). macOS Terminal sends it as `enter`, so use `ctrl+s` there. |
 | `esc` | Close the dialog without a save. |
 
-Todoist parses the name as in quick add. godoist saves the description as typed. In notebook view, the dialog has only the name.
+In an add, Todoist parses the name as in quick add. In an edit, godoist reads `#project`, `/section`, `@label`, and `p1`–`p4` in the name, but no dates. godoist saves the description as typed. In notebook view, the dialog has only the name.
 
 ### Markdown
 
@@ -244,7 +244,7 @@ To edit a note, push `enter` in the reader, push `E`, or double-click the text. 
 The `t` key opens a dialog with three parts: a text field, a month calendar, and a time field.
 
 1. Type a date in the text field, for example `fri 9am` or `every mon`. Type `no date` to remove the date.
-2. Push `tab` to go to the calendar. Todoist parses the changed text one time, and the calendar shows the result.
+2. Push `tab` to go to the calendar, or push `enter` to save the text. Todoist parses the text when godoist saves it.
 3. In the calendar, use the arrow keys, `PgUp` / `PgDn`, `Home`, or the quick picks `1`–`5`.
 4. Push `enter`. godoist saves the input that you changed last.
 
@@ -375,7 +375,7 @@ Each change goes to Todoist at once.
 If the computer is offline, godoist starts with the local copy, and the bottom line shows `offline`. Task changes go into a queue on your computer, and the list shows them at once:
 
 - Add, complete, reopen, edit the name or the description, date, priority, move, labels, order, sub-tasks, comments, and delete.
-- Todoist parses dates, `#project`, and `@label` in a name when the network is back. Until then, the task shows the typed text with `⏳`.
+- Todoist parses dates, `#project`, and `@label` in a new task and a typed date when the network is back. Until then, the task shows `⏳`.
 - The bottom line shows `offline · 3 changes waiting`.
 
 At the next sync with network, godoist sends the queue to Todoist in order. If Todoist refuses a change (for example, because another device deleted the task), the status line shows it. Project, section, and label changes need the network: offline, they show `offline · try again later`. If changes wait when you quit, godoist asks first. The queue stays on disk, and godoist sends it at the next start.

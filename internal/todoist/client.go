@@ -190,32 +190,6 @@ func (c *Client) quickAddNow(ctx context.Context, text string) (Task, error) {
 	return t, err
 }
 
-// Parse returns the result of Todoist's natural-language parser for text. The API has no
-// parse-only call, so Parse quick-adds a temporary task and deletes it at once.
-func (c *Client) Parse(ctx context.Context, text string) (Task, error) {
-	t, err := c.quickAddNow(ctx, text) // a parse is never queued: it needs the answer now
-	if err != nil {
-		return t, err
-	}
-	if t.Content == "" {
-		return t, fmt.Errorf("the text has no name after parsing")
-	}
-	if err := c.do(ctx, http.MethodDelete, "/tasks/"+url.PathEscape(t.ID), nil, nil, nil); err != nil {
-		return t, fmt.Errorf("parsed, but the temporary task %s was not deleted: %w", t.ID, err)
-	}
-	return t, nil
-}
-
-// ParseDue returns the due date that Todoist reads in text, or nil if the text has none.
-// A fixed task name goes before the text, so that a text with only a date also parses.
-func (c *Client) ParseDue(ctx context.Context, text string) (*Due, error) {
-	t, err := c.Parse(ctx, "x "+text)
-	if err != nil {
-		return nil, err
-	}
-	return t.Due, nil
-}
-
 // MoveOccurrence moves only the current occurrence of a recurring task to date
 // ("2006-01-02" or "2006-01-02T15:04:05"). The repeat rule stays. The REST update
 // cannot do this: a new due_date removes the rule. The Sync API item_update can.

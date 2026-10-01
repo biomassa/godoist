@@ -24,7 +24,7 @@ var dialogSpecs = map[inputMode]dialogSpec{
 	inputAddNote: {"New note", "Note title",
 		"saved as typed · E writes the body later · enter add · esc cancel", 500},
 	inputRename: {"Rename", "New name",
-		"dates, #project, /section, @label and p1–p4 are parsed and change only those fields · enter save · esc cancel", 500},
+		"#project, /section, @label and p1–p4 change only those fields · dates: t · enter save · esc cancel", 500},
 	inputAddSection: {"New section", "Section name",
 		"saved as typed · goes after the section under the cursor · enter add · esc cancel", 120},
 	inputRenameSection: {"Rename section", "Section name", "saved as typed · enter save · esc cancel", 120},
@@ -44,7 +44,7 @@ var dialogSpecs = map[inputMode]dialogSpec{
 var descHints = map[inputMode][2]string{
 	inputAdd: {"dates, #project, /section, @label and p1–p4 are parsed · tab description · enter add · esc cancel",
 		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},
-	inputRename: {"dates, #project, /section, @label and p1–p4 are parsed and change only those fields · tab description · enter save · esc cancel",
+	inputRename: {"#project, /section, @label and p1–p4 change only those fields · dates: t · tab description · enter save · esc cancel",
 		"saved as typed · enter new line · ctrl+enter or ctrl+s save · tab name · esc cancel"},
 	inputAddSubtask: {"dates, @label and p1–p4 are parsed · it goes under the task at the cursor · tab description · enter add · esc cancel",
 		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},

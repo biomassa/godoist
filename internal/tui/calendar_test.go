@@ -34,20 +34,18 @@ func TestCalendarArrowSelectsDay(t *testing.T) {
 	}
 }
 
-func TestCalendarTabDoesNotParseUnchangedText(t *testing.T) {
-	m := openCal(t, 0)
-	m = send(t, m, key("tab"))
-	if m.cal.parsing || m.pending != 0 {
-		t.Error("tab parsed a text that did not change")
-	}
-}
-
-func TestCalendarTabParsesChangedText(t *testing.T) {
+// tab never parses the text: a parse needs a temporary task, and the calendar sync of
+// Todoist can keep an event of it. Todoist parses the text when the dialog saves.
+func TestCalendarTabDoesNotParse(t *testing.T) {
 	m := openCal(t, 0)
 	m = send(t, m, key("f"), key("r"), key("i"), key("tab"))
-	if !m.cal.parsing || m.pending != 1 || m.cal.source != srcText {
-		t.Errorf("parsing = %v pending = %d source = %d, want one parse and the text as source",
-			m.cal.parsing, m.pending, m.cal.source)
+	if m.pending != 0 || m.cal.source != srcText || m.cal.focus != calGrid {
+		t.Errorf("pending = %d source = %d focus = %d, want no parse, the text as source, and the calendar",
+			m.pending, m.cal.source, m.cal.focus)
+	}
+	m = send(t, m, key("shift+tab"), key("enter"))
+	if m.pending != 1 {
+		t.Errorf("enter: pending = %d, want one save of the text", m.pending)
 	}
 }
 
