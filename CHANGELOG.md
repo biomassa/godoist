@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- The date dialog can move the repeat to a new day. When you pick a day in the calendar for a recurring task, `w` changes the repeat, for example from every Thursday to every Wednesday, from that day. `w` shows for a repeat on one weekday or on one day of the month.
+
+### Fixed
+
+- The question of the date dialog for a recurring task has its own lines. Before, its end did not show, so the meaning of `r` was not clear. The text now says what each key does: `o` moves only this occurrence, and `r` makes a one-time task.
+
 ## [0.5.0] - 2026-10-01
 
 ### Changed

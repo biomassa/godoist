@@ -7,6 +7,8 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/biomassa/godoist/internal/todoist"
 )
 
 func key(k string) tea.Msg { return keyMsg(k) }
@@ -180,5 +182,50 @@ func TestCalendarBulkMixedTypingReplaces(t *testing.T) {
 	m := send(t, onRow(t, 1), key("s"), key("j"), key("s"), key("t"), key("f"))
 	if got := m.cal.text.Value(); got != "f" {
 		t.Errorf("text = %q, want typing to replace %q", got, mixedDue)
+	}
+}
+
+// On a task that repeats on one weekday, a calendar day asks o / w / r. w sends the moved
+// rule as the due text, with the day as the start. All lines of the question show.
+func TestCalendarShiftRepeat(t *testing.T) {
+	m := openWork(t)
+	for i := range m.snap.Tasks {
+		if m.snap.Tasks[i].ID == "t2" {
+			m.snap.Tasks[i].Due = &todoist.Due{Date: "2030-01-03", String: "every thursday", IsRecurring: true}
+		}
+	}
+	m.buildRows(false)
+	x := m.layout().mid.x + 10
+	m = send(t, m, click(x, 3), release(x, 3), key("t")) // beta
+	if m.cal == nil || !m.cal.recurring {
+		t.Fatal("the date dialog did not open on the recurring task")
+	}
+	m = send(t, m, key("tab"), key("left"), key("enter")) // Wed 2 Jan 2030
+	if !m.cal.askRecur || m.cal.shiftRule != "every Wednesday" {
+		t.Fatalf("askRecur = %v shiftRule = %q", m.cal.askRecur, m.cal.shiftRule)
+	}
+	box := stripANSI(m.calBox())
+	for _, want := range []string{"what should Wed 2 Jan do?", "o  move only this occurrence, keep “every", "thursday”",
+		"w  repeat every Wednesday from Wed 2 Jan", "r  make it a one-time task on Wed 2 Jan", "(the repeat stops)", "esc cancel"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("the question has no %q:\n%s", want, box)
+		}
+	}
+	m = send(t, m, key("w"))
+	if !m.cal.saving || m.pending != 1 {
+		t.Errorf("w: saving = %v pending = %d", m.cal.saving, m.pending)
+	}
+}
+
+// A rule with no clear new form ("every day") gets no w.
+func TestCalendarNoShiftForEveryDay(t *testing.T) {
+	m := openCal(t, 1) // beta repeats every day
+	m = send(t, m, key("tab"), key("down"), key("enter"))
+	if !m.cal.askRecur || m.cal.shiftRule != "" || strings.Contains(stripANSI(m.calBox()), "  w  ") {
+		t.Errorf("shiftRule = %q, want no w", m.cal.shiftRule)
+	}
+	m = send(t, m, key("w"))
+	if !m.cal.askRecur || m.pending != 0 {
+		t.Error("w did something on a rule without w")
 	}
 }

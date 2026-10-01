@@ -104,3 +104,27 @@ func TestNextDateLocal(t *testing.T) {
 		}
 	}
 }
+
+func TestShiftRule(t *testing.T) {
+	wed := time.Date(2026, 10, 14, 0, 0, 0, 0, time.Local)
+	for rule, want := range map[string]string{
+		"every Thursday":        "every Wednesday",
+		"every thu at 9am":      "every Wednesday at 9am",
+		"every! fri":            "every! Wednesday",
+		"every 15th":            "every 14th",
+		"every 1st at 10:00":    "every 14th at 10:00",
+		"every mon until dec 1": "every Wednesday until dec 1",
+	} {
+		if got, ok := ShiftRule(rule, wed); !ok || got != want {
+			t.Errorf("%q: %q %v, want %q", rule, got, ok, want)
+		}
+	}
+	for _, rule := range []string{"every mon, thu", "every 2 weeks", "every weekday", "every day", "every other friday"} {
+		if got, ok := ShiftRule(rule, wed); ok {
+			t.Errorf("%q: shifted to %q, but the new rule is not clear", rule, got)
+		}
+	}
+	if ordinal(22) != "22nd" || ordinal(11) != "11th" || ordinal(31) != "31st" {
+		t.Error("ordinal is wrong")
+	}
+}

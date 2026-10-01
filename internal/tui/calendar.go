@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,8 @@ type calDialog struct {
 	month     time.Time // first day of the shown month
 	cleared   bool      // "No date" is selected
 	saving    bool
-	askRecur  bool   // waiting for o or r after enter on a recurring task
+	askRecur  bool   // waiting for o, w, or r after enter on a recurring task
+	shiftRule string // the rule for w (the repeat moved to the picked day), or "" if w is not possible
 	recurring bool   // at least one task repeats
 	note      string // a note or an error, under the text
 	noteErr   bool
@@ -249,6 +251,12 @@ func (m Model) updateCalendar(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		case "o":
 			c.askRecur = false
 			return m.saveCalDate(true)
+		case "w":
+			if c.shiftRule == "" {
+				return m, nil
+			}
+			c.askRecur = false
+			return m.saveShiftedRule()
 		case "r":
 			c.askRecur = false
 			return m.saveCalDate(false)
@@ -360,10 +368,33 @@ func (m Model) saveCalendar() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if c.recurring {
-		c.askRecur = true
+		c.askRecur, c.shiftRule = true, ""
+		if len(c.taskIDs) == 1 {
+			if r, ok := c.rules[c.taskIDs[0]]; ok {
+				c.shiftRule, _ = todoist.ShiftRule(r[0], c.day)
+			}
+		}
 		return m, nil
 	}
 	return m.saveCalDate(false)
+}
+
+// atTime is the time part of a repeat rule, for example " at 9am".
+var atTime = regexp.MustCompile(`(?i)\s+at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\b`)
+
+// saveShiftedRule saves the repeat moved to the picked day (w): the new rule from the
+// picked day, with the time of the dialog. godoist sends it as the due text of the real
+// task, and Todoist parses it there.
+func (m Model) saveShiftedRule() (tea.Model, tea.Cmd) {
+	c := m.cal
+	h, mi, allDay, _ := parseClock(c.timeIn.Value())
+	text := atTime.ReplaceAllString(c.shiftRule, "")
+	if !allDay {
+		text += fmt.Sprintf(" at %02d:%02d", h, mi)
+	}
+	text += " starting " + c.day.Format("Jan 2 2006")
+	id := c.taskIDs[0]
+	return m.calSave(func(ctx context.Context) (string, error) { return dueByText(ctx, m.client, id, text) })
 }
 
 // saveCalDate saves the calendar day and time. If keepRepeat is true, only the current
@@ -467,7 +498,8 @@ func (m Model) calSaved(msg calSavedMsg) (tea.Model, tea.Cmd) {
 // ---- drawing and mouse ----
 
 func (m Model) calRect() rect {
-	w, h := min(calWidth, m.width), calLines+2
+	w := min(calWidth, m.width)
+	h := m.calLineCount(w-2) + 2
 	return rect{max(0, (m.width-w)/2), max(0, (m.height-h)/3), w, h}
 }
 
@@ -510,7 +542,7 @@ func (m Model) calBox() string {
 	cd := m.cal
 	r := m.calRect()
 	inner := r.w - 2
-	lines := make([]string, calLines)
+	lines := make([]string, m.calLineCount(inner))
 	lines[calLineText] = cd.text.View()
 	if cd.note != "" {
 		hex := hexMuted
@@ -590,21 +622,18 @@ func (m Model) calBox() string {
 	case calTime:
 		hint = "HH:MM, empty = all day · enter save · tab next"
 	}
-	hintHex := hexDim
-	if cd.askRecur {
-		hint, hintHex = "recurring task · o moves this occurrence and keeps the repeat · r replaces the repeat · esc cancel", hexOverdue
-		if len(cd.taskIDs) > 1 {
-			hint = "recurring tasks · o moves their occurrences and keeps the repeats · r replaces the repeats · esc cancel"
+	if cd.askRecur { // the question has its own lines, from the hint line down
+		for i, l := range m.recurQuestion(inner - 1) {
+			lines[calLineHint+i] = l
 		}
+		return box(st(fg(hexAccent)).Bold(true).Render(cd.title), padLines(lines, inner, len(lines)), r.w, fg(hexAccent))
 	}
-	for i, l := range wrapHint(hint, hintHex, inner-1) {
+	for i, l := range wrapHint(hint, hexDim, inner-1) {
 		if i < 2 {
 			lines[calLineHint+i] = l
 		}
 	}
 	switch {
-	case cd.askRecur:
-		lines[calLineSave] = " " + st(hexOverdue).Bold(true).Render("choose o or r")
 	case cd.source == srcText:
 		lines[calLineSave] = " " + st(hexMuted).Render("enter saves the text")
 	case cd.cleared:
@@ -612,7 +641,70 @@ func (m Model) calBox() string {
 	case cd.source == srcCal:
 		lines[calLineSave] = " " + st(hexMuted).Render("enter saves the calendar day and time")
 	}
-	return box(st(fg(hexAccent)).Bold(true).Render(cd.title), padLines(lines, inner, calLines), r.w, fg(hexAccent))
+	return box(st(fg(hexAccent)).Bold(true).Render(cd.title), padLines(lines, inner, len(lines)), r.w, fg(hexAccent))
+}
+
+// calLineCount is the number of lines inside the border, for the inner width w. The
+// o / w / r question makes the dialog taller.
+func (m Model) calLineCount(w int) int {
+	if m.cal.askRecur {
+		return calLineHint + len(m.recurQuestion(w-1))
+	}
+	return calLines
+}
+
+// recurLines are the lines of the o / w / r question, as a key and a text each. A line
+// with an empty key continues the line above.
+func (cd *calDialog) recurLines() [][2]string {
+	date := cd.day.Format("Mon 2 Jan")
+	if h, mi, allDay, ok := parseClock(cd.timeIn.Value()); ok && !allDay {
+		date += fmt.Sprintf(" %02d:%02d", h, mi)
+	}
+	if len(cd.taskIDs) > 1 {
+		return [][2]string{
+			{"", "recurring tasks: what should " + date + " do?"},
+			{"o", "move only these occurrences, keep the repeats"},
+			{"r", "make them one-time tasks on " + date},
+			{"", "(the repeats stop)"},
+			{"esc", "cancel"},
+		}
+	}
+	rule := ""
+	for _, r := range cd.rules {
+		rule = r[0]
+	}
+	out := [][2]string{
+		{"", "recurring task: what should " + date + " do?"},
+		{"o", "move only this occurrence, keep “" + rule + "”"},
+	}
+	if cd.shiftRule != "" {
+		out = append(out, [2]string{"w", "repeat " + atTime.ReplaceAllString(cd.shiftRule, "") + " from " + cd.day.Format("Mon 2 Jan")})
+	}
+	return append(out, [2]string{"r", "make it a one-time task on " + date}, [2]string{"", "(the repeat stops)"}, [2]string{"esc", "cancel"})
+}
+
+// recurQuestion draws the o / w / r question for the inner width w.
+func (m Model) recurQuestion(w int) []string {
+	var out []string
+	for i, l := range m.cal.recurLines() {
+		switch {
+		case i == 0:
+			out = append(out, " "+st(hexOverdue).Bold(true).Render(trunc(l[1], w)))
+		case l[0] == "esc":
+			out = append(out, " "+st(fg(hexAccent)).Bold(true).Render("esc")+" "+st(hexDim).Render(l[1]))
+		case l[0] == "":
+			out = append(out, "     "+st(hexMuted).Render(trunc(l[1], w-5)))
+		default: // a long line goes on under its text
+			for k, part := range strings.Split(lipgloss.NewStyle().Width(w-5).Render(l[1]), "\n") {
+				lead := "  " + st(fg(hexAccent)).Bold(true).Render(l[0]) + "  "
+				if k > 0 {
+					lead = "     "
+				}
+				out = append(out, lead+st(hexText).Render(strings.TrimRight(part, " ")))
+			}
+		}
+	}
+	return out
 }
 
 // pickBg is the background of the selected day and quick pick. It is stronger while the

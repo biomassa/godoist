@@ -248,7 +248,13 @@ The `t` key opens a dialog with three parts: a text field, a month calendar, and
 3. In the calendar, use the arrow keys, `PgUp` / `PgDn`, `Home`, or the quick picks `1`–`5`.
 4. Push `enter`. godoist saves the input that you changed last.
 
-For a recurring task, a date from the calendar asks a question. Push `o` to move only this occurrence and keep the repeat. Push `r` to replace the repeat with the date.
+For a recurring task, a date from the calendar asks a question:
+
+- `o` moves only this occurrence. The repeat stays.
+- `w` moves the repeat to the new day, for example from every Thursday to every Wednesday, from that date. `w` shows only for a repeat on one weekday or on one day of the month.
+- `r` makes the task a one-time task on the date. The repeat stops.
+
+To give a task a new repeat, you can also type it, for example `every wed`, and push `enter`.
 
 ### Projects
 

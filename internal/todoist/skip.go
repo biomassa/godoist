@@ -125,3 +125,36 @@ func (c *Client) SkipOccurrence(ctx context.Context, t Task) (*Due, error) {
 	due := &Due{Date: date, String: t.Due.String, Lang: t.Due.Lang, IsRecurring: true}
 	return due, c.MoveOccurrence(ctx, t.ID, date, t.Due.String, t.Due.Lang)
 }
+
+// singleWeekday is a repeat on one weekday ("every thursday at 9am").
+var singleWeekday = regexp.MustCompile(`(?i)^(every!?\s+)(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*\b(.*)$`)
+
+// ShiftRule returns the repeat rule moved to the day of to: a rule on one weekday gets the
+// weekday of to, and a rule on one day of the month gets the day of to. The time and the
+// end of the rule stay. ok is false for other rules, where the new rule is not clear.
+func ShiftRule(rule string, to time.Time) (string, bool) {
+	rule = strings.TrimSpace(rule)
+	if m := singleWeekday.FindStringSubmatch(rule); m != nil && ruleTail.MatchString(m[2]) && !weekdayWord.MatchString(m[2]) {
+		return m[1] + to.Weekday().String() + m[2], true
+	}
+	if m := monthDayRule.FindStringSubmatchIndex(rule); m != nil && ruleTail.MatchString(rule[m[1]:]) {
+		return rule[:m[2]] + ordinal(to.Day()) + rule[m[1]:], true
+	}
+	return "", false
+}
+
+// ordinal is 1st, 2nd, 3rd, 4th, … 21st, 22nd, 23rd, 31st.
+func ordinal(n int) string {
+	suffix := "th"
+	if n%100 < 11 || n%100 > 13 {
+		switch n % 10 {
+		case 1:
+			suffix = "st"
+		case 2:
+			suffix = "nd"
+		case 3:
+			suffix = "rd"
+		}
+	}
+	return strconv.Itoa(n) + suffix
+}
