@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-01
+
 ### Added
 
 - The date dialog can move the repeat to a new day. When you pick a day in the calendar for a recurring task, `w` changes the repeat, for example from every Thursday to every Wednesday, from that day. `w` shows for a repeat on one weekday or on one day of the month.
@@ -163,7 +165,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/biomassa/godoist/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/biomassa/godoist/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/biomassa/godoist/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/biomassa/godoist/compare/v0.2.1...v0.3.0
