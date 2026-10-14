@@ -5,6 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/clipperhouse/displaywidth"
 )
 
 // Text selection in the inline editor. The selection goes from an anchor to the cursor.
@@ -150,6 +151,20 @@ func selectionStyle(s lipgloss.Style) lipgloss.Style {
 	return s.Background(c(hexSelBg)).Foreground(c(hexText))
 }
 
+// cellAt returns the index of the cell at screen column x of a row. A wide rune (CJK,
+// emoji) is two columns. A column after the last cell gives len(cells).
+func cellAt(cells []pcell, x int) int {
+	if x < 0 {
+		return x
+	}
+	for k, cl := range cells {
+		if x -= displaywidth.Rune(cl.r); x < 0 {
+			return k
+		}
+	}
+	return len(cells)
+}
+
 // notePosAt returns the source line and rune at screen cell x, y of the editor pane.
 // ok is false outside the text.
 func (m Model) notePosAt(x, y int) (row, col int, ok bool) {
@@ -168,7 +183,8 @@ func (m Model) notePosAt(x, y int) (row, col int, ok bool) {
 	if er.cells == nil { // a rendered block: the start of its line
 		return er.line, 0, true
 	}
-	k := x - r.x - 2 // the border and the row margin
+	k := x - r.x - 2 - er.indent() // the border, the row margin, and the indent
+	k = cellAt(er.cells, k)
 	col = len(e.lines[er.line])
 	switch {
 	case k >= 0 && k < len(er.cells):
@@ -178,7 +194,7 @@ func (m Model) notePosAt(x, y int) (row, col int, ok bool) {
 	case er.source && len(er.cells) > 0 && k >= len(er.cells):
 		col = er.cells[len(er.cells)-1].src + 1
 	}
-	return er.line, min(col, len(e.lines[er.line])), true
+	return er.line, max(0, min(col, len(e.lines[er.line]))), true // a table border has src -1
 }
 
 // noteDrag moves the cursor to the cell under the mouse while the button is down. The

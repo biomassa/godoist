@@ -26,10 +26,9 @@ var (
 	baseBg      string // terminal background, used for tinting
 	darkTheme   bool
 	priorityHex map[int]string
-	// The markdown colors: links, code, and the heading bars of levels 1 to 6.
+	// The markdown colors: links and inline code. The heading bars use the accent.
 	hexLink, hexCode string
-	headingHexes     [6]string
-	chromaStyle      string // the code block style of a palette theme (see mdStyle), or ""
+	chromaStyle      string // the code block style of a palette theme (see themeReader), or ""
 )
 
 func init() { setTheme(true) }
@@ -39,7 +38,6 @@ func init() { setTheme(true) }
 func setTheme(dark bool) {
 	darkTheme = dark
 	hexAccent = "#DC4C3E" // Todoist red
-	headingHexes = [6]string{"#DC4C3E", "#E0B000", "#369307", "#4180FF", "#FF9A14", "#A970FF"}
 	chromaStyle = ""
 	if dark {
 		hexOverdue, hexToday, hexTomorrow, hexWeek = "#FF7066", "#25B84C", "#FF9A14", "#A970FF"

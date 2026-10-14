@@ -299,7 +299,8 @@ func TestNotePreviewClick(t *testing.T) {
 	r := m.sideRect()
 	// Row 2 of the pane (after the empty top line and the heading) is "Some bold text".
 	// "b" of "bold" is the 6th visible rune; in the source it is rune 7 ("Some **b").
-	m = send(t, m, click(r.x+2+5, r.y+1+2))
+	// The row starts after the border, the margin, and the indent.
+	m = send(t, m, click(r.x+3+5, r.y+1+2))
 	if m.note.row != 1 || m.note.col != 7 {
 		t.Errorf("row = %d col = %d, want 1, 7", m.note.row, m.note.col)
 	}

@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/clipperhouse/displaywidth"
 )
 
 // noteAutosave is the pause after the last change before the editor saves.
@@ -558,25 +559,39 @@ func (e *noteEditor) toggleLineCheckbox() {
 
 // ---- layout and drawing ----
 
-// noteWidth is the text width of the editor.
-func (m Model) noteWidth() int { return max(10, m.detailInnerWidth()-2) }
+// noteWidth is the width at which the editor wraps a source line: the text width without
+// the indent of the rows.
+func (m Model) noteWidth() int { return bodyWidth(max(10, m.detailInnerWidth()-2)) }
 
-// wrapLine splits a line into screen segments of at most w runes, at spaces if possible.
-// It returns the start of each segment.
+// wrapLine splits a line into screen segments of at most w cells, at spaces if possible.
+// It returns the start of each segment. A wide rune (CJK, emoji) is two cells. A rune
+// with no width stays with the rune before it.
 func wrapLine(l []rune, w int) []int {
+	w = max(1, w)
 	starts := []int{0}
-	for s := 0; len(l)-s > w; {
-		cut := s + w
-		for i := cut; i > s+w/2; i-- {
+	for s := 0; ; {
+		cut, cw := s, 0 // the end of the segment and its width
+		for cut < len(l) {
+			rw := displaywidth.Rune(l[cut])
+			if cw+rw > w && cut > s {
+				break
+			}
+			cw += rw
+			cut++
+		}
+		if cut >= len(l) {
+			return starts
+		}
+		for i, iw := cut, cw; i > s && iw > w/2; i-- { // a space in the second half of the segment
 			if l[i-1] == ' ' {
 				cut = i
 				break
 			}
+			iw -= displaywidth.Rune(l[i-1])
 		}
 		starts = append(starts, cut)
 		s = cut
 	}
-	return starts
 }
 
 // screenPos returns the screen line and column of the cursor.

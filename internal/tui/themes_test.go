@@ -86,22 +86,22 @@ func TestThemeLegend(t *testing.T) {
 }
 
 // The markdown colors follow the theme: the heading bars, links, code, and the code style
-// of the reader. The todoist theme keeps its colors.
+// of the reader. The heading bars use the accent in all themes.
 func TestThemeMarkdownColors(t *testing.T) {
 	defer applyTheme(todoistTheme, true)
 	applyTheme(todoistTheme, true)
-	if headingHex(1) != "#DC4C3E" || readerStyle().CodeBlock.Chroma == nil && readerStyle().CodeBlock.Theme != "" {
-		t.Errorf("todoist: h1 = %s", headingHex(1))
+	if headingAccent() != hexAccent || readerStyle().CodeBlock.Chroma == nil && readerStyle().CodeBlock.Theme != "" {
+		t.Errorf("todoist: heading accent = %s", headingAccent())
 	}
 	applyTheme("nord", true)
 	st := readerStyle()
 	_, bar1 := headingColors(1)
-	_, bar6 := headingColors(6)
-	if headingHex(1) != hexLink || headingHex(6) != hexLink || st.CodeBlock.Theme != "nord" {
-		t.Errorf("nord: h1 = %s h6 = %s code theme = %q", headingHex(1), headingHex(6), st.CodeBlock.Theme)
+	_, bar4 := headingColors(4)
+	if headingAccent() != hexLink || st.CodeBlock.Theme != "nord" {
+		t.Errorf("nord: heading accent = %s code theme = %q", headingAccent(), st.CodeBlock.Theme)
 	}
-	if contrast(bar1, baseBg) <= contrast(bar6, baseBg) {
-		t.Errorf("nord: the H1 bar %s is not stronger than the H6 bar %s", bar1, bar6)
+	if contrast(bar1, baseBg) <= contrast(bar4, baseBg) {
+		t.Errorf("nord: the H1 bar %s is not stronger than the H4 bar %s", bar1, bar4)
 	}
 	if st.Link.Color == nil || *st.Link.Color != hexLink {
 		t.Errorf("nord: link color = %v, want %s", st.Link.Color, hexLink)

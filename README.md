@@ -191,7 +191,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 
 Push `T` to open the theme picker at the right of the screen. When you move through the list with `↑` / `↓`, the whole screen shows the highlighted theme with your data. `enter` keeps the theme and saves it in `~/.config/godoist/config.toml` for the next start. `esc` goes back to the theme that you had.
 
-The first theme, `todoist`, uses the colors of the Todoist app and the background of your terminal. The other themes set the terminal background while godoist runs: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, nord, dracula, gruvbox-dark, gruvbox-light, tokyo-night, tokyo-night-day, rose-pine, rose-pine-moon, rose-pine-dawn, one-dark, magenta-geode, coral-sunset, lavender-fields-forever, vt100, and vt52. In each theme, overdue tasks and p1 use the error color of the theme, and tasks for today use its green. Project colors stay the Todoist colors, adjusted so that you can read them. The markdown colors also follow the theme: the heading bars use the accent of the theme (strongest for level 1, fainter for lower levels), and links, code, and code blocks use its colors.
+The first theme, `todoist`, uses the colors of the Todoist app and the background of your terminal. The other themes set the terminal background while godoist runs: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, nord, dracula, gruvbox-dark, gruvbox-light, tokyo-night, tokyo-night-day, rose-pine, rose-pine-moon, rose-pine-dawn, one-dark, magenta-geode, coral-sunset, lavender-fields-forever, vt100, and vt52. In each theme, overdue tasks and p1 use the error color of the theme, and tasks for today use its green. Project colors stay the Todoist colors, adjusted so that you can read them. The markdown colors also follow the theme: the headings use the accent of the theme (strongest for level 1, fainter for lower levels), and links, code, and code blocks use its colors.
 
 To use a theme for one run only, start godoist with `--theme NAME`. The theme palettes come from [tideui](https://github.com/allisonhere/tideui) by Allie Bayless (MIT license).
 
@@ -212,11 +212,13 @@ In an add, Todoist parses the name as in quick add. In an edit, godoist reads `#
 
 godoist shows markdown in descriptions and comments in the details pane, and in notes in the notebook reader:
 
-- Headings show as colored bars. In the `todoist` theme, levels 1 to 6 are red, yellow, green, blue, orange, and purple. In the other themes, the bars use the theme accent, strongest for level 1.
-- **Bold**, *italic*, `code`, and ~~strike~~ show without their marks.
+- Headings use the theme accent. Levels 1 and 2 have a bar to the full width, and levels 3 and 4 a short bar. Levels 5 and 6 have accent text and no bar. The bar of level 1 is the strongest, and its text is in the middle.
+- **Bold**, *italic*, `code`, and ~~strike~~ show without their marks, also inside each other.
 - Lists show with `•`, and task lists with `☐` / `☑` checkboxes.
 - Links show as their text, as terminal hyperlinks.
-- Fenced code shows with syntax colors. Tables and quotes also show formatted.
+- Fenced code shows with syntax colors. Quotes also show formatted.
+- Tables (GitHub Flavored Markdown) show with lines between the columns. A wide table wraps the text of its widest columns.
+- Body text starts one cell to the right of the heading bars, in line with the heading text.
 
 A description, a comment, or a note can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. In task view with no checkbox selected, `space` completes the task.
 

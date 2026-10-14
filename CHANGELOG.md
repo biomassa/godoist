@@ -7,6 +7,26 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- The markdown rendering comes from mded, the markdown editor of the same author.
+- Headings use the accent of the theme, also in the `todoist` theme. Before, each level had its own color in the `todoist` theme.
+- Levels 1 and 2 have a bar to the full width, and levels 3 and 4 a short bar. Levels 5 and 6 have accent text and no bar. The bar colors go from level 1 to the background in equal steps.
+- The text of a level 1 heading is in the middle of its bar. In the editor, the line with the cursor stays at the left.
+- Body text starts one cell more to the right. Thus it is in line with the heading text.
+- The details pane shows each line of a description, a comment, or a note as the editor preview does. Before, lines without an empty line between them joined into one paragraph.
+- Tables show with lines between the columns, in the details pane and in the editor preview. A wide table wraps the text of its widest columns.
+- Tables follow GitHub Flavored Markdown. The delimiter row can have one dash or more for each column, and the outer pipes are optional.
+
+### Fixed
+
+- A backslash escape shows the mark as text: `\*` shows `*`.
+- An autolink (`<https://example.com>`) shows its URL as a link.
+- CJK text and emoji wrap at the edge of the pane. Before, a line with wide characters went past the edge, and its end did not show. A click on a wide character in the editor puts the cursor on that character.
+- Inline markdown in bold, italic, strikethrough, and link text shows formatted. Before, code in bold text showed its backticks.
+- A numbered checkbox item (`1. [ ] item`) shows a checkbox in the editor preview.
+- A click on a row of a code block in the editor puts the cursor on the line of that row. Before, it went to the line above.
+
 ## [0.6.0] - 2026-10-01
 
 ### Added

@@ -14,13 +14,21 @@ import (
 	"github.com/biomassa/godoist/internal/todoist"
 )
 
-// mdCache keeps rendered markdown. Glamour is slow, and View runs on every update.
-// The cache is a pointer, so all copies of the Model share it.
+// mdCache keeps rendered markdown. View runs on every update, so each text is drawn one
+// time. The cache is a pointer, so all copies of the Model share it.
 type mdCache struct {
-	out       map[string][]string
+	out       map[string]mdText
 	renderers map[int]*glamour.TermRenderer
+	code      map[string][]edRow // rendered fenced code blocks by width and text
 	preview   map[string][]edRow // formatted editor lines for the width previewW: see previewRows
 	previewW  int
+	tables    map[string][]edRow // table rows by width and text, with line relative to the table
+}
+
+// mdText is a rendered markdown text: its lines, and the first line of each checkbox item.
+type mdText struct {
+	lines  []string
+	checks []int
 }
 
 // newMDCache returns an empty cache.
@@ -28,129 +36,101 @@ func newMDCache() *mdCache { return &mdCache{} }
 
 // reset clears the cache. Call it when the theme changes.
 func (c *mdCache) reset() {
-	c.out = map[string][]string{}
+	c.out = map[string]mdText{}
 	c.renderers = map[int]*glamour.TermRenderer{}
+	c.code = map[string][]edRow{}
 	c.preview = map[string][]edRow{}
+	c.tables = map[string][]edRow{}
 }
 
-// render returns markdown as lines that are at most w cells wide.
-// If glamour fails, it returns plain wrapped text.
-func (c *mdCache) render(src string, w int) []string {
+// render returns markdown as lines that are at most w cells wide. The reader shows each
+// line as the editor preview does (see previewRows). Fenced code blocks and tables show
+// as blocks (see blockRows).
+func (c *mdCache) render(src string, w int) mdText {
 	// A drag of the pane border makes many widths: the cache starts again when it gets large.
-	if c.out == nil || len(c.out) > 4000 || len(c.renderers) > 12 {
+	if c.out == nil || len(c.out) > 4000 {
 		c.reset()
 	}
 	key := fmt.Sprintf("%d\x00%s", w, src)
-	if lines, ok := c.out[key]; ok {
-		return lines
+	if t, ok := c.out[key]; ok {
+		return t
+	}
+	tw := max(1, w-1) // the rows have one cell of margin
+	var lines [][]rune
+	for _, l := range strings.Split(src, "\n") {
+		lines = append(lines, []rune(l))
+	}
+	blockAt := map[int]mdBlock{} // first line → block
+	inBlock := make([]bool, len(lines))
+	for _, b := range mdBlocks(lines) {
+		blockAt[b.from] = b
+		for i := b.from; i <= b.to; i++ {
+			inBlock[i] = true
+		}
+	}
+	isCheck := map[int]bool{}
+	for _, i := range checkboxLines(src) {
+		isCheck[i] = true
+	}
+	var t mdText
+	for i, l := range lines {
+		var rows []edRow
+		switch b, first := blockAt[i]; {
+		case first:
+			rows = c.blockRows(lines, b, tw)
+		case inBlock[i]: // the block rows came with its first line
+		default:
+			rows = c.previewRows(string(l), tw)
+		}
+		if isCheck[i] && !inBlock[i] {
+			t.checks = append(t.checks, len(t.lines))
+		}
+		for _, r := range rows {
+			t.lines = append(t.lines, r.pre)
+		}
+	}
+	c.out[key] = t
+	return t
+}
+
+// codeRows returns a fenced code block as rows that are at most w+1 cells wide, with
+// syntax colors from Glamour. Each row has one cell of indent, like all body rows. If
+// Glamour fails, the rows have plain wrapped text.
+func (c *mdCache) codeRows(src string, w int) []edRow {
+	if c.code == nil || len(c.code) > 2000 || len(c.renderers) > 12 {
+		c.code, c.renderers = map[string][]edRow{}, map[int]*glamour.TermRenderer{}
+	}
+	key := fmt.Sprintf("%d\x00%s", w, src)
+	if rows, ok := c.code[key]; ok {
+		return rows
 	}
 	r := c.renderers[w]
 	if r == nil {
 		r, _ = glamour.NewTermRenderer(glamour.WithStyles(readerStyle()), glamour.WithWordWrap(max(10, w-2)))
 		c.renderers[w] = r
 	}
-	// Headings are full-width bars in the color of their level. Glamour renders the text
-	// between them.
 	var lines []string
-	var chunk []string
-	flush := func() {
-		text := strings.Trim(strings.Join(chunk, "\n"), "\n")
-		chunk = nil
-		if strings.TrimSpace(text) == "" {
-			return
+	if r != nil {
+		if out, err := r.Render(src); err == nil {
+			lines = strings.Split(strings.Trim(out, "\n"), "\n")
 		}
-		var part []string
-		if r != nil {
-			if out, err := r.Render(text); err == nil {
-				part = strings.Split(strings.Trim(out, "\n"), "\n")
-			}
-		}
-		if part == nil {
-			part = strings.Split(lipgloss.NewStyle().Width(w).Render(text), "\n")
-		}
-		// Glamour adds lines with only spaces around a part. Drop them, so that one empty
-		// line separates a part from a heading.
-		for len(part) > 0 && strings.TrimSpace(ansi.Strip(part[0])) == "" {
-			part = part[1:]
-		}
-		for len(part) > 0 && strings.TrimSpace(ansi.Strip(part[len(part)-1])) == "" {
-			part = part[:len(part)-1]
-		}
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, part...)
 	}
-	inFence := false
-	for _, l := range strings.Split(src, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(l), "```") {
-			inFence = !inFence
-		}
-		level, text := headingLevel(l)
-		if inFence || level == 0 {
-			chunk = append(chunk, l)
-			continue
-		}
-		flush()
-		if len(lines) > 0 {
-			lines = append(lines, "")
-		}
-		lines = append(lines, headingBar(level, plain(text), w))
+	if lines == nil {
+		lines = strings.Split(lipgloss.NewStyle().Width(w).Render(src), "\n")
 	}
-	flush()
-	c.out[key] = lines
-	return lines
-}
-
-// headingLevel returns the level (1 to 6) and the text of an ATX heading line, or 0.
-func headingLevel(l string) (int, string) {
-	t := strings.TrimLeft(l, " ")
-	n := 0
-	for n < len(t) && n < 7 && t[n] == '#' {
-		n++
+	// Glamour adds lines with only spaces around a block. Drop them.
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[0])) == "" {
+		lines = lines[1:]
 	}
-	if n == 0 || n > 6 || (n < len(t) && t[n] != ' ') {
-		return 0, ""
+	for len(lines) > 0 && strings.TrimSpace(ansi.Strip(lines[len(lines)-1])) == "" {
+		lines = lines[:len(lines)-1]
 	}
-	return n, strings.TrimSpace(strings.TrimRight(strings.TrimSpace(t[n:]), "#"))
-}
-
-// headingHex is the color of a heading level. The todoist theme has red, yellow, green,
-// blue, orange, and purple. A palette theme uses its accent for all levels.
-func headingHex(level int) string { return headingHexes[max(1, min(level, 6))-1] }
-
-// headingShades is how far the bar of each level goes toward the background in a palette
-// theme: level 1 is the strongest.
-var headingShades = [6]float64{0.45, 0.58, 0.68, 0.76, 0.82, 0.87}
-
-// headingColors returns the text and the bar color of a heading level.
-func headingColors(level int) (text, bar string) {
-	h := headingHex(level)
-	shade := 0.62 // the todoist theme: one strength, a color for each level
-	if themeBg != "" {
-		shade = headingShades[max(1, min(level, 6))-1]
+	rows := make([]edRow, len(lines))
+	for k, l := range lines {
+		rows[k] = edRow{pre: " " + l}
 	}
-	text = mix(h, "#FFFFFF", 0.55)
-	if !darkTheme {
-		text = mix(h, "#000000", 0.45)
-	}
-	bar = mix(h, baseBg, shade)
-	for ; shade < 0.95 && contrast(readable(text, bar, 4.5), bar) < 4.5; shade += 0.03 {
-		bar = mix(h, baseBg, shade) // a bright accent: a fainter bar, so that the text stays readable
-	}
-	return readable(text, bar, 4.5), bar
-}
-
-// headingStyle is the bar style of a heading level: a tinted background and bright text.
-func headingStyle(level int) lipgloss.Style {
-	text, bar := headingColors(level)
-	return lipgloss.NewStyle().Background(c(bar)).Foreground(c(text)).Bold(true)
-}
-
-// headingBar draws a heading as a full-width bar.
-func headingBar(level int, text string, w int) string {
-	st := headingStyle(level)
-	return st.Render(" " + trunc(text, max(1, w-3)) + strings.Repeat(" ", max(0, w-2-lipgloss.Width(trunc(text, max(1, w-3))))))
+	c.code[key] = rows
+	return rows
 }
 
 // readerStyle is the Glamour dark or light style with clean headings (no "##" marks) and
@@ -176,7 +156,7 @@ func readerStyle() gansi.StyleConfig {
 type detailDoc struct {
 	lines    []string
 	comments [][2]int
-	checks   []int // lines with a ☐ or ☑ of the note body, in order
+	checks   []int // the first lines of the checkbox items of the note body, in order
 	// editStart is the first line of the rendered note body (notebook view), for a
 	// double-click that opens the editor at that place.
 	editStart int
@@ -300,15 +280,12 @@ func (m Model) buildDetail(w int) detailDoc {
 	return d
 }
 
-// addMarkdown adds rendered markdown lines and records the lines with a ☐ or ☑ checkbox.
-func (d *detailDoc) addMarkdown(lines []string) {
-	start := len(d.lines)
-	d.lines = append(d.lines, lines...)
-	for i := start; i < len(d.lines); i++ {
-		if l := strings.TrimSpace(ansi.Strip(d.lines[i])); strings.HasPrefix(l, "☐ ") || strings.HasPrefix(l, "☑ ") {
-			d.checks = append(d.checks, i)
-		}
+// addMarkdown adds rendered markdown lines and records the lines with a checkbox.
+func (d *detailDoc) addMarkdown(t mdText) {
+	for _, k := range t.checks {
+		d.checks = append(d.checks, len(d.lines)+k)
 	}
+	d.lines = append(d.lines, t.lines...)
 }
 
 // detailInnerWidth is the content width of the pane that shows details.

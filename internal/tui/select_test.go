@@ -83,8 +83,8 @@ func TestClipboardPasteReplaces(t *testing.T) {
 func TestDragSelects(t *testing.T) {
 	m := selModel(t)
 	r := m.sideRect()
-	y := r.y + 2 // the first text row, under the empty top line
-	m = send(t, m, click(r.x+2, y), motion(r.x+2+3, y), release(r.x+2+3, y))
+	y := r.y + 2                                                             // the first text row, under the empty top line
+	m = send(t, m, click(r.x+3, y), motion(r.x+3+3, y), release(r.x+3+3, y)) // after the border, the margin, and the indent
 	if got := m.note.selectedText(); got != "one" {
 		t.Errorf("drag selected %q, want one", got)
 	}

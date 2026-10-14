@@ -71,11 +71,11 @@ func TestOverviewToggleIsPerView(t *testing.T) {
 
 func TestHeadingBars(t *testing.T) {
 	c := newMDCache()
-	lines := c.render("# One\n\ntext\n\n### Three", 30)
-	if len(lines) < 5 || !strings.Contains(lines[0], "One") || !strings.Contains(lines[len(lines)-1], "Three") {
+	lines := c.render("# One\n\ntext\n\n### Three", 30).lines
+	if len(lines) != 5 || !strings.Contains(stripANSI(lines[0]), "One") || !strings.Contains(stripANSI(lines[4]), "Three") {
 		t.Fatalf("lines = %q", lines)
 	}
-	if lines[0] == lines[len(lines)-1] || !strings.Contains(lines[0], "\x1b[") {
+	if lines[0] == lines[4] || !strings.Contains(lines[0], "\x1b[") {
 		t.Error("heading bars have no style")
 	}
 	if n, text := headingLevel("## Setup ##"); n != 2 || text != "Setup" {
