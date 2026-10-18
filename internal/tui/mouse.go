@@ -167,11 +167,16 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		// A click on the name or the description of the task dialog moves the keys there.
+		// A click in the description also puts its cursor at the clicked character.
+		var next tea.Cmd
 		if f := m.dialogFieldAt(y); f >= 0 && f != m.dlgField {
-			next := m.setDialogField(f)
-			return m, next
+			next = m.setDialogField(f)
 		}
-		return m, nil
+		if m.hasDescField(m.inputMode) && m.dlgField == 1 {
+			nm, _ := m.descClick(x, y, false)
+			return nm, next
+		}
+		return m, next
 	case m.note != nil:
 		return m.noteClick(x, y)
 	case m.pick != nil:
@@ -406,6 +411,9 @@ func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	if m.note != nil && m.note.dragging { // a drag in the editor selects text
 		return m.noteDrag(ms.X, ms.Y)
 	}
+	if m.dlgDesc != nil && m.dlgDesc.dragging { // a drag in the dialog description too
+		return m.descClick(ms.X, ms.Y, true)
+	}
 	if m.drag == nil {
 		return m, nil
 	}
@@ -425,6 +433,9 @@ func (m Model) mouseRelease(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	m.paneDrag = false
 	if m.note != nil {
 		m.note.dragging = false
+	}
+	if m.dlgDesc != nil {
+		m.dlgDesc.dragging = false
 	}
 	d := m.drag
 	m.drag = nil

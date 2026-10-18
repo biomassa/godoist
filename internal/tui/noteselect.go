@@ -76,8 +76,7 @@ func (e *noteEditor) deleteSelection() bool {
 
 // selectKeys handles the selection and clipboard keys. handled is false for other keys.
 // A move key without shift removes the selection and is not handled here.
-func (m Model) selectKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
-	e := m.note
+func (m Model) selectKeys(e *noteEditor, msg tea.KeyPressMsg, w int) (tea.Model, tea.Cmd, bool) {
 	key := msg.String()
 	extend := func(move func()) {
 		if !e.selOn {
@@ -86,7 +85,6 @@ func (m Model) selectKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd, bool) {
 		move()
 		e.typing = false
 	}
-	w := m.noteWidth()
 	switch key {
 	case "shift+left":
 		extend(e.moveLeft)
@@ -175,16 +173,22 @@ func (m Model) notePosAt(x, y int) (row, col int, ok bool) {
 		return 0, 0, false
 	}
 	rows, _ := m.noteLayout(r.w-4, r.h-2-e.textTop(r.h-2))
+	row, col = editorPos(e, rows, sr, x-r.x-2) // the border and the row margin
+	return row, col, true
+}
+
+// editorPos returns the source line and rune of editor e at screen row sr of rows and at
+// column x after the row margin.
+func editorPos(e *noteEditor, rows []edRow, sr, x int) (row, col int) {
 	if sr >= len(rows) {
 		last := len(e.lines) - 1
-		return last, len(e.lines[last]), true
+		return last, len(e.lines[last])
 	}
 	er := rows[sr]
 	if er.cells == nil { // a rendered block: the start of its line
-		return er.line, 0, true
+		return er.line, 0
 	}
-	k := x - r.x - 2 - er.indent() // the border, the row margin, and the indent
-	k = cellAt(er.cells, k)
+	k := cellAt(er.cells, x-er.indent())
 	col = len(e.lines[er.line])
 	switch {
 	case k >= 0 && k < len(er.cells):
@@ -194,7 +198,7 @@ func (m Model) notePosAt(x, y int) (row, col int, ok bool) {
 	case er.source && len(er.cells) > 0 && k >= len(er.cells):
 		col = er.cells[len(er.cells)-1].src + 1
 	}
-	return er.line, max(0, min(col, len(e.lines[er.line]))), true // a table border has src -1
+	return er.line, max(0, min(col, len(e.lines[er.line]))) // a table border has src -1
 }
 
 // noteDrag moves the cursor to the cell under the mouse while the button is down. The

@@ -10,6 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Changed
 
 - The markdown rendering comes from mded, the markdown editor of the same author.
+- The description field of the task dialog (`a`, `e`, `A`) is a markdown editor with a live preview. While the name has the keys, the description shows formatted. Its keys are the keys of the markdown editor, without find and replace and without the external editor. A click puts the cursor at the clicked character.
 - Headings use the accent of the theme, also in the `todoist` theme. Before, each level had its own color in the `todoist` theme.
 - Levels 1 and 2 have a bar to the full width, and levels 3 and 4 a short bar. Levels 5 and 6 have accent text and no bar. The bar colors go from level 1 to the background in equal steps.
 - The text of a level 1 heading is in the middle of its bar. In the editor, the line with the cursor stays at the left.

@@ -199,10 +199,12 @@ To use a theme for one run only, start godoist with `--theme NAME`. The theme pa
 
 The `a`, `e`, and `A` keys open a dialog with two fields: the name and the description. The dialog uses 2/3 of the terminal height. A long description scrolls.
 
+The description field is a [markdown editor](#markdown-editor) with a live preview. While the name has the keys, all lines of the description show formatted. In the description, the line with the cursor shows its source. The editing keys, the format keys, selection, the clipboard, and undo work as in the markdown editor. Find and replace (`ctrl+f`) and the external editor (`ctrl+e`) are not in the dialog. A click puts the cursor at the clicked character, and a drag selects text.
+
 | Key | Action |
 |---|---|
 | `tab` / `shift+tab` | Go to the other field. A click on a field also goes to it. |
-| `enter` | In the name: save. In the description: start a new line. |
+| `enter` | In the name: save. In the description: start a new line. In a list, the new line starts a new item. |
 | `ctrl+enter` or `ctrl+s` | Save from the two fields. For `ctrl+enter`, the terminal must send it as a separate key (for example kitty, WezTerm, foot, or Ghostty). macOS Terminal sends it as `enter`, so use `ctrl+s` there. |
 | `esc` | Close the dialog without a save. |
 

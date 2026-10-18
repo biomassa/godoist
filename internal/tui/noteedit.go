@@ -41,6 +41,7 @@ type noteEditor struct {
 	selOn          bool
 	selRow, selCol int
 	dragging       bool // the mouse button is down after a click in the text
+	noSave         bool // the description field of the task dialog: the dialog saves it
 }
 
 // noteState is one undo step.
@@ -234,6 +235,9 @@ func (m Model) noteTick(msg noteTickMsg) (tea.Model, tea.Cmd) {
 
 // changed restarts the autosave timer after a change.
 func (e *noteEditor) changed() tea.Cmd {
+	if e.noSave {
+		return nil
+	}
 	e.gen++
 	g := e.gen
 	return tea.Tick(noteAutosave, func(time.Time) tea.Msg { return noteTickMsg{gen: g} })
@@ -251,10 +255,6 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if e.search != nil {
 		return m.updateFind(msg)
 	}
-	if nm, cmd, ok := m.selectKeys(msg); ok {
-		return nm, cmd
-	}
-	line := e.lines[e.row]
 	switch key {
 	case "ctrl+e":
 		return m, m.externalEditor(e.text())
@@ -262,6 +262,20 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, e.openFind(m.detailInnerWidth())
 	case "esc", "ctrl+enter", "ctrl+s": // the editor saves, then shows the reader
 		return m.closeNoteEditor()
+	}
+	return m.editKeys(e, msg, m.noteWidth(), m.paneHeight()/2)
+}
+
+// editKeys handles the editing keys of markdown editor e: typing, moves, selection, the
+// clipboard, undo, and the format keys. w is the wrap width of the text, and page is the
+// number of screen lines that pgup and pgdown move.
+func (m Model) editKeys(e *noteEditor, msg tea.KeyPressMsg, w, page int) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	if nm, cmd, ok := m.selectKeys(e, msg, w); ok {
+		return nm, cmd
+	}
+	line := e.lines[e.row]
+	switch key {
 	case "ctrl+z":
 		if n := len(e.undo); n > 0 {
 			e.redo = append(e.redo, e.snapshot())
@@ -285,16 +299,16 @@ func (m Model) updateNoteEditor(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "right":
 		e.moveRight()
 	case "up":
-		e.moveVertical(-1, m.noteWidth())
+		e.moveVertical(-1, w)
 	case "down":
-		e.moveVertical(1, m.noteWidth())
+		e.moveVertical(1, w)
 	case "pgup":
-		for i := 0; i < m.paneHeight()/2; i++ {
-			e.moveVertical(-1, m.noteWidth())
+		for range page {
+			e.moveVertical(-1, w)
 		}
 	case "pgdown":
-		for i := 0; i < m.paneHeight()/2; i++ {
-			e.moveVertical(1, m.noteWidth())
+		for range page {
+			e.moveVertical(1, w)
 		}
 	case "home":
 		e.col = 0

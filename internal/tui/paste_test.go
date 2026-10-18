@@ -16,7 +16,7 @@ func TestPasteTaskDialog(t *testing.T) {
 		t.Errorf("name = %q, want %q", got, "buy milk")
 	}
 	m = send(t, m, key("tab"), pasteMsg("one\ntwo"))
-	if got := m.dlgDesc.Value(); got != "one\ntwo" {
+	if got := m.dlgDesc.text(); got != "one\ntwo" {
 		t.Errorf("description = %q, want %q", got, "one\ntwo")
 	}
 }

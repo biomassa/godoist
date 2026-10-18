@@ -92,16 +92,7 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 	m.dlgField = 0
 	if m.hasDescField(mode) {
 		m.dlg.SetHeight(dialogNameLines)
-		d := textarea.New()
-		d.ShowLineNumbers = false
-		d.Prompt = ""
-		d.Placeholder = "Description (optional)"
-		d.CharLimit = 16383 // the Todoist limit
-		d.MaxHeight = 0
-		d.SetStyles(areaStyles())
-		clipboardKeys(&d)
-		d.SetWidth(m.dialogWidth() - 4)
-		m.dlgDesc = &d
+		m.dlgDesc = &noteEditor{lines: [][]rune{{}}, want: -1, noSave: true}
 		m.sizeDialog()
 	}
 	return m.dlg.Focus()
@@ -111,8 +102,7 @@ func (m *Model) openDialog(mode inputMode, value string) tea.Cmd {
 func (m *Model) openTaskDialog(mode inputMode, name, desc string) tea.Cmd {
 	cmd := m.openDialog(mode, name)
 	if m.hasDescField(mode) {
-		m.dlgDesc.SetValue(desc)
-		m.dlgDesc.MoveToBegin()
+		m.dlgDesc.lines = splitRunes(desc)
 	}
 	return cmd
 }
@@ -127,13 +117,11 @@ func clipboardKeys(ta *textarea.Model) {
 	ta.KeyMap.CopySelection.SetEnabled(false)
 }
 
-// dialogClipboard copies, cuts, or pastes in the focused field of the dialog. The system
-// clipboard goes through the terminal (OSC 52).
+// dialogClipboard copies, cuts, or pastes in the name field of the dialog. The system
+// clipboard goes through the terminal (OSC 52). The description field is a markdown
+// editor with its own clipboard keys (see selectKeys).
 func (m Model) dialogClipboard(key string) (tea.Model, tea.Cmd) {
 	f := m.dlg
-	if m.hasDescField(m.inputMode) && m.dlgField == 1 {
-		f = m.dlgDesc
-	}
 	if key == "ctrl+v" {
 		return m, tea.ReadClipboard // the text comes as a ClipboardMsg and goes to paste
 	}
@@ -161,22 +149,26 @@ func (m *Model) sizeDialog() {
 		return
 	}
 	fixed := 7 + dialogNameLines + len(m.dialogHintLines()) // borders, spaces, labels, name, hint
-	m.dlgDesc.SetHeight(max(3, m.height*2/3-fixed))
+	m.dlgDescH = max(3, m.height*2/3-fixed)
 }
+
+// dialogDescWidth is the text width of the description field: the dialog without its
+// borders and the row margin.
+func (m Model) dialogDescWidth() int { return m.dialogWidth() - 4 }
 
 // setDialogField moves the keys to field f of the task dialog (0 name, 1 description).
 func (m *Model) setDialogField(f int) tea.Cmd {
 	m.dlgField = f
+	m.dlgDesc.selOn = false
 	m.dlg.Blur()
-	m.dlgDesc.Blur()
 	if f == 1 {
-		return m.dlgDesc.Focus()
+		return nil
 	}
 	return m.dlg.Focus()
 }
 
 // dialogDesc is the description in the task dialog as typed, without space at the ends.
-func (m Model) dialogDesc() string { return strings.TrimSpace(m.dlgDesc.Value()) }
+func (m Model) dialogDesc() string { return strings.TrimSpace(m.dlgDesc.text()) }
 
 // dialogHint is the hint of the open dialog.
 func (m Model) dialogHint() string {
@@ -224,9 +216,7 @@ func (m Model) dialogBox() string {
 	}
 	if two {
 		lines = append(lines, "", label("Description", 1))
-		for _, l := range strings.Split(m.dlgDesc.View(), "\n") {
-			lines = append(lines, " "+l)
-		}
+		lines = append(lines, m.descLines()...)
 	}
 	lines = append(lines, "")
 	for _, l := range m.dialogHintLines() {
@@ -239,6 +229,68 @@ func (m Model) dialogBox() string {
 	return box(st(fg(hexAccent)).Bold(true).Render(title), padLines(lines, inner, len(lines)), w, fg(hexAccent))
 }
 
+// descLines draws the description field of the task dialog: a markdown editor with a
+// live preview. With the keys in the name field, all lines show rendered.
+func (m Model) descLines() []string {
+	e, tw, h := m.dlgDesc, m.dialogDescWidth(), m.dlgDescH
+	focused := m.dlgField == 1
+	var out []string
+	if len(e.lines) == 1 && len(e.lines[0]) == 0 { // empty: the placeholder
+		cursor := ""
+		if focused {
+			cursor = lipgloss.NewStyle().Reverse(true).Render(" ")
+		}
+		out = append(out, "  "+cursor+st(hexDim).Render("Description (optional)"))
+	} else {
+		rows, cy := m.md.editorLayout(e, tw, h, focused)
+		for i, r := range rows {
+			cx := -1
+			if focused && i == cy {
+				cx = e.col - r.start
+			}
+			out = append(out, renderRow(r, tw, cx))
+		}
+	}
+	for len(out) < h {
+		out = append(out, "")
+	}
+	return out
+}
+
+// descTop is the screen line of the first description row of the task dialog.
+func (m Model) descTop() int { return m.dialogRect().y + 1 + 4 + dialogNameLines }
+
+// descPosAt returns the source line and rune of the description at screen cell x, y.
+// ok is false outside the description rows.
+func (m Model) descPosAt(x, y int) (row, col int, ok bool) {
+	e := m.dlgDesc
+	sr := y - m.descTop()
+	if sr < 0 || sr >= m.dlgDescH {
+		return 0, 0, false
+	}
+	rows, _ := m.md.editorLayout(e, m.dialogDescWidth(), m.dlgDescH, true)
+	row, col = editorPos(e, rows, sr, x-m.dialogRect().x-2) // the border and the row margin
+	return row, col, true
+}
+
+// descClick puts the description cursor at a click, or moves it there while the mouse
+// button is down (drag). A drag selects text.
+func (m Model) descClick(x, y int, drag bool) (tea.Model, tea.Cmd) {
+	e := m.dlgDesc
+	row, col, ok := m.descPosAt(x, y)
+	if !ok {
+		return m, nil
+	}
+	e.row, e.col = row, col
+	if drag {
+		e.selOn = row != e.selRow || col != e.selCol
+	} else {
+		e.selOn, e.selRow, e.selCol, e.dragging = false, row, col, true
+	}
+	e.typing, e.want = false, -1
+	return m, nil
+}
+
 // dialogFieldAt is the task dialog field (0 name, 1 description) at screen line y, or -1.
 func (m Model) dialogFieldAt(y int) int {
 	if !m.hasDescField(m.inputMode) {
@@ -248,7 +300,7 @@ func (m Model) dialogFieldAt(y int) int {
 	switch {
 	case i >= 1 && i <= 1+dialogNameLines:
 		return 0
-	case i >= 3+dialogNameLines && i <= 3+dialogNameLines+m.dlgDesc.Height():
+	case i >= 3+dialogNameLines && i <= 3+dialogNameLines+m.dlgDescH:
 		return 1
 	}
 	return -1

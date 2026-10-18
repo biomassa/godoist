@@ -293,12 +293,18 @@ func (e *noteEditor) sourceRows(i int, inFence bool, tw int) []edRow {
 	return rows
 }
 
-// noteLayout returns the rows of the editor that are on the screen, for text width tw
+// noteLayout returns the rows of the inline editor that are on the screen (see
+// editorLayout).
+func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
+	return m.md.editorLayout(m.note, tw, view, true)
+}
+
+// editorLayout returns the rows of editor e that are on the screen, for text width tw
 // and view rows, and the screen row of the cursor in them. It scrolls the editor so that
 // the cursor is on the screen. Each line uses its rows from the cache, so a redraw formats
-// only the cursor line (see previewRows). Only the visible rows are copied.
-func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
-	e := m.note
+// only the cursor line (see previewRows). Only the visible rows are copied. If focused is
+// false, all lines show rendered.
+func (c *mdCache) editorLayout(e *noteEditor, tw, view int, focused bool) (rows []edRow, cursor int) {
 	blockAt := map[int]mdBlock{} // first line → block
 	inBlock := make([]bool, len(e.lines))
 	active := mdBlock{from: -1, to: -1} // the block with the cursor shows as source
@@ -316,7 +322,7 @@ func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
 	total, cy := 0, 0
 	fence := false // for the source styles: the line is in a fenced block
 	for i := range e.lines {
-		asSource := e.search != nil || i == e.row || (i >= active.from && i <= active.to) || e.selLine(i)
+		asSource := focused && (e.search != nil || i == e.row || (i >= active.from && i <= active.to) || e.selLine(i))
 		switch {
 		case asSource:
 			if i == e.row {
@@ -330,10 +336,10 @@ func (m Model) noteLayout(tw, view int) (rows []edRow, cursor int) {
 			lineRows[i] = e.sourceRows(i, fence, tw)
 		case inBlock[i]:
 			if b, first := blockAt[i]; first { // the block rows come with its first line
-				lineRows[i] = m.md.blockRows(e.lines, b, tw)
+				lineRows[i] = c.blockRows(e.lines, b, tw)
 			}
 		default:
-			lineRows[i] = m.md.previewRows(string(e.lines[i]), tw)
+			lineRows[i] = c.previewRows(string(e.lines[i]), tw)
 		}
 		total += len(lineRows[i])
 		if isFence(e.lines[i]) {

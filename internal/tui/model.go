@@ -178,7 +178,8 @@ type Model struct {
 	// copies the Model for each message and each method call.
 	input     *textinput.Model // bottom-bar input (find)
 	dlg       *textarea.Model  // dialog input (all other text inputs), nil while closed
-	dlgDesc   *textarea.Model  // description field of the task dialog, nil while closed
+	dlgDesc   *noteEditor      // description field of the task dialog, nil while closed
+	dlgDescH  int              // the height of the description field
 	dlgField  int              // focused field of the task dialog: 0 name, 1 description
 	inputMode inputMode
 
@@ -600,14 +601,14 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, next
 		case "ctrl+enter", "ctrl+s": // ctrl+s for terminals that send ctrl+enter as enter
 			return m.submitInput()
-		case "ctrl+c", "ctrl+x", "ctrl+v":
-			return m.dialogClipboard(msg.String())
 		case "esc":
 		default:
-			if m.dlgField == 1 { // enter in the description adds a line break
-				var cmd tea.Cmd
-				*m.dlgDesc, cmd = m.dlgDesc.Update(msg)
-				return m, cmd
+			if m.dlgField == 1 { // the description is a markdown editor
+				return m.editKeys(m.dlgDesc, msg, bodyWidth(m.dialogDescWidth()), m.dlgDescH/2)
+			}
+			switch msg.String() {
+			case "ctrl+c", "ctrl+x", "ctrl+v":
+				return m.dialogClipboard(msg.String())
 			}
 		}
 	}

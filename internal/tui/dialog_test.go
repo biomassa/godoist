@@ -24,8 +24,8 @@ func TestTaskDialogNameAndDescription(t *testing.T) {
 	m = typeText(t, m, "one")
 	m = send(t, m, key("enter"))
 	m = typeText(t, m, "two")
-	if m.inputMode != inputAdd || m.dlgDesc.Value() != "one\ntwo" {
-		t.Fatalf("enter in the description: mode = %d desc = %q", m.inputMode, m.dlgDesc.Value())
+	if m.inputMode != inputAdd || m.dlgDesc.text() != "one\ntwo" {
+		t.Fatalf("enter in the description: mode = %d desc = %q", m.inputMode, m.dlgDesc.text())
 	}
 	if m.dialogValue() != "buy milk" {
 		t.Errorf("name = %q", m.dialogValue())
@@ -65,8 +65,8 @@ func TestEditDialogHasDescription(t *testing.T) {
 	m.taskByID("t1").Description = "old notes"
 	m.buildRows(false)
 	m = send(t, m, key("e"))
-	if m.inputMode != inputRename || m.dialogValue() != "alpha" || m.dlgDesc.Value() != "old notes" {
-		t.Fatalf("mode = %d name = %q desc = %q", m.inputMode, m.dialogValue(), m.dlgDesc.Value())
+	if m.inputMode != inputRename || m.dialogValue() != "alpha" || m.dlgDesc.text() != "old notes" {
+		t.Fatalf("mode = %d name = %q desc = %q", m.inputMode, m.dialogValue(), m.dlgDesc.text())
 	}
 	if !strings.Contains(stripANSI(m.dialogBox()), "Edit task") {
 		t.Error("the edit dialog title is not \"Edit task\"")
@@ -102,5 +102,35 @@ func TestEditorCtrlEnterSaves(t *testing.T) {
 	m := send(t, onRow(t, 1), key("E"), pasteMsg("new text"), key("ctrl+enter"))
 	if m.note != nil || m.pending != 1 || m.taskByID("t1").Description != "new text" {
 		t.Errorf("note = %v pending = %d description = %q", m.note != nil, m.pending, m.taskByID("t1").Description)
+	}
+}
+
+// The description of the task dialog is a markdown editor. With the keys in the name, all
+// lines show rendered. In the description, the cursor line shows its source, enter
+// continues a list, and a click puts the cursor at the clicked character.
+func TestTaskDialogDescriptionPreview(t *testing.T) {
+	m := onRow(t, 1)
+	m.taskByID("t1").Description = "## Head\n- one **bold**"
+	m.buildRows(false)
+	m = send(t, m, key("e"))
+	view := stripANSI(m.dialogBox())
+	if strings.Contains(view, "##") || !strings.Contains(view, "• one bold") {
+		t.Fatalf("name focused, the description is not rendered:\n%s", view)
+	}
+	m = send(t, m, key("tab")) // the cursor is at the start of the heading
+	view = stripANSI(m.dialogBox())
+	if !strings.Contains(view, "## Head") || !strings.Contains(view, "• one bold") {
+		t.Fatalf("description focused:\n%s", view)
+	}
+	m = send(t, m, key("down"), key("end"), key("enter"))
+	m = typeText(t, m, "two")
+	if got := m.dlgDesc.text(); got != "## Head\n- one **bold**\n- two" {
+		t.Fatalf("list continuation: %q", got)
+	}
+	// "o" of "one" is the 3rd cell of the rendered row "• one bold"; in the source it is rune 2.
+	r := m.dialogRect()
+	m = send(t, m, click(r.x+2+1+2, m.descTop()+1))
+	if e := m.dlgDesc; e.row != 1 || e.col != 2 {
+		t.Errorf("click: row = %d col = %d, want 1, 2", e.row, e.col)
 	}
 }
