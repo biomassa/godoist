@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/charmbracelet/x/ansi"
 
@@ -125,7 +126,9 @@ func TestProjectMenu(t *testing.T) {
 }
 
 func TestAllTasksView(t *testing.T) {
-	m := send(t, testModel(t), click(5, 13))
+	m := testModel(t)
+	m.taskByID("t1").Due = nil
+	m = send(t, m, click(5, 13))
 	if cur := m.currentNav(); cur == nil || cur.kind != vkAll {
 		t.Fatalf("click did not open All tasks: %+v", cur)
 	}
@@ -337,7 +340,9 @@ func TestSidebarMarkerAfterName(t *testing.T) {
 // at the end of the tasks without a section moves the task into the next section. After >,
 // the new parent is expanded and the cursor stays on the task. [ moves the task back.
 func TestAllTasksOrderWithSections(t *testing.T) {
-	m := send(t, testModel(t), click(5, 13)) // All tasks
+	m := testModel(t)
+	m.taskByID("t1").Due = nil
+	m = send(t, m, click(5, 13)) // All tasks
 	cursorOn := func(name string) {
 		for i, r := range m.rows {
 			if r.task != nil && r.task.Content == name {
@@ -367,5 +372,23 @@ func TestAllTasksOrderWithSections(t *testing.T) {
 	m = send(t, m, key("["))
 	if got := m.taskByID("t1").Section(); got != "" {
 		t.Errorf("[ did not move alpha back out of the section: section = %q rows = %q", got, rowNames(m))
+	}
+}
+
+// All tasks puts the dates closest to now first: today, then the earlier days from the
+// latest, then the future days from the nearest.
+func TestAllTasksNearOrder(t *testing.T) {
+	m := testModel(t)
+	day := func(d int) *todoist.Due {
+		return &todoist.Due{Date: time.Now().AddDate(0, 0, d).Format("2006-01-02")}
+	}
+	m.st.Tasks[0].Due, m.st.Tasks[1].Due = day(-7), day(2)
+	m.st.Tasks = append(m.st.Tasks,
+		todoist.Task{ID: "x1", ProjectID: "p1", Content: "yesterday", Priority: 1, ChildOrder: 3, Due: day(-1)},
+		todoist.Task{ID: "x2", ProjectID: "p1", Content: "today", Priority: 1, ChildOrder: 4, Due: day(0)})
+	m.applyState(m.st)
+	m = send(t, m, click(5, 13)) // All tasks
+	if got := rowNames(m); got != "[# work] today yesterday alpha beta [urgent] gamma" {
+		t.Errorf("rows = %q", got)
 	}
 }

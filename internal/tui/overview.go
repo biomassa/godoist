@@ -166,18 +166,32 @@ func (tr ovTree) viewCount(id string) int {
 
 // sortRoots sorts roots by date (tasks without a date last, in project order), then priority.
 func sortRoots(rs []ovRoot) {
+	sort.SliceStable(rs, func(i, j int) bool { return rootLess(rs[i], rs[j]) })
+}
+
+// rootLess is the order of sortRoots.
+func rootLess(a, b ovRoot) bool {
+	if a.hasWhen != b.hasWhen {
+		return a.hasWhen
+	}
+	if a.hasWhen && !a.when.Equal(b.when) {
+		return a.when.Before(b.when)
+	}
+	if !a.hasWhen {
+		return a.task.ChildOrder < b.task.ChildOrder
+	}
+	return a.task.Priority > b.task.Priority
+}
+
+// sortRootsNear is sortRoots with the dates closest to now first (see nearBefore), for
+// All tasks and the label views.
+func sortRootsNear(rs []ovRoot, now time.Time) {
 	sort.SliceStable(rs, func(i, j int) bool {
 		a, b := rs[i], rs[j]
-		if a.hasWhen != b.hasWhen {
-			return a.hasWhen
+		if a.hasWhen && b.hasWhen && !a.when.Equal(b.when) {
+			return nearBefore(a.when, b.when, now)
 		}
-		if a.hasWhen && !a.when.Equal(b.when) {
-			return a.when.Before(b.when)
-		}
-		if !a.hasWhen {
-			return a.task.ChildOrder < b.task.ChildOrder
-		}
-		return a.task.Priority > b.task.Priority
+		return rootLess(a, b)
 	})
 }
 
@@ -250,9 +264,10 @@ func (m *Model) upcomingRows(now time.Time) []row {
 
 // projectGroupedRows groups the view tasks by project in sidebar order (All tasks, labels).
 // In each project, the tasks without a section come first, then each section in its order
-// under its own header. In each group, dated tasks come first, by date.
+// under its own header. In each group, dated tasks come first, the closest to now first.
 func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 	tr, roots := m.buildOverview(view)
+	now := time.Now()
 	byProject := map[string][]ovRoot{}
 	for _, r := range roots {
 		byProject[r.task.ProjectID] = append(byProject[r.task.ProjectID], r)
@@ -280,7 +295,7 @@ func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 			if len(group) == 0 {
 				continue
 			}
-			sortRoots(group)
+			sortRootsNear(group, now)
 			if s := m.sections[sid]; s != nil {
 				count := 0
 				for _, r := range group {
@@ -295,7 +310,7 @@ func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 		}
 		rest := slices.Sorted(maps.Keys(bySection)) // sections that are archived or not in the replica
 		for _, sid := range rest {
-			sortRoots(bySection[sid])
+			sortRootsNear(bySection[sid], now)
 			for _, r := range bySection[sid] {
 				rows = tr.emit(rows, r.task, 0)
 			}

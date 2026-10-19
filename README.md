@@ -175,7 +175,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `c` | Add a comment in the [markdown editor](#markdown-editor). godoist adds the comment when you close the editor. |
 | `A` | Add a sub-task to the task under the cursor. The dialog has a name and a description. |
 | `>` / `<` | Indent the task under the task above it, or outdent it one level. |
-| `[` / `]` | Move the task up or down. At the edge of a section, the task goes into the next section. |
+| `[` / `]` | Move a task without a due date up or down. At the edge of a section, the task goes into the next section. A sub-task moves with or without a date. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
 | `s` / `S` | Select the task, or select all tasks from the last selected task to the cursor. |
 | `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. |
@@ -194,6 +194,16 @@ Push `T` to open the theme picker at the right of the screen. When you move thro
 The first theme, `todoist`, uses the colors of the Todoist app and the background of your terminal. The other themes set the terminal background while godoist runs: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, nord, dracula, gruvbox-dark, gruvbox-light, tokyo-night, tokyo-night-day, rose-pine, rose-pine-moon, rose-pine-dawn, one-dark, magenta-geode, coral-sunset, lavender-fields-forever, vt100, and vt52. In each theme, overdue tasks and p1 use the error color of the theme, and tasks for today use its green. Project colors stay the Todoist colors, adjusted so that you can read them. The markdown colors also follow the theme: the headings use the accent of the theme (strongest for level 1, fainter for lower levels), and links, code, and code blocks use its colors.
 
 To use a theme for one run only, start godoist with `--theme NAME`. The theme palettes come from [tideui](https://github.com/allisonhere/tideui) by Allie Bayless (MIT license).
+
+### Task order in a project
+
+In a project, the tasks of each section go in this order:
+
+1. Tasks due today or earlier, the closest to now first: today, then yesterday, then older dates.
+2. Tasks due in the future, the nearest date first.
+3. Tasks without a due date, in the manual order.
+
+Tasks on the same day go by time. Sub-tasks stay in the manual order under their parent. Notebook view sorts the notes with the same rules.
 
 ### Task dialog
 
@@ -307,7 +317,7 @@ These views show sub-tasks under their parent tasks. At first, a task with sub-t
 
 ### All tasks
 
-The **All tasks** item shows all tasks, grouped by project and then by section. In each project, the tasks without a section come first, then each section in its order, under an indented header. In each group, the tasks with a due date come first, sorted by the date. In this view, `[` and `]` move only tasks without a due date.
+The **All tasks** item shows all tasks, grouped by project and then by section. In each project, the tasks without a section come first, then each section in its order, under an indented header. In each group, the tasks with a due date come first, in the order of a project (see [Task order in a project](#task-order-in-a-project)). In this view, `[` and `]` move only tasks without a due date.
 
 ### Confirmations
 

@@ -67,11 +67,15 @@ func (m *Model) setOrder(ids []string) {
 }
 
 // orderAllowed reports whether [ ] > < work in the current view, and sets the status if not.
-// In All tasks, [ ] work only on tasks without a due date, because the view sorts dated tasks.
+// In All tasks, and at the top level of a project, [ ] work only on tasks without a due
+// date, because these views sort dated tasks by date.
 func (m *Model) orderAllowed(t *todoist.Task, reorder bool) bool {
 	cur := m.currentNav()
 	switch {
 	case cur == nil:
+		return false
+	case cur.kind == vkProject && reorder && t.Due != nil && t.Parent() == "":
+		m.setStatus("sorted by date · only tasks without a date move with [ ]", true)
 		return false
 	case cur.kind == vkProject:
 		return true
@@ -166,9 +170,10 @@ func (m *Model) moveTaskOrder(t *todoist.Task, d int) tea.Cmd {
 	order := m.siblingIDs(t)
 	i := slices.Index(order, t.ID)
 	j := i + d
-	// All tasks and the label views show the dated tasks first, so a move past a dated
-	// task does not show. There, the task moves past the next task without a date.
-	if cur := m.currentNav(); cur != nil && (cur.kind == vkAll || cur.kind == vkLabel) {
+	// All tasks, the label views, and the top level of a project show the dated tasks
+	// first, so a move past a dated task does not show. There, the task moves past the
+	// next task without a date.
+	if cur := m.currentNav(); cur != nil && (cur.kind == vkAll || cur.kind == vkLabel || cur.kind == vkProject && t.Parent() == "") {
 		for j >= 0 && j < len(order) {
 			if x := m.taskByID(order[j]); x == nil || x.Due == nil {
 				break

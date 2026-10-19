@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- In a project, the tasks with a due date come first in each section. Tasks due today or earlier come first, the closest to now first. Future tasks follow, the nearest date first. Tasks without a date follow in the manual order. Notebook view sorts the notes with the same rules.
+- In a project, `[` and `]` move only tasks without a due date at the top level. Sub-tasks move as before.
+- All tasks and the label views use the same date order as a project. Before, the oldest overdue task came first.
+
 ## [0.7.0] - 2026-10-18
 
 ### Changed

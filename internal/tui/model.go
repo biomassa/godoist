@@ -1800,7 +1800,7 @@ func (m *Model) projectRows(projectID string, notes bool) []row {
 		}
 	}
 	group := func(ts []todoist.Task) []row {
-		rows := treeRows(ts)
+		rows := treeRows(ts, time.Now())
 		if !notes {
 			return rows
 		}
@@ -1927,7 +1927,7 @@ func firstLine(s string) string {
 
 // treeRows orders tasks by child_order with subtasks nested under their parents.
 // A collapsed task shows no sub-tasks. Its row has the number of hidden tasks.
-func treeRows(ts []todoist.Task) []row {
+func treeRows(ts []todoist.Task, now time.Time) []row {
 	ids := map[string]bool{}
 	for _, t := range ts {
 		ids[t.ID] = true
@@ -1944,7 +1944,14 @@ func treeRows(ts []todoist.Task) []row {
 	var walk func(parent string, depth int)
 	walk = func(parent string, depth int) {
 		kids := children[parent]
-		sort.SliceStable(kids, func(i, j int) bool { return kids[i].ChildOrder < kids[j].ChildOrder })
+		sort.SliceStable(kids, func(i, j int) bool {
+			if depth == 0 { // the top level: dated tasks first (see dateBefore)
+				if before, ok := dateBefore(kids[i], kids[j], now); ok {
+					return before
+				}
+			}
+			return kids[i].ChildOrder < kids[j].ChildOrder
+		})
 		for _, t := range kids {
 			r := row{task: t, depth: depth, hasKids: len(children[t.ID]) > 0, collapsed: t.IsCollapsed}
 			if r.hasKids && t.IsCollapsed {
@@ -1958,6 +1965,38 @@ func treeRows(ts []todoist.Task) []row {
 	}
 	walk("", 0)
 	return out
+}
+
+// dateBefore orders two top-level tasks of a project view by their due dates. A task with
+// a date comes before a task without one. Tasks due today or earlier come first, the
+// closest to now first: today, then yesterday, then older dates. Future tasks follow, the
+// nearest first. Tasks on the same day go by time. ok is false if the dates do not decide
+// the order: then the manual order does.
+func dateBefore(a, b *todoist.Task, now time.Time) (before, ok bool) {
+	ta, _, okA := a.Due.Time()
+	tb, _, okB := b.Due.Time()
+	switch {
+	case okA != okB:
+		return okA, true
+	case !okA || ta.Equal(tb):
+		return false, false
+	}
+	return nearBefore(ta, tb, now), true
+}
+
+// nearBefore reports whether due time a comes before due time b in a list that shows the
+// dates closest to now first: today, then the earlier days from the latest, then the
+// future days from the nearest. On the same day, the earlier time comes first.
+func nearBefore(a, b, now time.Time) bool {
+	da, db, today := dayOf(a), dayOf(b), dayOf(now)
+	pastA, pastB := !da.After(today), !db.After(today)
+	switch {
+	case pastA != pastB:
+		return pastA
+	case !da.Equal(db) && pastA: // today and earlier: the later day first
+		return da.After(db)
+	}
+	return a.Before(b)
 }
 
 // countTree counts all tasks below id.

@@ -35,7 +35,8 @@ func testModel(t testing.TB) Model {
 			{ID: "s2", ProjectID: "p1", Name: "later", SectionOrder: 2},
 		},
 		Tasks: []todoist.Task{
-			{ID: "t1", ProjectID: "p1", Content: "alpha", Priority: 1, ChildOrder: 1, Labels: []string{"home"}},
+			{ID: "t1", ProjectID: "p1", Content: "alpha", Priority: 1, ChildOrder: 1, Labels: []string{"home"},
+				Due: &todoist.Due{Date: "2029-12-31", String: "Dec 31 2029"}},
 			{ID: "t2", ProjectID: "p1", Content: "beta", Priority: 1, ChildOrder: 2,
 				Due: &todoist.Due{Date: "2030-01-01", String: "every day", IsRecurring: true}},
 			{ID: "t3", ProjectID: "p1", SectionID: &sec, Content: "gamma", Priority: 1, ChildOrder: 1},

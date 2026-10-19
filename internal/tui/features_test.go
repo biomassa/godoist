@@ -3,6 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/biomassa/godoist/internal/todoist"
 )
@@ -64,8 +65,19 @@ func TestIndentOutdent(t *testing.T) {
 	}
 }
 
+// undatedRow is onRow with no due dates, so that the project shows the manual order.
+func undatedRow(t testing.TB, r int) Model {
+	t.Helper()
+	m := onRow(t, r)
+	for _, id := range []string{"t1", "t2"} {
+		m.taskByID(id).Due = nil
+	}
+	m.buildRows(false)
+	return m
+}
+
 func TestReorderAndCrossSection(t *testing.T) {
-	m := send(t, onRow(t, 2), key("[")) // beta above alpha
+	m := send(t, undatedRow(t, 2), key("[")) // beta above alpha
 	if got := rowNames(m); got != "beta alpha [urgent] gamma [later]" {
 		t.Fatalf("after [ rows = %q", got)
 	}
@@ -76,7 +88,7 @@ func TestReorderAndCrossSection(t *testing.T) {
 	if m.currentTaskID() != "t2" {
 		t.Errorf("cursor = %q, want it to stay on beta", m.currentTaskID())
 	}
-	m = send(t, onRow(t, 1), key("["))
+	m = send(t, undatedRow(t, 1), key("["))
 	if !strings.Contains(m.status, "edge") {
 		t.Errorf("status = %q, want an edge message", m.status)
 	}
@@ -261,5 +273,34 @@ func TestBulkDeleteRecurringAsks(t *testing.T) {
 	m = send(t, m, key("s"))
 	if m.taskByID("t1") != nil || m.taskByID("t2") == nil {
 		t.Errorf("skip: the one-time task must go and the recurring task stay")
+	}
+}
+
+// In a project, dated top-level tasks come before undated ones. Today and earlier come
+// first, the closest to now first. Future dates follow, the nearest first. [ ] do not
+// move a dated task.
+func TestProjectDateOrder(t *testing.T) {
+	m := openWork(t)
+	day := func(d int) *todoist.Due {
+		return &todoist.Due{Date: time.Now().AddDate(0, 0, d).Format("2006-01-02")}
+	}
+	add := func(id, name string, order int, due *todoist.Due) {
+		m.st.Tasks = append(m.st.Tasks, todoist.Task{ID: id, ProjectID: "p1", Content: name, Priority: 1, ChildOrder: order, Due: due})
+	}
+	m.st.Tasks[0].Due, m.st.Tasks[1].Due = nil, nil
+	add("x1", "lastweek", 3, day(-7))
+	add("x2", "tomorrow", 4, day(1))
+	add("x3", "yesterday", 5, day(-1))
+	add("x4", "nextweek", 6, day(7))
+	add("x5", "today", 7, day(0))
+	m.applyState(m.st)
+	m.buildRows(false)
+	if got := rowNames(m); got != "today yesterday lastweek tomorrow nextweek alpha beta [urgent] gamma [later]" {
+		t.Fatalf("rows = %q", got)
+	}
+	m.focus, m.rowCur = paneTasks, 1 // yesterday
+	m = send(t, m, key("]"))
+	if !strings.Contains(m.status, "sorted by date") || m.pending != 0 {
+		t.Errorf("] on a dated task: status = %q pending = %d", m.status, m.pending)
 	}
 }
