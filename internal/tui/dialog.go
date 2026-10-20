@@ -159,6 +159,7 @@ func (m Model) dialogDescWidth() int { return m.dialogWidth() - 4 }
 // setDialogField moves the keys to field f of the task dialog (0 name, 1 description).
 func (m *Model) setDialogField(f int) tea.Cmd {
 	m.dlgField = f
+	m.comp = nil
 	m.dlgDesc.selOn = false
 	m.dlg.Blur()
 	if f == 1 {
@@ -172,6 +173,9 @@ func (m Model) dialogDesc() string { return strings.TrimSpace(m.dlgDesc.text()) 
 
 // dialogHint is the hint of the open dialog.
 func (m Model) dialogHint() string {
+	if m.comp != nil {
+		return "↑↓ choose · tab or enter insert · esc close the list"
+	}
 	if m.hasDescField(m.inputMode) {
 		return descHints[m.inputMode][m.dlgField]
 	}

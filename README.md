@@ -218,6 +218,8 @@ The description field is a [markdown editor](#markdown-editor) with a live previ
 | `ctrl+enter` or `ctrl+s` | Save from the two fields. For `ctrl+enter`, the terminal must send it as a separate key (for example kitty, WezTerm, foot, or Ghostty). macOS Terminal sends it as `enter`, so use `ctrl+s` there. |
 | `esc` | Close the dialog without a save. |
 
+In the name, `#`, `@`, and `/` open a list of your projects, labels, and sections. The list shows the names that contain the typed text. The names that start with it come first. `up` and `down` choose a name. `tab` or `enter` puts the name and a space in the text, and `esc` closes the list. A section also adds its `#project`, unless the name has it already. For a new label, the list has a `+ create` row: it creates the label in Todoist. The sub-task dialog lists only labels.
+
 In an add, Todoist parses the name as in quick add. In an edit, godoist reads `#project`, `/section`, `@label`, and `p1`–`p4` in the name, but no dates. godoist saves the description as typed. In notebook view, the dialog has only the name.
 
 ### Markdown

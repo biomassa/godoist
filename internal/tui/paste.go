@@ -76,6 +76,7 @@ func (m Model) paste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		e.insertText(msg.Content)
 	case isDialog(m.inputMode):
 		*m.dlg, cmd = m.dlg.Update(line)
+		m.updateCompletion()
 	case m.inputMode != inputNone:
 		*m.input, cmd = m.input.Update(line)
 		if m.inputMode == inputFind {

@@ -180,6 +180,8 @@ type Model struct {
 	dlg       *textarea.Model  // dialog input (all other text inputs), nil while closed
 	dlgDesc   *noteEditor      // description field of the task dialog, nil while closed
 	dlgDescH  int              // the height of the description field
+	comp      *completion      // the #project, @label, /section list of the name field, or nil
+	compHide  int              // see updateCompletion
 	dlgField  int              // focused field of the task dialog: 0 name, 1 description
 	inputMode inputMode
 
@@ -594,6 +596,11 @@ func (m Model) endQuit() (tea.Model, tea.Cmd) {
 }
 
 func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.comp != nil && m.dlgField == 0 {
+		if nm, cmd, ok := m.compKeys(msg); ok {
+			return nm, cmd
+		}
+	}
 	if m.hasDescField(m.inputMode) {
 		switch msg.String() {
 		case "tab", "shift+tab":
@@ -626,6 +633,7 @@ func (m Model) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	if isDialog(m.inputMode) {
 		*m.dlg, cmd = m.dlg.Update(msg)
+		m.updateCompletion()
 		return m, cmd
 	}
 	*m.input, cmd = m.input.Update(msg)
@@ -751,7 +759,7 @@ func (m *Model) closeInput() {
 		m.input.Blur()
 		m.input.SetValue("")
 	}
-	m.dlg, m.dlgDesc = nil, nil
+	m.dlg, m.dlgDesc, m.comp, m.compHide = nil, nil, nil, 0
 	m.dlgField = 0
 }
 

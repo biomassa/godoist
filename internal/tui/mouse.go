@@ -600,6 +600,10 @@ func (m Model) overlays(screen string) string {
 	if isDialog(m.inputMode) {
 		r := m.dialogRect()
 		layers = append(layers, lipgloss.NewLayer(m.dialogBox()).X(r.x).Y(r.y).Z(1))
+		if m.comp != nil {
+			cr := m.compRect()
+			layers = append(layers, lipgloss.NewLayer(m.compBox()).X(cr.x).Y(cr.y).Z(2))
+		}
 	}
 	if m.note != nil && m.note.search != nil { // the find box covers the top of the editor
 		r := m.sideRect()
