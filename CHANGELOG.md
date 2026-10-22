@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-22
+
 ### Added
 
 - A completed task flies to **✓ Completed** in the sidebar, and the item lights up when it arrives ([#2](https://github.com/biomassa/godoist/issues/2)). The row stays, struck through, until the flight ends or you push a key. A recurring task blinks three times in its place. A bulk completion flies one label with the number of tasks.
@@ -208,7 +210,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/biomassa/godoist/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/biomassa/godoist/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/biomassa/godoist/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/biomassa/godoist/compare/v0.6.0...v0.7.0
