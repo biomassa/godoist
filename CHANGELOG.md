@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- A completed task flies to **✓ Completed** in the sidebar, and the item lights up when it arrives ([#2](https://github.com/biomassa/godoist/issues/2)). The row stays, struck through, until the flight ends or you push a key. A recurring task blinks three times in its place. A bulk completion flies one label with the number of tasks.
+- A reopened task flies to its project in the sidebar: from its row in the Completed view (`x`), or from **✓ Completed** after `ctrl+z`.
+- The config option `animations = false` stops the completion animation.
+
 ## [0.9.0] - 2026-10-20
 
 ### Added

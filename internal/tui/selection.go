@@ -122,33 +122,39 @@ func (m Model) selectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 
 // bulkComplete completes the selected tasks. One ctrl+z reopens all one-time tasks of it.
 func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
-	var ids, once []string
+	var ids, once, recurring []string
+	var onceTasks []*todoist.Task
 	for _, t := range sel {
 		ids = append(ids, t.ID)
 		if t.Due == nil || !t.Due.IsRecurring {
 			once = append(once, t.ID)
+			onceTasks = append(onceTasks, t)
+		} else {
+			recurring = append(recurring, t.ID)
 		}
 	}
-	if len(once) > 0 {
-		m.closed = append(m.closed, once)
-	}
-	for _, id := range once {
-		m.removeTask(id)
-	}
+	m.pushClosed(onceTasks)
 	m.clearSelection()
+	label := plural(len(once), "task") // one task flies with its name
+	for _, t := range sel {
+		if len(once) == 1 && t.ID == once[0] {
+			label = t.Content
+		}
+	}
+	fx := m.startFx(once, recurring, label)
 	client := m.client
 	done := fmt.Sprintf("Completed %d task(s) · ctrl+z to undo", len(ids))
 	if len(once) == 0 {
 		done = fmt.Sprintf("Completed %d occurrence(s)", len(ids))
 	}
-	return m.simpleWrite(done, func(ctx context.Context) error {
+	return tea.Batch(fx, m.simpleWrite(done, func(ctx context.Context) error {
 		for _, id := range ids {
 			if err := client.Close(ctx, id); err != nil {
 				return err
 			}
 		}
 		return nil
-	})
+	}))
 }
 
 // bulkPriority sets one priority on the selected tasks.

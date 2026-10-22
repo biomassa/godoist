@@ -626,6 +626,9 @@ func (m Model) overlays(screen string) string {
 		r := m.themeRect()
 		layers = append(layers, lipgloss.NewLayer(m.themeBox()).X(r.x).Y(r.y).Z(5))
 	}
+	if l := m.fxLayer(); l != nil {
+		layers = append(layers, l)
+	}
 	if m.drag != nil && m.drag.active {
 		label := lipgloss.NewStyle().Background(c(hexSelBg)).Foreground(c(fg(hexAccent))).
 			Render(" ⇢ " + trunc(m.drag.content, 30) + " ")

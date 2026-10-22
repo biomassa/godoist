@@ -176,14 +176,17 @@ type Model struct {
 
 	// The text inputs are pointers: they are large (15 KB for a textarea), and Bubble Tea
 	// copies the Model for each message and each method call.
-	input     *textinput.Model // bottom-bar input (find)
-	dlg       *textarea.Model  // dialog input (all other text inputs), nil while closed
-	dlgDesc   *noteEditor      // description field of the task dialog, nil while closed
-	dlgDescH  int              // the height of the description field
-	comp      *completion      // the #project, @label, /section list of the name field, or nil
-	compHide  int              // see updateCompletion
-	dlgField  int              // focused field of the task dialog: 0 name, 1 description
-	inputMode inputMode
+	input      *textinput.Model // bottom-bar input (find)
+	dlg        *textarea.Model  // dialog input (all other text inputs), nil while closed
+	dlgDesc    *noteEditor      // description field of the task dialog, nil while closed
+	dlgDescH   int              // the height of the description field
+	fx         *taskFx          // the running completion animation, or nil (see fx.go)
+	fxGen      int
+	animations bool        // the config option "animations"
+	comp       *completion // the #project, @label, /section list of the name field, or nil
+	compHide   int         // see updateCompletion
+	dlgField   int         // focused field of the task dialog: 0 name, 1 description
+	inputMode  inputMode
 
 	note *noteEditor // the inline markdown editor: descriptions, notes, and comments
 	pick *picker
@@ -199,9 +202,10 @@ type Model struct {
 	drag             *dragState      // task that the user drags with the mouse
 	lastClick        clickInfo
 
-	status    string
-	statusErr bool
-	closed    [][]string // undo stack: each entry is the one-time tasks of one completion
+	status     string
+	statusErr  bool
+	closed     [][]string            // undo stack: each entry is the one-time tasks of one completion
+	closedTask map[string]closedTask // the name and the project of each task in closed
 
 	notesMoved bool                    // this run wrote the local notebook settings to Todoist
 	themes     *themePicker            // the open theme picker (T), or nil
@@ -223,6 +227,7 @@ type Model struct {
 type Settings struct {
 	Theme         string  // the color theme (see ThemeNames)
 	ListShare     float64 // the share of the task list next to the details pane, 0 for half
+	Animations    bool    // the completion animation (config option "animations")
 	SaveTheme     func(name string) error
 	SaveListShare func(share float64) error
 }
@@ -232,7 +237,8 @@ func New(client *todoist.Client, token string, set Settings) Model {
 	ti := newTextInput()
 	ti.CharLimit = 500
 	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(),
-		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare}
+		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare,
+		animations: set.Animations}
 	applyTheme(set.Theme, true)
 	m.ui, _ = state.Load()
 	m.syncing = 1 // Init starts the first sync
@@ -537,7 +543,10 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.mouseWheel(msg.Mouse())
 
+	case fxTickMsg:
+		return m.fxFrameMsg(msg)
 	case tea.KeyPressMsg:
+		m.dropGhosts() // a key acts on the list without the rows of the flying tasks
 		switch {
 		case m.quitting:
 			if msg.String() == "ctrl+c" { // second ctrl+c: quit without waiting
@@ -1400,6 +1409,26 @@ func (m *Model) skipDates(ts []todoist.Task) tea.Cmd {
 	})
 }
 
+// closedTask is the name and the project of a task on the undo stack, for the flight of
+// ctrl+z to the project.
+type closedTask struct{ name, projectID string }
+
+// pushClosed puts the one-time tasks of one completion on the undo stack.
+func (m *Model) pushClosed(ts []*todoist.Task) {
+	if len(ts) == 0 {
+		return
+	}
+	if m.closedTask == nil {
+		m.closedTask = map[string]closedTask{}
+	}
+	ids := make([]string, len(ts))
+	for i, t := range ts {
+		ids[i] = t.ID
+		m.closedTask[t.ID] = closedTask{t.Content, t.ProjectID}
+	}
+	m.closed = append(m.closed, ids)
+}
+
 // complete is completeTask for callers that hold a *Model, such as a confirm prompt.
 func (m *Model) complete() tea.Cmd {
 	t := m.currentTask()
@@ -1409,14 +1438,17 @@ func (m *Model) complete() tea.Cmd {
 	id, content, recurring := t.ID, t.Content, t.Due != nil && t.Due.IsRecurring
 	// Reopen does not move the date of a recurring task back. Thus undo is only for one-time tasks.
 	text := "Completed occurrence of “" + content + "” · next one scheduled"
-	if !recurring {
-		m.closed = append(m.closed, []string{id})
-		m.removeTask(id)
+	var fx tea.Cmd
+	if recurring {
+		fx = m.startFx(nil, []string{id}, content)
+	} else {
+		m.pushClosed([]*todoist.Task{t})
+		fx = m.startFx([]string{id}, nil, content)
 		text = "Completed “" + content + "” · ctrl+z to undo"
 	}
 	m.setStatus(text, false)
 	client := m.client
-	return m.simpleWrite(text, func(ctx context.Context) error { return client.Close(ctx, id) })
+	return tea.Batch(fx, m.simpleWrite(text, func(ctx context.Context) error { return client.Close(ctx, id) }))
 }
 
 func (m Model) undo() (tea.Model, tea.Cmd) {
@@ -1426,6 +1458,15 @@ func (m Model) undo() (tea.Model, tea.Cmd) {
 	}
 	ids := m.closed[len(m.closed)-1]
 	m.closed = m.closed[:len(m.closed)-1]
+	first := m.closedTask[ids[0]]
+	label := first.name
+	if len(ids) > 1 {
+		label = plural(len(ids), "task")
+	}
+	for _, id := range ids {
+		delete(m.closedTask, id)
+	}
+	fx := m.startReopenFx(ids[0], first.projectID, label, false)
 	client := m.client
 	done := "Reopened task"
 	if len(ids) > 1 {
@@ -1439,7 +1480,7 @@ func (m Model) undo() (tea.Model, tea.Cmd) {
 		}
 		return nil
 	})
-	return m, next
+	return m, tea.Batch(fx, next)
 }
 
 // toggleNotes switches the current project between task view and notebook view and saves the choice.

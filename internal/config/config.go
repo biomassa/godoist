@@ -17,7 +17,12 @@ type Config struct {
 	// ListShare is the share of the task list in the space next to the details pane
 	// ({ and } in the TUI). 0 gives half.
 	ListShare float64 `toml:"list_share,omitempty"`
+	// Animations turns the completion animation on or off. A missing value is on.
+	Animations *bool `toml:"animations,omitempty"`
 }
+
+// AnimationsOn reports whether the animations are on: the default is on.
+func (c Config) AnimationsOn() bool { return c.Animations == nil || *c.Animations }
 
 // Path returns the config file location (~/.config/godoist/config.toml).
 func Path() (string, error) {

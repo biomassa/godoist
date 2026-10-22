@@ -49,10 +49,9 @@ func (m Model) completedKeys(key string) (tea.Model, tea.Cmd, bool) {
 		return m, nil, true
 	}
 	id, name, client := t.ID, plain(t.Content), m.client
-	m.completed = removeByID(m.completed, id)
-	m.buildRows(false)
+	fx := m.startReopenFx(id, t.ProjectID, name, true)
 	next := m.simpleWrite("Reopened “"+name+"”", func(ctx context.Context) error { return client.Reopen(ctx, id) })
-	return m, next, true
+	return m, tea.Batch(fx, next), true
 }
 
 // removeByID returns ts without the task id.

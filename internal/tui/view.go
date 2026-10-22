@@ -249,6 +249,10 @@ func (m Model) navLines(w, h int) []string {
 			}
 			nameHex = fg(n.color)
 		}
+		if m.fxGlowing(i) { // a completed or reopened task arrived
+			base = base.Background(c(mix(hexAccent, baseBg, 0.4)))
+			nameHex = hexText
+		}
 		count := ""
 		if n.count > 0 {
 			ch := n.countHex
@@ -360,7 +364,7 @@ func (m Model) taskLines(w, h int) []string {
 		case notes:
 			lines = append(lines, m.selectedLook(m.noteLine(r, w, base, i == m.rowCur), r, i, w))
 		default:
-			lines = append(lines, m.selectedLook(m.taskLine(r, w, base, crossProject, now), r, i, w))
+			lines = append(lines, m.fxRow(r.task.ID, m.selectedLook(m.taskLine(r, w, base, crossProject, now), r, i, w), w))
 		}
 	}
 	if len(m.rows) == 0 || (len(lines) == 0 && h > 1) {
