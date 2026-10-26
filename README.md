@@ -4,7 +4,7 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 
 > This software was developed with the assistance of a LLM.
 
-![godoist: the sidebar, a project with sections, and the details pane with a markdown description and comments](docs/screenshot.png)
+![godoist: the sidebar, a notebook with sections and sub-notes, and the reader with a markdown note](docs/screenshot.png)
 
 ## Features
 
