@@ -8,14 +8,12 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 
 ## Features
 
-- Three panes: sidebar, task list, and details. Todoist project colors, and 20 color themes with a live preview.
+- Todoist project colors, and 20 color themes with a live preview.
 - Quick add with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description. Edit reads `#project`, `/section`, `@label`, and `p1`–`p4`.
 - A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
-- Sub-tasks, manual order, priorities, labels, moves, comments, descriptions, sections, and projects.
-- Collapse and expand of sections, sub-tasks, and sub-projects.
 - Multi-select with bulk actions.
-- Markdown everywhere: descriptions, comments, and notes show formatted headings, lists, checkboxes, links, and code with syntax colors. Checkboxes toggle with a key or a click.
-- One markdown editor for notes, descriptions, and comments, with a live preview, format keys, autosave, find and replace, text selection, and the system clipboard.
+- Markdown everywhere. Descriptions, comments, and notes show formatted headings, lists, checkboxes, links, tables, and code with syntax colors. One editor with a live preview edits them all, with format keys, autosave, find and replace, text selection, and the system clipboard. Checkboxes toggle with a key or a click.
+- Notebook view: a project becomes a notebook of markdown notes with sub-notes, a reader, and an inline editor.
 - Links in task names are clickable, and `o` opens them in the browser.
 - Todoist filter queries and a find in the current view.
 - Mouse support: click, double-click, right-click menus, drag to move, drag to select text, and the wheel.
