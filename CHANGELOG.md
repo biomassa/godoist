@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-26
+
 ### Added
 
 - Sub-notes in notebook view. `A` adds a sub-note, `>` and `<` nest and unnest, `[` and `]` move a note among its siblings, and `z` folds. `m` moves a note under another note, to the top level, or to another project. A mouse drag onto a note nests it.
@@ -219,7 +221,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/biomassa/godoist/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/biomassa/godoist/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/biomassa/godoist/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/biomassa/godoist/compare/v0.7.0...v0.8.0
