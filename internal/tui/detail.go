@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -160,6 +161,17 @@ type detailDoc struct {
 	// editStart is the first line of the rendered note body (notebook view), for a
 	// double-click that opens the editor at that place.
 	editStart int
+	// Notebook view: the parts of the path above the title (a click opens the note), and
+	// the lines of the sub-notes list.
+	crumbs   []crumb
+	subnotes []crumb
+}
+
+// crumb is a note that the reader shows: on line, from column x0 to x1 (x1 -1: the
+// whole line).
+type crumb struct {
+	line, x0, x1 int
+	id           string
 }
 
 // buildDetail builds the details for the row under the cursor. In notebook view,
@@ -193,6 +205,9 @@ func (m Model) buildDetail(w int) detailDoc {
 	t := r.task
 	notes := m.notesMode()
 	now := time.Now()
+	if notes && t.Parent() != "" {
+		d.crumbs = m.crumbLine(&d, t, w)
+	}
 	for _, l := range titleLines(t.Content, max(1, w-2), st(hexText).Bold(true)) {
 		d.lines = append(d.lines, " "+l)
 	}
@@ -224,6 +239,7 @@ func (m Model) buildDetail(w int) detailDoc {
 		} else {
 			d.lines = append(d.lines, " "+st(hexDim).Render("empty note"))
 		}
+		m.addSubnoteList(&d, t, w)
 	} else {
 		d.lines = append(d.lines, "")
 		if p := m.projects[t.ProjectID]; p != nil {
@@ -280,6 +296,54 @@ func (m Model) buildDetail(w int) detailDoc {
 	return d
 }
 
+// crumbLine adds the path of note t above its title: the notes above it, from the top
+// level down, each followed by "›". It returns the place of each note on the line.
+func (m Model) crumbLine(d *detailDoc, t *todoist.Task, w int) []crumb {
+	var path []*todoist.Task
+	for p := m.taskByID(t.Parent()); p != nil; p = m.taskByID(p.Parent()) {
+		path = append([]*todoist.Task{p}, path...)
+	}
+	line, x := len(d.lines), 1
+	var out []crumb
+	var b strings.Builder
+	b.WriteString(" ")
+	for _, p := range path {
+		name := trunc(plain(p.Content), max(4, (w-4)/max(1, len(path))-3))
+		out = append(out, crumb{line: line, x0: x, x1: x + lipgloss.Width(name), id: p.ID})
+		b.WriteString(st(hexMuted).Underline(true).Render(name) + st(hexDim).Render(" › "))
+		x += lipgloss.Width(name) + 3
+	}
+	d.lines = append(d.lines, b.String())
+	return out
+}
+
+// addSubnoteList adds the sub-notes of note t after its body: a header with the count and
+// one line for each sub-note. tab selects them, and enter or a click opens one.
+func (m Model) addSubnoteList(d *detailDoc, t *todoist.Task, w int) {
+	var kids []*todoist.Task
+	for i := range m.snap.Tasks {
+		if m.snap.Tasks[i].Parent() == t.ID {
+			kids = append(kids, &m.snap.Tasks[i])
+		}
+	}
+	if len(kids) == 0 {
+		return
+	}
+	sort.SliceStable(kids, func(i, j int) bool { return kids[i].ChildOrder < kids[j].ChildOrder })
+	d.lines = append(d.lines, "", " "+st(hexMuted).Bold(true).Render(fmt.Sprintf("Sub-notes %d", len(kids))))
+	for _, k := range kids {
+		more := ""
+		if n := len(m.subtreeIDs(k.ID)) - 1; n > 0 {
+			more = st(hexMuted).Render(fmt.Sprintf(" · %d sub-notes", n))
+			if n == 1 {
+				more = st(hexMuted).Render(" · 1 sub-note")
+			}
+		}
+		d.subnotes = append(d.subnotes, crumb{line: len(d.lines), x1: -1, id: k.ID})
+		d.lines = append(d.lines, "  "+st(fg(hexAccent)).Render("○ ")+st(hexText).Render(trunc(plain(k.Content), w-6-lipgloss.Width(more)))+more)
+	}
+}
+
 // addMarkdown adds rendered markdown lines and records the lines with a checkbox.
 func (d *detailDoc) addMarkdown(t mdText) {
 	for _, k := range t.checks {
@@ -305,6 +369,9 @@ func (m Model) detailLines(w, h int) []string {
 	}
 	if m.focus == paneDetail && m.chkCur >= 0 && m.chkCur < len(d.checks) {
 		sel = [2]int{d.checks[m.chkCur], d.checks[m.chkCur] + 1}
+	}
+	if k := m.chkCur - len(d.checks); m.focus == paneDetail && k >= 0 && k < len(d.subnotes) {
+		sel = [2]int{d.subnotes[k].line, d.subnotes[k].line + 1}
 	}
 	lines := make([]string, 0, h)
 	for i := m.detOff; i < len(d.lines) && len(lines) < h; i++ {

@@ -61,6 +61,7 @@ const (
 	inputAddProject
 	inputRenameProject
 	inputAddSubtask
+	inputAddSubnote
 	inputAddLabel
 	inputRenameLabel
 )
@@ -102,6 +103,7 @@ type row struct {
 	hidden    int    // the number of hidden tasks when collapsed
 	done      bool   // a completed task (Completed view)
 	pulled    bool   // an overview parent that is only there because of its sub-tasks
+	tree      string // notebook view: the tree lines before a sub-note or its preview
 }
 
 type (
@@ -169,10 +171,11 @@ type Model struct {
 	focusFilterNav bool
 	preFilterNav   string // navKey of the view before the filter view, for esc
 	find           string
-	targetID       string // task that inputRename changes
-	targetSection  string // section that inputRenameSection changes
-	targetProject  string // project that inputRenameProject changes
-	targetLabel    string // label that inputRenameLabel changes
+	targetID       string  // task that inputRename changes
+	jumpTo         *string // a note for the cursor: a new sub-note (set by its write) or an opened one
+	targetSection  string  // section that inputRenameSection changes
+	targetProject  string  // project that inputRenameProject changes
+	targetLabel    string  // label that inputRenameLabel changes
 
 	// The text inputs are pointers: they are large (15 KB for a textarea), and Bubble Tea
 	// copies the Model for each message and each method call.
@@ -697,6 +700,14 @@ func (m Model) submitInput() (tea.Model, tea.Cmd) {
 	case inputAddSubtask:
 		next := m.addSubtask(val, desc)
 		return m, next
+	case inputAddSubnote:
+		if val != "" {
+			next := m.addSubnote(val)
+			if next != nil {
+				next = withRetry(next, inputAddSubnote, val)
+			}
+			return m, next
+		}
 	case inputAddLabel:
 		next := m.addLabel(val)
 		return m, next
@@ -976,6 +987,10 @@ func (m Model) propertyKeys(key string) (tea.Model, tea.Cmd, bool) {
 	case "@":
 		next = m.openLabelPicker()
 	case "m":
+		if t := m.currentTask(); t != nil && m.notesMode() {
+			next = m.openNoteParentPicker(t)
+			break
+		}
 		next = m.openMovePicker()
 	default:
 		return m, nil, false
@@ -1057,7 +1072,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if key == "shift+tab" {
 			d = -1
 		}
-		if m.noteChecks() > 0 {
+		if m.noteChecks()+m.noteSubnotes() > 0 {
 			m.moveCheck(d)
 			return m, nil
 		}
@@ -1238,7 +1253,17 @@ func taskKey(key string) bool {
 func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 	// space toggles the selected checkbox. In task view with no checkbox selected, space
 	// still completes the task.
-	if key == "space" && m.noteChecks() > 0 && (m.chkCur >= 0 || m.notesMode()) {
+	if k := m.chkCur - m.noteChecks(); m.chkCur >= 0 && k >= 0 && k < m.noteSubnotes() && key == "enter" {
+		next := m.openSubnoteAt(k) // enter on a selected sub-note opens it
+		return m, next
+	}
+	if key == "A" && m.notesMode() { // a sub-note of the note in the reader
+		if t := m.currentTask(); t != nil {
+			next := m.openSubnoteDialog(t)
+			return m, next
+		}
+	}
+	if key == "space" && m.noteChecks() > 0 && (m.chkCur >= 0 || m.notesMode()) && m.chkCur < m.noteChecks() {
 		if m.chkCur < 0 {
 			m.setStatus("tab selects a checkbox", false)
 			return m, nil
@@ -1357,7 +1382,14 @@ func (m *Model) askDeleteTask() {
 	if n := len(m.snap.Comments[id]); n > 0 {
 		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone.", name, n)
 	}
+	subtree := m.subtreeIDs(id)
+	if n := len(subtree) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
+		text = fmt.Sprintf("Delete “%s” and its %s? This cannot be undone.", name, plural(n, "sub-note"))
+	}
 	del := func(m *Model) tea.Cmd {
+		for _, x := range subtree[1:] { // Todoist deletes the sub-tasks with the task
+			m.removeTask(x)
+		}
 		m.removeTask(id)
 		return m.simpleWrite("Deleted “"+name+"”", func(ctx context.Context) error {
 			return client.Delete(ctx, id)
@@ -1798,6 +1830,14 @@ func (m *Model) buildRows(reset bool) {
 	m.rows = append([]row{{spacer: true}}, m.rows...) // an empty line under the view title
 
 	m.rowCur = -1
+	if m.jumpTo != nil && *m.jumpTo != "" { // a new or an opened sub-note: the cursor goes to it
+		for _, r := range m.rows {
+			if r.task != nil && r.preview == "" && r.task.ID == *m.jumpTo {
+				keepID, m.jumpTo = *m.jumpTo, nil
+				break
+			}
+		}
+	}
 	if keepID != "" {
 		for i, r := range m.rows {
 			if r.task != nil && r.preview == "" && r.task.ID == keepID {
@@ -1854,10 +1894,10 @@ func (m *Model) projectRows(projectID string, notes bool) []row {
 			return rows
 		}
 		var out []row
-		for _, r := range rows {
-			out = append(out, r)
-			if p := notePreview(r.task, m.snap.Comments[r.task.ID]); p != "" {
-				out = append(out, row{task: r.task, depth: r.depth, preview: p})
+		for _, r := range noteTree(rows) {
+			out = append(out, r[0])
+			if p := notePreview(r[0].task, m.snap.Comments[r[0].task.ID]); p != "" {
+				out = append(out, row{task: r[0].task, depth: r[0].depth, preview: p, tree: r[1].tree})
 			}
 		}
 		return out
@@ -1972,6 +2012,38 @@ func firstLine(s string) string {
 		}
 	}
 	return ""
+}
+
+// noteTree gives the rows of a notebook their tree lines: "├ " or "└ " before a sub-note,
+// and "│ " for each level above it that has more notes below. Each item is the note row
+// and a row with the tree lines for its preview line.
+func noteTree(rows []row) [][2]row {
+	out := make([][2]row, len(rows))
+	var more []bool // more[l]: the note at level l on the current path has a sibling below
+	for i, r := range rows {
+		last := true
+		for _, x := range rows[i+1:] {
+			if x.depth < r.depth {
+				break
+			}
+			if x.depth == r.depth {
+				last = false
+				break
+			}
+		}
+		more = append(more[:min(len(more), r.depth)], !last)
+		var b strings.Builder
+		for l := 1; l < r.depth; l++ {
+			b.WriteString(map[bool]string{true: "│ ", false: "  "}[more[l]])
+		}
+		lead := b.String()
+		if r.depth > 0 {
+			r.tree = lead + map[bool]string{true: "└ ", false: "├ "}[last]
+			lead += map[bool]string{true: "│ ", false: "  "}[!last]
+		}
+		out[i] = [2]row{r, {tree: lead}}
+	}
+	return out
 }
 
 // treeRows orders tasks by child_order with subtasks nested under their parents.

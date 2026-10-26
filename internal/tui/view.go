@@ -360,7 +360,10 @@ func (m Model) taskLines(w, h int) []string {
 			lines = append(lines, headerLine(r, w, base))
 		case r.preview != "":
 			indent := "    " + strings.Repeat("  ", r.depth)
-			lines = append(lines, pad(base.Render(indent)+base.Foreground(c(hexMuted)).Render(trunc(r.preview, w-len(indent)-1)), w, base))
+			if notes { // under a note: its tree lines
+				indent = "   " + r.tree + " "
+			}
+			lines = append(lines, pad(base.Foreground(c(hexBorder)).Render(indent)+base.Foreground(c(hexMuted)).Render(trunc(r.preview, w-lipgloss.Width(indent)-1)), w, base))
 		case notes:
 			lines = append(lines, m.selectedLook(m.noteLine(r, w, base, i == m.rowCur), r, i, w))
 		default:
@@ -387,13 +390,23 @@ func (m Model) taskLines(w, h int) []string {
 	return padLines(lines, w, h)
 }
 
-// noteLine is a note title in notebook view. It has no checkbox.
+// noteLine is a note title in notebook view. It has no checkbox. A sub-note has tree
+// lines before its title, and a note with sub-notes has ▾ or ▸ after it.
 func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string {
-	marker := "  "
+	left, title, mark, right := m.noteParts(r, w, base, selected)
+	gap := w - lipgloss.Width(left) - lipgloss.Width(title) - lipgloss.Width(mark) - lipgloss.Width(right)
+	return left + title + mark + base.Render(strings.Repeat(" ", max(0, gap))) + right
+}
+
+// noteParts returns the parts of a note row: the margin with the cursor mark and the tree
+// lines, the title, the ▾/▸ mark with the number of hidden sub-notes, and the labels and
+// the comment count at the right.
+func (m Model) noteParts(r row, w int, base lipgloss.Style, selected bool) (left, title, mark, right string) {
+	cursor := "  "
 	if selected {
-		marker = "▸ "
+		cursor = "▸ "
 	}
-	left := base.Render(" "+strings.Repeat("  ", r.depth)) + base.Foreground(c(fg(hexAccent))).Render(marker)
+	left = base.Render(" ") + base.Foreground(c(fg(hexAccent))).Render(cursor) + base.Foreground(c(hexBorder)).Render(r.tree)
 	var parts []string
 	for _, l := range r.task.Labels {
 		parts = append(parts, base.Foreground(c(hexTomorrow)).Render("@"+l))
@@ -401,16 +414,21 @@ func (m Model) noteLine(r row, w int, base lipgloss.Style, selected bool) string
 	if n := len(m.snap.Comments[r.task.ID]); n > 0 && firstLine(r.task.Description) != "" {
 		parts = append(parts, base.Foreground(c(hexMuted)).Render(fmt.Sprintf("✎%d", n)))
 	}
-	right := ""
 	if len(parts) > 0 {
 		right = strings.Join(parts, base.Render("  ")) + base.Render(" ")
 		if lipgloss.Width(right) > w/2 { // a long label list: the title keeps half the row
 			right = trunc(right, w/2)
 		}
 	}
-	title := titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(right)-1, base.Foreground(c(hexText)).Bold(true))
-	gap := w - lipgloss.Width(left) - lipgloss.Width(title) - lipgloss.Width(right)
-	return left + title + base.Render(strings.Repeat(" ", max(0, gap))) + right
+	if r.hasKids {
+		m := strings.TrimSpace(collapseMark(r.collapsed))
+		if r.collapsed && r.hidden > 0 {
+			m += fmt.Sprintf(" %d", r.hidden)
+		}
+		mark = base.Foreground(c(hexMuted)).Render(" " + m)
+	}
+	title = titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(mark)-lipgloss.Width(right)-1, base.Foreground(c(hexText)).Bold(true))
+	return left, title, mark, right
 }
 
 // headerLine renders a section or day header with a count and a rule.
@@ -675,10 +693,16 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"x", "complete all"}, {"t", "due"}, {"1-4", "priority"}, {"m", "move"}, {"@", "labels"}, {"del", "delete all"}, {"s", "select"}, {"S", "range"}, {"esc", "clear"}}
 	case m.notesMode() && m.focus == paneDetail && m.noteChecks() > 0:
 		keys = [][2]string{{"enter", "edit note"}, {"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "comments"}, {"h", "back"}}
+		if m.noteSubnotes() > 0 {
+			keys = [][2]string{{"enter", "edit or open"}, {"tab", "next item"}, {"space", "toggle"}, {"A", "sub-note"}, {"j/k", "comments"}, {"h", "back"}}
+		}
 	case m.notesMode() && m.focus == paneDetail:
-		keys = [][2]string{{"enter", "edit note"}, {"j/k", "comments"}, {"c", "comment"}, {"y", "copy"}, {"h", "back"}}
+		keys = [][2]string{{"enter", "edit note"}, {"A", "sub-note"}, {"j/k", "comments"}, {"c", "comment"}, {"y", "copy"}, {"h", "back"}}
+		if m.noteSubnotes() > 0 {
+			keys = [][2]string{{"enter", "edit or open"}, {"tab", "next sub-note"}, {"A", "sub-note"}, {"j/k", "comments"}, {"c", "comment"}, {"h", "back"}}
+		}
 	case m.notesMode():
-		keys = [][2]string{{"a", "new note"}, {"E", "edit inline"}, {"e", "rename"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
+		keys = [][2]string{{"a", "new note"}, {"A", "sub-note"}, {"E", "edit inline"}, {"e", "rename"}, {">", "nest"}, {"<", "unnest"}, {"z", "fold"}, {"m", "move under"}, {"[", "up"}, {"]", "down"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
 		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
@@ -896,7 +920,11 @@ func helpSections() [][]string {
 			k("^t", "checkbox on the line"),
 			k("^f", "find and replace"),
 			k("^z / ^y", "undo / redo in the editor"),
-			k("tab", "reader: next checkbox · space toggles"),
+			k("tab", "reader: next checkbox or sub-note · space toggles · enter opens"),
+			k("A", "new sub-note under the note"),
+			k("> / <", "nest under the note above / move one level up"),
+			k("z", "fold or unfold the sub-notes"),
+			k("m", "move under another note, to the top level, or to a project"),
 			k("esc", "leave the editor")},
 		{h("Details pane"),
 			k("j / k", "select a comment"),

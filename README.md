@@ -255,6 +255,20 @@ Push `v` in a project to show it as a notebook. The list shows the note titles w
 
 To edit a note, push `enter` in the reader, push `E`, or double-click the text. The [markdown editor](#markdown-editor) opens in the same pane. `a` adds a note with the title as typed.
 
+A note can have sub-notes, and a sub-note can have its own sub-notes. In the list, sub-notes show under their note with tree lines. A note with sub-notes has `▾`, or `▸` and the number of hidden sub-notes when it is folded.
+
+| Key | Action |
+|---|---|
+| `A` | Add a sub-note under the note at the cursor, or under the note in the reader. The title is saved as typed. |
+| `>` / `<` | Nest the note under the note above it / move it one level up. |
+| `[` / `]` | Move the note up or down among the notes at its level. |
+| `z` | Fold or unfold the sub-notes. A click on `▾` / `▸` does the same. Todoist keeps the state. |
+| `m` | Move the note under another note, to the top level, or to another project or section. |
+
+The sub-notes move with their note. Drag a note onto another note to nest it. Drop it at the left edge of a row to put it at the top level. The right-click menu has the same actions. Delete on a note with sub-notes says how many sub-notes Todoist deletes with it.
+
+The reader of a sub-note shows the path of notes above it. Click a part of the path to open that note. Below the text of a note, the reader lists its sub-notes. `tab` selects a sub-note (after the checkboxes), and `enter` or a click opens it.
+
 ### Date dialog
 
 The `t` key opens a dialog with three parts: a text field, a month calendar, and a time field.

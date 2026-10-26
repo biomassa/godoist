@@ -217,7 +217,7 @@ func (m Model) mouseClick(ms tea.Mouse) (tea.Model, tea.Cmd) {
 	case m.listRect().has(x, y):
 		return m.listClick(ms, dbl)
 	case m.sideRect().has(x, y):
-		return m.detailClick(y, dbl)
+		return m.detailClick(x, y, dbl)
 	}
 	return m, nil
 }
@@ -281,6 +281,14 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+	// Notebook view: a click on the ▾/▸ mark after the title folds or unfolds the sub-notes.
+	if m.notesMode() && r.hasKids && ms.Button == tea.MouseLeft {
+		left, title, mark, _ := m.noteParts(r, m.listRect().w-2, lipgloss.NewStyle(), i == m.rowCur)
+		if x0 := lx + 1 + lipgloss.Width(left) + lipgloss.Width(title); ms.X >= x0 && ms.X < x0+lipgloss.Width(mark) {
+			next := m.toggleTaskCollapse(m.taskByID(r.task.ID))
+			return m, next
+		}
+	}
 	// A click on the ▾/▸ marker after the circle hides or shows the sub-tasks.
 	if markX := lx + 4 + 2*r.depth; r.hasKids && (ms.X == markX || ms.X == markX+1) && !m.notesMode() {
 		if cur := m.currentNav(); cur != nil && isOverview(cur.kind) {
@@ -317,7 +325,7 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m Model) detailClick(y int, dbl bool) (tea.Model, tea.Cmd) {
+func (m Model) detailClick(x, y int, dbl bool) (tea.Model, tea.Cmd) {
 	m.focusDetail()
 	r := m.sideRect().row(y)
 	if r < 0 {
@@ -325,6 +333,15 @@ func (m Model) detailClick(y int, dbl bool) (tea.Model, tea.Cmd) {
 	}
 	line := m.detOff + r
 	d := m.buildDetail(m.detailInnerWidth() - 1)
+	// Notebook view: a click on a note of the path or of the sub-notes list opens it. The
+	// line starts after the border and the gutter.
+	col := x - m.sideRect().x - 2
+	for _, cb := range append(append([]crumb(nil), d.crumbs...), d.subnotes...) {
+		if cb.line == line && (cb.x1 < 0 || col >= cb.x0 && col < cb.x1) {
+			next := m.openNote(cb.id)
+			return m, next
+		}
+	}
 	for k, cl := range d.checks { // a click on a checkbox toggles it
 		if cl == line {
 			m.chkCur, m.comCur = k, -1
@@ -422,7 +439,11 @@ func (m Model) mouseMotion(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		if m.drag.projectID != "" {
 			m.setStatus("moving # "+m.drag.content+" · release on a project, or on “My Projects” for the top level", false)
 		} else {
-			m.setStatus("moving “"+m.drag.content+"” · release on a project or a section header", false)
+			if m.notesMode() {
+				m.setStatus("moving “"+m.drag.content+"” · release on a note to nest it, at the left edge for the top level", false)
+			} else {
+				m.setStatus("moving “"+m.drag.content+"” · release on a project or a section header", false)
+			}
 		}
 	}
 	m.drag.x, m.drag.y = ms.X, ms.Y
@@ -464,6 +485,23 @@ func (m Model) mouseRelease(ms tea.Mouse) (tea.Model, tea.Cmd) {
 				next := m.moveTask(d.taskID, n.projectID, "")
 				return m, next
 			}
+		}
+	}
+	if m.listRect().has(ms.X, ms.Y) && m.notesMode() {
+		// Notebook view: a drop on a note nests the dragged note under it. A drop at the
+		// left of the titles puts it at the top level, after the top-level note of that row.
+		if i := m.rowAt(ms.Y); i >= 0 && m.rows[i].task != nil {
+			r, t := m.rows[i], m.taskByID(d.taskID)
+			if t == nil {
+				return m, nil
+			}
+			left, _, _, _ := m.noteParts(r, m.listRect().w-2, lipgloss.NewStyle(), false)
+			if ms.X < m.listRect().x+1+lipgloss.Width(left) {
+				next := m.moveNoteTop(t, m.rootOf(m.taskByID(r.task.ID)).ID)
+				return m, next
+			}
+			next := m.moveNoteUnder(t, r.task.ID)
+			return m, next
 		}
 	}
 	if m.listRect().has(ms.X, ms.Y) {
@@ -521,7 +559,19 @@ var sectionMenu = []menuItem{
 }
 
 func (m *Model) openMenu(x, y int) {
-	m.menu = &ctxMenu{x: x, y: y, items: taskMenu, focus: paneTasks}
+	items := taskMenu
+	if m.notesMode() {
+		items = noteMenu
+	}
+	m.menu = &ctxMenu{x: x, y: y, items: items, focus: paneTasks}
+}
+
+// noteMenu is the right-click menu of a note in notebook view: the task menu with the
+// sub-note entries, and "Move under…" in place of "Move".
+var noteMenu = []menuItem{
+	{"Rename", "e"}, {"Add sub-note", "A"}, {"Indent", ">"}, {"Outdent", "<"}, {"Move under…", "m"},
+	{"Due date", "t"}, {"Priority 1", "1"}, {"Priority 2", "2"}, {"Priority 3", "3"}, {"Priority 4", "4"},
+	{"Labels", "@"}, {"Description", "E"}, {"Comment", "c"}, {"Complete", "x"}, {"Delete", "delete"},
 }
 
 // menuRect is the area of the menu, moved inside the screen if needed.

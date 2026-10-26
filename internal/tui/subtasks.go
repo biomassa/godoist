@@ -100,6 +100,10 @@ func (m Model) orderKeys(key string) (tea.Model, tea.Cmd, bool) {
 	var next tea.Cmd
 	switch key {
 	case "A":
+		if m.notesMode() {
+			next = m.openSubnoteDialog(t)
+			break
+		}
 		m.targetID = t.ID
 		next = m.openDialog(inputAddSubtask, "")
 	case "[", "]":
@@ -123,7 +127,11 @@ func (m Model) orderKeys(key string) (tea.Model, tea.Cmd, bool) {
 		next = m.outdent(t)
 	case "z":
 		if !m.hasChildren(t.ID) {
-			m.setStatus("this task has no sub-tasks", false)
+			if m.notesMode() {
+				m.setStatus("this note has no sub-notes", false)
+			} else {
+				m.setStatus("this task has no sub-tasks", false)
+			}
 			return m, nil, true
 		}
 		if cur := m.currentNav(); cur != nil && isOverview(cur.kind) {

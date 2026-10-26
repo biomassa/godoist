@@ -86,7 +86,7 @@ func (m Model) noteChecks() int {
 
 // moveCheck moves the checkbox cursor by d, with wrap-around, and scrolls to it.
 func (m *Model) moveCheck(d int) {
-	n := m.noteChecks()
+	n := m.noteChecks() + m.noteSubnotes()
 	if n == 0 {
 		return
 	}
@@ -97,13 +97,49 @@ func (m *Model) moveCheck(d int) {
 		m.chkCur = (m.chkCur + d + n) % n
 	}
 	doc := m.buildDetail(m.detailInnerWidth() - 1)
+	line := -1
 	if m.chkCur < len(doc.checks) {
-		line := doc.checks[m.chkCur]
-		h := m.paneHeight()
-		if line < m.detOff || line >= m.detOff+h {
-			m.detOff = max(0, line-h/2)
+		line = doc.checks[m.chkCur]
+	} else if k := m.chkCur - len(doc.checks); k < len(doc.subnotes) {
+		line = doc.subnotes[k].line
+	}
+	if h := m.paneHeight(); line >= 0 && (line < m.detOff || line >= m.detOff+h) {
+		m.detOff = max(0, line-h/2)
+	}
+}
+
+// noteSubnotes is the number of sub-notes in the focused reader of notebook view. tab
+// selects them after the checkboxes.
+func (m Model) noteSubnotes() int {
+	t := m.currentTask()
+	if m.focus != paneDetail || !m.notesMode() || t == nil {
+		return 0
+	}
+	n := 0
+	for _, x := range m.snap.Tasks {
+		if x.Parent() == t.ID {
+			n++
 		}
 	}
+	return n
+}
+
+// openNote moves the cursor of the list to note id and shows it in the reader. A folded
+// note above it unfolds, in Todoist too.
+func (m *Model) openNote(id string) tea.Cmd {
+	var cmds []tea.Cmd
+	client := m.client
+	for p := m.taskByID(m.taskByID(id).Parent()); p != nil; p = m.taskByID(p.Parent()) {
+		if p.IsCollapsed {
+			p.IsCollapsed = false
+			pid := p.ID
+			cmds = append(cmds, m.simpleWrite("", func(ctx context.Context) error { return client.SetCollapsed(ctx, "tasks", pid, false) }))
+		}
+	}
+	jump := id
+	m.jumpTo = &jump
+	m.buildRows(false)
+	return tea.Batch(cmds...)
 }
 
 // toggleNoteCheck toggles checkbox k of the details pane and saves the description or

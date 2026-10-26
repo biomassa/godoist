@@ -18,10 +18,11 @@ import (
 type pickKind int
 
 const (
-	pickLabels pickKind = iota // checklist of labels
-	pickMove                   // projects and sections
-	pickColor                  // Todoist colors, for a new project or a color change
-	pickParent                 // the new parent of a project
+	pickLabels     pickKind = iota // checklist of labels
+	pickMove                       // projects and sections
+	pickColor                      // Todoist colors, for a new project or a color change
+	pickParent                     // the new parent of a project
+	pickNoteParent                 // the new parent of a note: a note, the top level, or a project
 )
 
 // Label states in the label picker.
@@ -48,6 +49,8 @@ type pickItem struct {
 	section   string // lowercase section name (move picker)
 	projectID string
 	sectionID string
+	taskID    string // note parent picker: the note to go under
+	top       bool   // note parent picker: the top level of the notebook
 }
 
 // picker is a filterable list that replaces the details pane. Typed text goes to the filter.
@@ -171,6 +174,20 @@ func (m *Model) openMovePicker() tea.Cmd {
 // place of the first task.
 func (m *Model) openMovePickerFor(ts []*todoist.Task) tea.Cmd {
 	t := ts[0]
+	items, cur := m.moveItems(t)
+	title := "Move · " + plain(t.Content)
+	if len(ts) > 1 {
+		title = fmt.Sprintf("Move · %d tasks", len(ts))
+	}
+	m.pick = &picker{kind: pickMove, taskIDs: joinIDs(ts), title: title, items: items, filter: newPickerFilter(), cur: cur}
+	m.pick.filter.Placeholder = "type to filter, e.g. pack or pack/urg"
+	m.pick.filter.SetWidth(pickerFilterWidth(m.pickerWidth()))
+	return m.pick.filter.Focus()
+}
+
+// moveItems returns the projects and their sections for the move pickers, and the index
+// of the place of task t.
+func (m Model) moveItems(t *todoist.Task) (items []pickItem, cur int) {
 	secs := map[string][]*todoist.Section{}
 	for i := range m.snap.Sections {
 		s := &m.snap.Sections[i]
@@ -178,8 +195,6 @@ func (m *Model) openMovePickerFor(ts []*todoist.Task) tea.Cmd {
 			secs[s.ProjectID] = append(secs[s.ProjectID], s)
 		}
 	}
-	var items []pickItem
-	cur := 0
 	for _, op := range m.orderedProjects() {
 		p := op.p
 		col := todoist.ColorHex(p.Color)
@@ -199,14 +214,7 @@ func (m *Model) openMovePickerFor(ts []*todoist.Task) tea.Cmd {
 				project: strings.ToLower(p.Name), section: strings.ToLower(s.Name)})
 		}
 	}
-	title := "Move · " + plain(t.Content)
-	if len(ts) > 1 {
-		title = fmt.Sprintf("Move · %d tasks", len(ts))
-	}
-	m.pick = &picker{kind: pickMove, taskIDs: joinIDs(ts), title: title, items: items, filter: newPickerFilter(), cur: cur}
-	m.pick.filter.Placeholder = "type to filter, e.g. pack or pack/urg"
-	m.pick.filter.SetWidth(pickerFilterWidth(m.pickerWidth()))
-	return m.pick.filter.Focus()
+	return items, cur
 }
 
 // updatePicker handles keys while a picker is open.
@@ -250,6 +258,13 @@ func (m Model) updatePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		if p.kind == pickColor {
 			if p.cur >= 0 && p.cur < len(vis) {
 				next := m.pickColorEnter(vis[p.cur])
+				return m, next
+			}
+			return m, nil
+		}
+		if p.kind == pickNoteParent {
+			if p.cur >= 0 && p.cur < len(vis) {
+				next := m.pickNoteParentEnter(vis[p.cur])
 				return m, next
 			}
 			return m, nil
@@ -472,6 +487,8 @@ func (m Model) pickerBox(w, h int) string {
 		hint = "↑/↓ select · enter move here · esc cancel"
 	case p.kind == pickParent:
 		hint = "↑/↓ select · enter move under it · esc cancel"
+	case p.kind == pickNoteParent:
+		hint = "↑/↓ select · enter move here · esc cancel"
 	case p.kind == pickColor && p.newName != "":
 		hint = "↑/↓ select · space sub-project on / off · enter create · esc cancel"
 	case p.kind == pickColor:

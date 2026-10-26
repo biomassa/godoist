@@ -23,6 +23,8 @@ var dialogSpecs = map[inputMode]dialogSpec{
 		"dates, #project, /section, @label and p1–p4 are parsed · enter add · esc cancel", 500},
 	inputAddNote: {"New note", "Note title",
 		"saved as typed · E writes the body later · enter add · esc cancel", 500},
+	inputAddSubnote: {"New sub-note", "Sub-note title",
+		"saved as typed · it goes under the note at the cursor · enter add · esc cancel", 500},
 	inputRename: {"Rename", "New name",
 		"#project, /section, @label and p1–p4 change only those fields · dates: t · enter save · esc cancel", 500},
 	inputAddSection: {"New section", "Section name",

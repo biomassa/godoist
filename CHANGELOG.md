@@ -7,6 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Sub-notes in notebook view. `A` adds a sub-note, `>` and `<` nest and unnest, `[` and `]` move a note among its siblings, and `z` folds. `m` moves a note under another note, to the top level, or to another project. A mouse drag onto a note nests it.
+- The reader shows the path of a sub-note and lists the sub-notes of a note. `tab`, `enter`, and a click open them.
+
+### Changed
+
+- Delete on a note with sub-notes says how many sub-notes go with it. The list removes the sub-tasks of a deleted task at once.
+
 ## [0.10.0] - 2026-10-22
 
 ### Added
