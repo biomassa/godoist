@@ -6,6 +6,8 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 
 ![godoist: the sidebar, a notebook with sections and sub-notes, and the reader with a markdown note](docs/screenshot.png)
 
+*godoist showing notebook view with a markdown note*
+
 ## Features
 
 - Todoist project colors, and 20 color themes with a live preview.
