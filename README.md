@@ -167,6 +167,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
+| `p` | Postpone a task that has a date: by 1, 2, or 3 days, a week, or to a date from the date dialog (**Custom...**). The time stays. An overdue task counts from today. A recurring task moves only this date and keeps its repeat. |
 | `y` | Copy to the system clipboard: in the task list, the name of the task or note. In the details pane, the selected comment, or the description when no comment is selected. |
 | `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |

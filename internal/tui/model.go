@@ -982,6 +982,8 @@ func (m Model) propertyKeys(key string) (tea.Model, tea.Cmd, bool) {
 	switch key {
 	case "t":
 		next = m.startDue()
+	case "p":
+		next = m.openPostpone()
 	case "1", "2", "3", "4":
 		next = m.setPriority(int(key[0] - '0'))
 	case "@":
@@ -1244,7 +1246,7 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 // taskKey reports whether key acts on the task under the cursor.
 func taskKey(key string) bool {
 	switch key {
-	case "x", "space", "e", "E", "c", "t", "1", "2", "3", "4", "@", "m", "delete", "backspace":
+	case "x", "space", "e", "E", "c", "t", "p", "1", "2", "3", "4", "@", "m", "delete", "backspace":
 		return true
 	}
 	return false

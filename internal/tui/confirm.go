@@ -12,6 +12,7 @@ type confirmButton struct {
 	key    string
 	label  string
 	danger bool
+	newRow bool // the button starts a new row of buttons
 	run    func(m *Model) tea.Cmd
 }
 
@@ -20,6 +21,7 @@ type confirmButton struct {
 // The first button (the action) is selected when the dialog opens.
 type confirmPrompt struct {
 	title   string
+	head    string // one line, cut to the width of the dialog; empty for no line
 	text    string
 	buttons []confirmButton
 	sel     int // selected button
@@ -79,38 +81,69 @@ func (m Model) confirmLayout() (string, []rect) {
 	w := m.confirmWidth()
 	inner := w - 2
 	lines := []string{""}
+	if p.head != "" {
+		lines = append(lines, " "+lipgloss.NewStyle().Foreground(c(hexText)).Render(trunc(p.head, inner-2)))
+	}
 	text := lipgloss.NewStyle().Width(inner - 2).Foreground(c(hexText)).Render(p.text)
 	for _, l := range strings.Split(text, "\n") {
 		lines = append(lines, " "+l)
 	}
 	lines = append(lines, "")
 
-	var parts []string
-	var widths []int
+	// Each row of buttons is in the middle. A row that is too wide gets smaller gaps.
+	var rows [][]int
 	for i, b := range p.buttons {
-		style := lipgloss.NewStyle().Background(c(hexSelBg)).Foreground(c(hexText))
-		if b.danger {
-			style = lipgloss.NewStyle().Background(c(tint(hexAccent))).Foreground(c(fg(hexAccent)))
+		if i == 0 || b.newRow {
+			rows = append(rows, nil)
 		}
-		label := "  " + b.key + " " + b.label + "  "
-		if i == p.sel { // the selected button is inverted and has arrows
-			style = style.Reverse(true).Bold(true)
-			label = "▸ " + b.key + " " + b.label + " ◂"
+		rows[len(rows)-1] = append(rows[len(rows)-1], i)
+	}
+	hits := make([]rect, len(p.buttons))
+	for _, r := range rows {
+		var parts []string
+		var widths []int
+		for _, i := range r {
+			b := p.buttons[i]
+			style := lipgloss.NewStyle().Background(c(hexSelBg)).Foreground(c(hexText))
+			if b.danger {
+				style = lipgloss.NewStyle().Background(c(tint(hexAccent))).Foreground(c(fg(hexAccent)))
+			}
+			lead, trail := "  ", "  "
+			if i == p.sel { // the selected button is inverted and has arrows
+				style = style.Reverse(true).Bold(true)
+				lead, trail = "▸ ", " ◂"
+			}
+			// A label that starts with its key ("1 day" for key 1) shows the key in the
+			// accent color and does not repeat it.
+			keyText, rest := b.key+" ", b.label
+			if b.key != "" && strings.HasPrefix(b.label, b.key) {
+				keyText, rest = b.key, b.label[len(b.key):]
+			}
+			if b.key == "" {
+				keyText = ""
+			}
+			keyStyle := style.Foreground(c(fg(hexAccent)))
+			if i == p.sel { // the key keeps its accent color on the inverted background
+				keyStyle = keyStyle.Reverse(false).Background(c(hexText))
+			}
+			btn := style.Render(lead) + keyStyle.Render(keyText) + style.Render(rest+trail)
+			parts = append(parts, btn)
+			widths = append(widths, lipgloss.Width(btn))
 		}
-		btn := style.Render(label)
-		parts = append(parts, btn)
-		widths = append(widths, lipgloss.Width(btn))
+		gap := 4
+		for gap > 1 && lipgloss.Width(strings.Join(parts, strings.Repeat(" ", gap))) > inner {
+			gap--
+		}
+		row := strings.Join(parts, strings.Repeat(" ", gap))
+		left := max(0, (inner-lipgloss.Width(row))/2)
+		y := len(lines) + 1 // +1 for the top border
+		x := 1 + left
+		for k, bw := range widths {
+			hits[r[k]] = rect{x, y, bw, 1}
+			x += bw + gap
+		}
+		lines = append(lines, strings.Repeat(" ", left)+row, "")
 	}
-	row := strings.Join(parts, "    ")
-	left := max(0, (inner-lipgloss.Width(row))/2)
-	y := len(lines) + 1 // +1 for the top border
-	var hits []rect
-	x := 1 + left
-	for _, bw := range widths {
-		hits = append(hits, rect{x, y, bw, 1})
-		x += bw + 4
-	}
-	lines = append(lines, strings.Repeat(" ", left)+row, "")
 	hint := lipgloss.NewStyle().Width(inner - 2).Foreground(c(hexDim)).Render("←/→ select · enter push · esc close")
 	lines = append(lines, " "+hint)
 	return box(st(fg(hexAccent)).Bold(true).Render(p.title), padLines(lines, inner, len(lines)), w, fg(hexAccent)), hits

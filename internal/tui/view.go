@@ -676,7 +676,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.focus == paneDetail && !m.notesMode() && m.noteChecks() > 0:
 		keys = [][2]string{{"tab", "next checkbox"}, {"space", "toggle"}, {"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"E", "description"}, {"h", "back"}}
 	case m.focus == paneDetail:
-		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"y", "copy"}, {"E", "description"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
+		keys = [][2]string{{"j/k", "select comment"}, {"c", "comment"}, {"e", "edit comment/name"}, {"d", "delete comment"}, {"y", "copy"}, {"E", "description"}, {"t", "due"}, {"p", "postpone"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"h", "back"}}
 	case m.focus == paneNav && m.inLabels() && m.navLabel() == nil:
 		keys = [][2]string{{"A", "new label"}, {"j/k", "move"}}
 	case m.focus == paneNav && m.navLabel() != nil:
@@ -702,9 +702,9 @@ func (m Model) legendKeys() [][2]string {
 			keys = [][2]string{{"enter", "edit or open"}, {"tab", "next sub-note"}, {"A", "sub-note"}, {"j/k", "comments"}, {"c", "comment"}, {"h", "back"}}
 		}
 	case m.notesMode():
-		keys = [][2]string{{"a", "new note"}, {"A", "sub-note"}, {"E", "edit inline"}, {"e", "rename"}, {">", "nest"}, {"<", "unnest"}, {"z", "fold"}, {"m", "move under"}, {"[", "up"}, {"]", "down"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
+		keys = [][2]string{{"a", "new note"}, {"A", "sub-note"}, {"E", "edit inline"}, {"e", "rename"}, {">", "nest"}, {"<", "unnest"}, {"z", "fold"}, {"m", "move under"}, {"p", "postpone"}, {"[", "up"}, {"]", "down"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"p", "postpone"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.note == nil && m.focus != paneDetail {
@@ -881,6 +881,7 @@ func helpSections() [][]string {
 			k("", "the selected comment (details) to the clipboard"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),
+			k("p", "postpone: 1, 2, 3 days, a week, or a date"),
 			k("1 – 4", "priority p1 – p4"),
 			k("@", "labels picker"),
 			k("m", "move to a project or section"),
