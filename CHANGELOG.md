@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-03
+
+### Added
+
+- `p` postpones a task that has a date: by 1, 2, or 3 days, a week, or to a date from the date dialog (**Custom...**). The time stays. An overdue task counts from today. A recurring task moves only this date. A task without a date gets a status message only.
+
 ## [1.0.0] - 2026-10-26
 
 The first stable release. The program has no changes since 0.11.0.
@@ -229,7 +235,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/biomassa/godoist/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/biomassa/godoist/compare/v0.11.0...v1.0.0
 [0.11.0]: https://github.com/biomassa/godoist/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/biomassa/godoist/compare/v0.9.0...v0.10.0
