@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-07
+
 ### Added
 
 - A completed sub-task of an open task stays under its task, struck through, and does not go to Completed ([#3](https://github.com/biomassa/godoist/issues/3)). `x` reopens it. A task with completed sub-tasks shows their count, for example 1/3.
@@ -244,7 +246,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/biomassa/godoist/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/biomassa/godoist/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/biomassa/godoist/compare/v0.11.0...v1.0.0
 [0.11.0]: https://github.com/biomassa/godoist/compare/v0.10.0...v0.11.0
