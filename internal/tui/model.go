@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sort"
 	"strings"
@@ -101,7 +102,12 @@ type row struct {
 	hasKids   bool   // a task with sub-tasks, or a section header with tasks
 	collapsed bool   // its sub-tasks or its tasks are hidden
 	hidden    int    // the number of hidden tasks when collapsed
-	done      bool   // a completed task (Completed view)
+	done      bool   // a completed task (Completed view, or doneSub)
+	doneSub   bool   // a completed sub-task under its open task: struck through
+	subDone   int    // the completed tasks below this task
+	subAll    int    // all tasks below this task, with the completed ones
+	upName    string // Completed view: the task above a sub-task that shows at the top
+	kids      bool   // Completed view: the task has sub-tasks under it
 	pulled    bool   // an overview parent that is only there because of its sub-tasks
 	tree      string // notebook view: the tree lines before a sub-note or its preview
 }
@@ -110,6 +116,7 @@ type (
 	syncMsg struct {
 		st  todoist.SyncState
 		err error
+		seq int // the number of the sync
 	}
 	filterMsg struct {
 		query string
@@ -210,6 +217,16 @@ type Model struct {
 	closed     [][]string            // undo stack: each entry is the one-time tasks of one completion
 	closedTask map[string]closedTask // the name and the project of each task in closed
 
+	// The completed sub-tasks that show under their open tasks (see donesubs.go).
+	doneLocal   map[string]localDone       // completed in this session, not synced yet
+	reopenLocal map[string]localDone       // reopened in this session, not synced yet
+	doneKids    map[string][]*todoist.Task // open or completed task ID → its completed sub-tasks
+	doneIn      map[string]bool            // the completed sub-tasks in doneKids
+	parentNames map[string]string          // Completed view: names of tasks from Todoist
+	parentAsked map[string]bool
+	syncSeq     int // the number of syncs started
+	stSeq       int // the number of the sync that m.st comes from (0: the cache)            // Completed view: names asked for
+
 	notesMoved bool                    // this run wrote the local notebook settings to Todoist
 	themes     *themePicker            // the open theme picker (T), or nil
 	termDark   bool                    // the terminal background is dark (for the "todoist" theme)
@@ -244,7 +261,8 @@ func New(client *todoist.Client, token string, set Settings) Model {
 		animations: set.Animations}
 	applyTheme(set.Theme, true)
 	m.ui, _ = state.Load()
-	m.syncing = 1 // Init starts the first sync
+	m.syncing = 1      // Init starts the first sync
+	client.TrackDone() // completed sub-tasks show under their open tasks
 	// The offline queue keeps task changes while the computer is offline.
 	if p, err := cache.QueuePath(token); err == nil {
 		q, err := todoist.OpenQueue(p)
@@ -261,7 +279,7 @@ func New(client *todoist.Client, token string, set Settings) Model {
 
 // Init starts the first sync, asks for the terminal background color, and starts the sync timer.
 func (m Model) Init() tea.Cmd {
-	return tea.Batch(m.syncCmd(), tea.RequestBackgroundColor, autoSyncTick())
+	return tea.Batch(m.syncCmd(1), tea.RequestBackgroundColor, autoSyncTick())
 }
 
 func autoSyncTick() tea.Cmd {
@@ -277,21 +295,23 @@ func (m *Model) startSync() tea.Cmd {
 		return nil
 	}
 	m.syncing = 1
-	return m.syncCmd()
+	m.syncSeq++
+	return m.syncCmd(m.syncSeq)
 }
 
-// syncCmd syncs a copy of the replica and saves it to the cache.
-func (m Model) syncCmd() tea.Cmd {
+// syncCmd syncs a copy of the replica and saves it to the cache. seq is the number of
+// the sync.
+func (m Model) syncCmd(seq int) tea.Cmd {
 	st := m.st.Clone()
 	client, token := m.client, m.token
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := client.Sync(ctx, &st); err != nil {
-			return syncMsg{err: err}
+			return syncMsg{err: err, seq: seq}
 		}
 		_ = cache.Save(token, st)
-		return syncMsg{st: st}
+		return syncMsg{st: st, seq: seq}
 	}
 }
 
@@ -442,6 +462,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 		m.offline = false
+		m.stSeq = msg.seq
 		m.applyState(msg.st)
 		if errs := m.client.Queue().TakeErrors(); len(errs) > 0 {
 			m.setStatus("Todoist refused a change made offline: "+strings.Join(errs, " · "), true)
@@ -527,6 +548,16 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.completed = msg.tasks
 		if cur := m.currentNav(); cur != nil && cur.kind == vkCompleted {
+			m.buildRows(false)
+		}
+		return m, m.fetchParentNames()
+
+	case parentNamesMsg:
+		if m.parentNames == nil {
+			m.parentNames = map[string]string{}
+		}
+		maps.Copy(m.parentNames, msg)
+		if m.inCompleted() {
 			m.buildRows(false)
 		}
 		return m, nil
@@ -1168,6 +1199,9 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 	if nm, cmd, ok := m.completedKeys(key); ok {
 		return nm, cmd
 	}
+	if nm, cmd, ok := m.doneSubKeys(key, false); ok {
+		return nm, cmd
+	}
 	if nm, cmd, ok := m.sectionKeys(key); ok {
 		return nm, cmd
 	}
@@ -1253,6 +1287,9 @@ func taskKey(key string) bool {
 }
 
 func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
+	if nm, cmd, ok := m.doneSubKeys(key, true); ok {
+		return nm, cmd
+	}
 	// space toggles the selected checkbox. In task view with no checkbox selected, space
 	// still completes the task.
 	if k := m.chkCur - m.noteChecks(); m.chkCur >= 0 && k >= 0 && k < m.noteSubnotes() && key == "enter" {
@@ -1444,11 +1481,15 @@ func (m *Model) skipDates(ts []todoist.Task) tea.Cmd {
 }
 
 // closedTask is the name and the project of a task on the undo stack, for the flight of
-// ctrl+z to the project.
-type closedTask struct{ name, projectID string }
+// ctrl+z to the project. inPlace is true for a sub-task that stays under its open task.
+type closedTask struct {
+	name, projectID string
+	inPlace         bool
+}
 
-// pushClosed puts the one-time tasks of one completion on the undo stack.
-func (m *Model) pushClosed(ts []*todoist.Task) {
+// pushClosed puts the one-time tasks of one completion on the undo stack. inPlace has the
+// sub-tasks that stay under their open tasks.
+func (m *Model) pushClosed(ts []*todoist.Task, inPlace map[string]bool) {
 	if len(ts) == 0 {
 		return
 	}
@@ -1458,7 +1499,7 @@ func (m *Model) pushClosed(ts []*todoist.Task) {
 	ids := make([]string, len(ts))
 	for i, t := range ts {
 		ids[i] = t.ID
-		m.closedTask[t.ID] = closedTask{t.Content, t.ProjectID}
+		m.closedTask[t.ID] = closedTask{t.Content, t.ProjectID, inPlace[t.ID]}
 	}
 	m.closed = append(m.closed, ids)
 }
@@ -1470,13 +1511,19 @@ func (m *Model) complete() tea.Cmd {
 		return nil
 	}
 	id, content, recurring := t.ID, t.Content, t.Due != nil && t.Due.IsRecurring
+	switch {
+	case m.onDoneSub():
+		return m.reopenSub(t)
+	case !recurring && m.openParent(t): // the sub-task stays under its task
+		return m.completeSub(t)
+	}
 	// Reopen does not move the date of a recurring task back. Thus undo is only for one-time tasks.
 	text := "Completed occurrence of “" + content + "” · next one scheduled"
 	var fx tea.Cmd
 	if recurring {
 		fx = m.startFx(nil, []string{id}, content)
 	} else {
-		m.pushClosed([]*todoist.Task{t})
+		m.pushClosed([]*todoist.Task{t}, nil)
 		fx = m.startFx([]string{id}, nil, content)
 		text = "Completed “" + content + "” · ctrl+z to undo"
 	}
@@ -1492,15 +1539,26 @@ func (m Model) undo() (tea.Model, tea.Cmd) {
 	}
 	ids := m.closed[len(m.closed)-1]
 	m.closed = m.closed[:len(m.closed)-1]
-	first := m.closedTask[ids[0]]
-	label := first.name
-	if len(ids) > 1 {
-		label = plural(len(ids), "task")
+	var fly []string // the tasks that went to Completed fly back. The others stay in place.
+	for _, id := range ids {
+		if m.closedTask[id].inPlace {
+			m.unstrike(id)
+		} else {
+			fly = append(fly, id)
+		}
+	}
+	var fx tea.Cmd
+	if len(fly) > 0 {
+		first := m.closedTask[fly[0]]
+		label := first.name
+		if len(fly) > 1 {
+			label = plural(len(fly), "task")
+		}
+		fx = m.startReopenFx(fly[0], first.projectID, label, false)
 	}
 	for _, id := range ids {
 		delete(m.closedTask, id)
 	}
-	fx := m.startReopenFx(ids[0], first.projectID, label, false)
 	client := m.client
 	done := "Reopened task"
 	if len(ids) > 1 {
@@ -1544,6 +1602,7 @@ func (m *Model) applyState(st todoist.SyncState) {
 	view := st.Clone()
 	m.pendingIDs = m.client.Queue().Overlay(&view)
 	m.snap = view.Snapshot()
+	m.mergeDone()
 	m.loaded = true
 	m.projects = map[string]*todoist.Project{}
 	for i := range m.snap.Projects {
@@ -1891,7 +1950,7 @@ func (m *Model) projectRows(projectID string, notes bool) []row {
 		}
 	}
 	group := func(ts []todoist.Task) []row {
-		rows := treeRows(ts, time.Now())
+		rows := treeRows(ts, m.withDoneKids, time.Now())
 		if !notes {
 			return rows
 		}
@@ -1899,7 +1958,7 @@ func (m *Model) projectRows(projectID string, notes bool) []row {
 		for _, r := range noteTree(rows) {
 			out = append(out, r[0])
 			if p := notePreview(r[0].task, m.snap.Comments[r[0].task.ID]); p != "" {
-				out = append(out, row{task: r[0].task, depth: r[0].depth, preview: p, tree: r[1].tree})
+				out = append(out, row{task: r[0].task, depth: r[0].depth, preview: p, tree: r[1].tree, doneSub: r[0].doneSub})
 			}
 		}
 		return out
@@ -1942,12 +2001,35 @@ func (m *Model) labelRows(name string) []row {
 	return m.projectGroupedRows(ts)
 }
 
-// completedRows groups the completed tasks by project, newest completion first.
+// completedRows groups the completed tasks by project, newest completion first. The
+// sub-tasks of a completed task are under it. A sub-task without its task in the view
+// shows the name of the task.
 func (m *Model) completedRows() []row {
-	rows := m.groupByProject(m.completed, true)
-	for i := range rows {
-		if rows[i].task != nil {
-			rows[i].done = true
+	top, kids := m.completedTree()
+	var rows []row
+	var addKids func(id string, depth int)
+	addKids = func(id string, depth int) {
+		for _, k := range kids[id] {
+			rows = append(rows, row{task: k, depth: depth, done: true, kids: len(kids[k.ID]) > 0})
+			addKids(k.ID, depth+1)
+		}
+	}
+	head := -1
+	for _, r := range m.groupByProject(top, true) {
+		if r.task == nil {
+			rows = append(rows, r)
+			head = len(rows) - 1
+			continue
+		}
+		r.done, r.kids = true, len(kids[r.task.ID]) > 0
+		if p := r.task.Parent(); p != "" {
+			r.upName = m.parentName(p)
+		}
+		rows = append(rows, r)
+		n := len(rows)
+		addKids(r.task.ID, 1)
+		if head >= 0 {
+			rows[head].count += len(rows) - n
 		}
 	}
 	return rows
@@ -2050,10 +2132,12 @@ func noteTree(rows []row) [][2]row {
 
 // treeRows orders tasks by child_order with subtasks nested under their parents.
 // A collapsed task shows no sub-tasks. Its row has the number of hidden tasks.
-func treeRows(ts []todoist.Task, now time.Time) []row {
+func treeRows(ts []todoist.Task, addDone func(map[string][]*todoist.Task, []string), now time.Time) []row {
 	ids := map[string]bool{}
+	var all []string
 	for _, t := range ts {
 		ids[t.ID] = true
+		all = append(all, t.ID)
 	}
 	children := map[string][]*todoist.Task{}
 	for i := range ts {
@@ -2062,6 +2146,9 @@ func treeRows(ts []todoist.Task, now time.Time) []row {
 			parent = ""
 		}
 		children[parent] = append(children[parent], &ts[i])
+	}
+	if addDone != nil {
+		addDone(children, all)
 	}
 	var out []row
 	var walk func(parent string, depth int)
@@ -2076,9 +2163,13 @@ func treeRows(ts []todoist.Task, now time.Time) []row {
 			return kids[i].ChildOrder < kids[j].ChildOrder
 		})
 		for _, t := range kids {
-			r := row{task: t, depth: depth, hasKids: len(children[t.ID]) > 0, collapsed: t.IsCollapsed}
+			r := row{task: t, depth: depth, hasKids: len(children[t.ID]) > 0, collapsed: t.IsCollapsed,
+				done: t.Checked, doneSub: t.Checked}
+			if r.hasKids {
+				r.subAll, r.subDone = countTree(children, t.ID), countDone(children, t.ID)
+			}
 			if r.hasKids && t.IsCollapsed {
-				r.hidden = countTree(children, t.ID)
+				r.hidden = r.subAll
 				out = append(out, r)
 				continue
 			}

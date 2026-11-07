@@ -232,7 +232,11 @@ func (m Model) buildDetail(w int) detailDoc {
 			meta = append(meta, fmt.Sprintf("%d comments", n))
 		}
 		d.lines = append(d.lines, " "+st(hexMuted).Render(strings.Join(meta, " · ")))
-		d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("enter or E")+st(hexDim).Render(" · edit this note"), "")
+		if t.Checked {
+			d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("x")+st(hexDim).Render(" · reopen this note"), "")
+		} else {
+			d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("enter or E")+st(hexDim).Render(" · edit this note"), "")
+		}
 		d.editStart = len(d.lines)
 		if body := strings.TrimSpace(t.Description); body != "" {
 			d.addMarkdown(m.md.render(body, w))
@@ -300,7 +304,7 @@ func (m Model) buildDetail(w int) detailDoc {
 // level down, each followed by "›". It returns the place of each note on the line.
 func (m Model) crumbLine(d *detailDoc, t *todoist.Task, w int) []crumb {
 	var path []*todoist.Task
-	for p := m.taskByID(t.Parent()); p != nil; p = m.taskByID(p.Parent()) {
+	for p := m.anyTask(t.Parent()); p != nil; p = m.anyTask(p.Parent()) {
 		path = append([]*todoist.Task{p}, path...)
 	}
 	line, x := len(d.lines), 1
@@ -326,6 +330,7 @@ func (m Model) addSubnoteList(d *detailDoc, t *todoist.Task, w int) {
 			kids = append(kids, &m.snap.Tasks[i])
 		}
 	}
+	kids = append(kids, m.doneKids[t.ID]...) // completed sub-notes are struck through
 	if len(kids) == 0 {
 		return
 	}
@@ -340,7 +345,11 @@ func (m Model) addSubnoteList(d *detailDoc, t *todoist.Task, w int) {
 			}
 		}
 		d.subnotes = append(d.subnotes, crumb{line: len(d.lines), x1: -1, id: k.ID})
-		d.lines = append(d.lines, "  "+st(fg(hexAccent)).Render("○ ")+st(hexText).Render(trunc(plain(k.Content), w-6-lipgloss.Width(more)))+more)
+		mark, name := st(fg(hexAccent)).Render("○ "), st(hexText)
+		if k.Checked {
+			mark, name = st(hexToday).Render("✓ "), st(hexMuted).Strikethrough(true)
+		}
+		d.lines = append(d.lines, "  "+mark+name.Render(trunc(plain(k.Content), w-6-lipgloss.Width(more)))+more)
 	}
 }
 

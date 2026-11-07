@@ -89,6 +89,12 @@ func (d *Due) Time() (t time.Time, hasTime bool, ok bool) {
 	return time.Time{}, false, false
 }
 
+// CompletedTime parses the completion time into local time. ok is false if the task has none.
+func (t Task) CompletedTime() (at time.Time, ok bool) {
+	at, err := time.Parse(time.RFC3339, t.CompletedAt)
+	return at.Local(), err == nil
+}
+
 // Task is an active task. The Sync API calls it an "item".
 type Task struct {
 	ID          string   `json:"id"`

@@ -7,6 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- A completed sub-task of an open task stays under its task, struck through, and does not go to Completed ([#3](https://github.com/biomassa/godoist/issues/3)). `x` reopens it. A task with completed sub-tasks shows their count, for example 1/3.
+
+### Changed
+
+- Completed shows the sub-tasks of a completed task under it. A sub-task whose task is not in the view shows the name of the task.
+- A task with sub-tasks shows its name in bold.
+
 ## [1.1.0] - 2026-11-03
 
 ### Added

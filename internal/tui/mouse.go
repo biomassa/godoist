@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -282,7 +283,7 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 		}
 	}
 	// Notebook view: a click on the ▾/▸ mark after the title folds or unfolds the sub-notes.
-	if m.notesMode() && r.hasKids && ms.Button == tea.MouseLeft {
+	if m.notesMode() && r.hasKids && !r.doneSub && ms.Button == tea.MouseLeft {
 		left, title, mark, _ := m.noteParts(r, m.listRect().w-2, lipgloss.NewStyle(), i == m.rowCur)
 		if x0 := lx + 1 + lipgloss.Width(left) + lipgloss.Width(title); ms.X >= x0 && ms.X < x0+lipgloss.Width(mark) {
 			next := m.toggleTaskCollapse(m.taskByID(r.task.ID))
@@ -290,7 +291,7 @@ func (m Model) listClick(ms tea.Mouse, dbl bool) (tea.Model, tea.Cmd) {
 		}
 	}
 	// A click on the ▾/▸ marker after the circle hides or shows the sub-tasks.
-	if markX := lx + 4 + 2*r.depth; r.hasKids && (ms.X == markX || ms.X == markX+1) && !m.notesMode() {
+	if markX := lx + 4 + 2*r.depth; r.hasKids && !r.doneSub && (ms.X == markX || ms.X == markX+1) && !m.notesMode() {
 		if cur := m.currentNav(); cur != nil && isOverview(cur.kind) {
 			next := m.toggleOverview(r)
 			return m, next
@@ -341,6 +342,10 @@ func (m Model) detailClick(x, y int, dbl bool) (tea.Model, tea.Cmd) {
 			next := m.openNote(cb.id)
 			return m, next
 		}
+	}
+	if m.onDoneSub() && (dbl || slices.Contains(d.checks, line)) { // a completed sub-task does not change
+		m.setStatus(m.doneHint(), true)
+		return m, nil
 	}
 	for k, cl := range d.checks { // a click on a checkbox toggles it
 		if cl == line {

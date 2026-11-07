@@ -70,8 +70,9 @@ type ovRoot struct {
 	first   int // position of the first view task, for filters
 }
 
-// buildOverview makes the tree for the view tasks and returns the roots.
-func (m *Model) buildOverview(view []todoist.Task) (ovTree, []ovRoot) {
+// buildOverview makes the tree for the view tasks and returns the roots. If withDone is
+// true, the completed sub-tasks show under their open tasks.
+func (m *Model) buildOverview(view []todoist.Task, withDone bool) (ovTree, []ovRoot) {
 	byID := map[string]*todoist.Task{}
 	for i := range m.snap.Tasks {
 		byID[m.snap.Tasks[i].ID] = &m.snap.Tasks[i]
@@ -83,6 +84,13 @@ func (m *Model) buildOverview(view []todoist.Task) (ovTree, []ovRoot) {
 		if p := t.Parent(); p != "" && byID[p] != nil {
 			tr.children[p] = append(tr.children[p], t)
 		}
+	}
+	if withDone {
+		ids := make([]string, 0, len(byID))
+		for id := range byID {
+			ids = append(ids, id)
+		}
+		m.withDoneKids(tr.children, ids)
 	}
 	for _, kids := range tr.children {
 		sort.SliceStable(kids, func(i, j int) bool { return kids[i].ChildOrder < kids[j].ChildOrder })
@@ -130,9 +138,13 @@ func (tr ovTree) expanded(id string) bool {
 func (tr ovTree) emit(rows []row, t *todoist.Task, depth int) []row {
 	kids := tr.children[t.ID]
 	open := tr.expanded(t.ID)
-	r := row{task: t, depth: depth, hasKids: len(kids) > 0, collapsed: len(kids) > 0 && !open, pulled: !tr.inView[t.ID]}
+	r := row{task: t, depth: depth, hasKids: len(kids) > 0, collapsed: len(kids) > 0 && !open, pulled: !tr.inView[t.ID],
+		done: t.Checked, doneSub: t.Checked}
+	if r.hasKids {
+		r.subAll, r.subDone = tr.count(t.ID), countDone(tr.children, t.ID)
+	}
 	if r.collapsed {
-		r.hidden = tr.count(t.ID)
+		r.hidden = r.subAll
 	}
 	rows = append(rows, r)
 	if open {
@@ -203,7 +215,7 @@ func (m *Model) todayRows(now time.Time) []row {
 			view = append(view, t)
 		}
 	}
-	tr, roots := m.buildOverview(view)
+	tr, roots := m.buildOverview(view, false)
 	sortRoots(roots)
 	var over, today []row
 	var nOver, nToday int
@@ -234,7 +246,7 @@ func (m *Model) upcomingRows(now time.Time) []row {
 			view = append(view, t)
 		}
 	}
-	tr, roots := m.buildOverview(view)
+	tr, roots := m.buildOverview(view, false)
 	sortRoots(roots)
 	var rows []row
 	lastDay, head := "", -1
@@ -266,7 +278,7 @@ func (m *Model) upcomingRows(now time.Time) []row {
 // In each project, the tasks without a section come first, then each section in its order
 // under its own header. In each group, dated tasks come first, the closest to now first.
 func (m *Model) projectGroupedRows(view []todoist.Task) []row {
-	tr, roots := m.buildOverview(view)
+	tr, roots := m.buildOverview(view, true)
 	now := time.Now()
 	byProject := map[string][]ovRoot{}
 	for _, r := range roots {
@@ -321,7 +333,7 @@ func (m *Model) projectGroupedRows(view []todoist.Task) []row {
 
 // filterRows keeps the order of the filter results, with the tree around each result.
 func (m *Model) filterRows() []row {
-	tr, roots := m.buildOverview(m.filterTasks)
+	tr, roots := m.buildOverview(m.filterTasks, false)
 	sort.SliceStable(roots, func(i, j int) bool { return roots[i].first < roots[j].first })
 	var rows []row
 	for _, r := range roots {

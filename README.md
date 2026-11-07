@@ -163,7 +163,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. In the sidebar, `pgup` / `pgdown` also go to the top or the bottom. |
 | `enter` | Open the project, or open the details. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
-| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. |
+| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
 | `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |

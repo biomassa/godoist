@@ -47,16 +47,6 @@ func (m Model) groupIDs(projectID, sectionID, parentID string) []string {
 	return ids
 }
 
-// hasChildren reports whether a task has sub-tasks.
-func (m Model) hasChildren(id string) bool {
-	for _, t := range m.snap.Tasks {
-		if t.Parent() == id {
-			return true
-		}
-	}
-	return false
-}
-
 // setOrder gives the tasks the order of ids in the snapshot, so that the list changes at once.
 func (m *Model) setOrder(ids []string) {
 	for i, id := range ids {
@@ -126,7 +116,7 @@ func (m Model) orderKeys(key string) (tea.Model, tea.Cmd, bool) {
 		}
 		next = m.outdent(t)
 	case "z":
-		if !m.hasChildren(t.ID) {
+		if r := m.currentRow(); r == nil || !r.hasKids {
 			if m.notesMode() {
 				m.setStatus("this note has no sub-notes", false)
 			} else {

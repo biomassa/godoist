@@ -22,7 +22,11 @@ type SyncState struct {
 	Comments []Comment    `json:"comments"`
 	Labels   []Label      `json:"labels"`
 	User     UserSettings `json:"user"`
+	Done     []Task       `json:"done"` // the tasks completed in the last DoneDays days, newest first
 }
+
+// DoneDays is how far back SyncState.Done goes. Todoist gives a range of 3 months at most.
+const DoneDays = 90
 
 // Clone returns a copy of s. A sync can change the copy while s stays the same.
 func (s SyncState) Clone() SyncState {
@@ -31,6 +35,7 @@ func (s SyncState) Clone() SyncState {
 	s.Tasks = append([]Task(nil), s.Tasks...)
 	s.Comments = append([]Comment(nil), s.Comments...)
 	s.Labels = append([]Label(nil), s.Labels...)
+	s.Done = append([]Task(nil), s.Done...)
 	return s
 }
 
@@ -69,6 +74,7 @@ func (c *Client) Sync(ctx context.Context, s *SyncState) error {
 		func(x Section) bool { return x.IsDeleted || x.IsArchived })
 	s.Tasks = merge(s.Tasks, resp.Items, func(t Task) string { return t.ID },
 		func(t Task) bool { return t.IsDeleted || t.Checked })
+	c.syncDone(ctx, s, resp.Items)
 	s.Comments = merge(s.Comments, resp.Notes, func(n Comment) string { return n.ID },
 		func(n Comment) bool { return n.IsDeleted })
 	// An incremental sync sends a changed label with "order": null. Keep the known order.
@@ -89,6 +95,67 @@ func (c *Client) Sync(ctx context.Context, s *SyncState) error {
 	s.Token = resp.SyncToken
 	s.SyncedAt = time.Now()
 	return nil
+}
+
+// TrackDone makes each Sync also get the completed tasks of the last DoneDays days into
+// SyncState.Done. This is one more request for each sync. The TUI uses it, and the CLI
+// does not.
+func (c *Client) TrackDone() { c.done = true }
+
+// syncDone updates s.Done. The tasks that the sync gives as checked go in at once, and the
+// tasks that are active or deleted go out. With TrackDone, syncDone then gets the
+// completed tasks of the last DoneDays days from Todoist. If that fails, the old list
+// stays.
+func (c *Client) syncDone(ctx context.Context, s *SyncState, items []Task) {
+	now := time.Now()
+	out := map[string]bool{}
+	for _, t := range s.Tasks {
+		out[t.ID] = true
+	}
+	var checked []Task
+	for _, t := range items {
+		switch {
+		case t.IsDeleted || !t.Checked:
+			out[t.ID] = true
+		case t.CompletedAt == "":
+			t.CompletedAt = now.UTC().Format(time.RFC3339)
+			fallthrough
+		default:
+			checked = append(checked, t)
+		}
+	}
+	done := merge(s.Done, checked, func(t Task) string { return t.ID }, func(Task) bool { return false })
+	if c.done {
+		done = c.withCompleted(ctx, done, now)
+	}
+	since := now.AddDate(0, 0, -DoneDays)
+	s.Done = s.Done[:0:0]
+	for _, t := range done {
+		if at, ok := t.CompletedTime(); !out[t.ID] && (!ok || at.After(since)) {
+			s.Done = append(s.Done, t)
+		}
+	}
+	sort.SliceStable(s.Done, func(i, j int) bool { return s.Done[i].CompletedAt > s.Done[j].CompletedAt })
+}
+
+// withCompleted returns the completed tasks of the last DoneDays days from Todoist. The
+// list can come some seconds late, so the tasks of done from the last minutes that it
+// does not have yet stay. If the request fails, withCompleted returns done.
+func (c *Client) withCompleted(ctx context.Context, done []Task, now time.Time) []Task {
+	got, err := c.CompletedTasks(ctx, now.AddDate(0, 0, -DoneDays), now.Add(time.Minute))
+	if err != nil {
+		return done
+	}
+	in := map[string]bool{}
+	for _, t := range got {
+		in[t.ID] = true
+	}
+	for _, t := range done {
+		if at, ok := t.CompletedTime(); !in[t.ID] && ok && now.Sub(at) < 10*time.Minute {
+			got = append(got, t)
+		}
+	}
+	return got
 }
 
 // merge adds or replaces entries by ID. It removes the entries for which gone returns true.
@@ -135,6 +202,7 @@ type Snapshot struct {
 	Comments map[string][]Comment // by task ID, oldest first
 	Labels   []Label              // in the user's label order
 	User     UserSettings
+	Done     []Task // the tasks completed in the last DoneDays days, newest first
 }
 
 // Snapshot groups the comments by task and returns copies of all lists.
@@ -148,5 +216,5 @@ func (s SyncState) Snapshot() Snapshot {
 		sort.Slice(cs, func(i, j int) bool { return cs[i].PostedAt < cs[j].PostedAt })
 	}
 	sort.SliceStable(c.Labels, func(i, j int) bool { return c.Labels[i].Order < c.Labels[j].Order })
-	return Snapshot{Projects: c.Projects, Sections: c.Sections, Tasks: c.Tasks, Comments: byTask, Labels: c.Labels, User: c.User}
+	return Snapshot{Projects: c.Projects, Sections: c.Sections, Tasks: c.Tasks, Comments: byTask, Labels: c.Labels, User: c.User, Done: c.Done}
 }

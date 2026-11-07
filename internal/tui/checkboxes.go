@@ -129,9 +129,16 @@ func (m Model) noteSubnotes() int {
 func (m *Model) openNote(id string) tea.Cmd {
 	var cmds []tea.Cmd
 	client := m.client
-	for p := m.taskByID(m.taskByID(id).Parent()); p != nil; p = m.taskByID(p.Parent()) {
+	t := m.anyTask(id)
+	if t == nil {
+		return nil
+	}
+	for p := m.anyTask(t.Parent()); p != nil; p = m.anyTask(p.Parent()) {
 		if p.IsCollapsed {
 			p.IsCollapsed = false
+			if p.Checked { // a completed note opens only here
+				continue
+			}
 			pid := p.ID
 			cmds = append(cmds, m.simpleWrite("", func(ctx context.Context) error { return client.SetCollapsed(ctx, "tasks", pid, false) }))
 		}

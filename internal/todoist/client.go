@@ -22,6 +22,7 @@ type Client struct {
 	http  *http.Client
 	queue *Queue // the offline queue of the TUI, or nil
 	base  string // the API address; tests change it
+	done  bool   // Sync also gets the completed tasks (see TrackDone)
 }
 
 // New returns a client for the token.
@@ -136,6 +137,13 @@ func (c *Client) Labels(ctx context.Context) ([]Label, error) {
 // Tasks returns all active tasks.
 func (c *Client) Tasks(ctx context.Context) ([]Task, error) {
 	return list[Task](ctx, c, "/tasks", nil)
+}
+
+// Task returns one task, also a completed one.
+func (c *Client) Task(ctx context.Context, id string) (Task, error) {
+	var t Task
+	err := c.do(ctx, http.MethodGet, "/tasks/"+url.PathEscape(id), nil, nil, &t)
+	return t, err
 }
 
 // Filter returns active tasks matching a Todoist filter query (e.g. "today | overdue").

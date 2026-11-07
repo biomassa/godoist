@@ -311,7 +311,7 @@ func (m Model) taskTitle() string {
 	}
 	n := 0
 	for _, r := range m.rows {
-		if r.task != nil && r.preview == "" {
+		if r.task != nil && r.preview == "" && !r.doneSub { // completed sub-tasks do not count
 			n++
 		}
 	}
@@ -363,7 +363,11 @@ func (m Model) taskLines(w, h int) []string {
 			if notes { // under a note: its tree lines
 				indent = "   " + r.tree + " "
 			}
-			lines = append(lines, pad(base.Foreground(c(hexBorder)).Render(indent)+base.Foreground(c(hexMuted)).Render(trunc(r.preview, w-lipgloss.Width(indent)-1)), w, base))
+			text := hexMuted
+			if r.doneSub { // under a completed note
+				text = hexDim
+			}
+			lines = append(lines, pad(base.Foreground(c(hexBorder)).Render(indent)+base.Foreground(c(text)).Render(trunc(r.preview, w-lipgloss.Width(indent)-1)), w, base))
 		case notes:
 			lines = append(lines, m.selectedLook(m.noteLine(r, w, base, i == m.rowCur), r, i, w))
 		default:
@@ -422,12 +426,16 @@ func (m Model) noteParts(r row, w int, base lipgloss.Style, selected bool) (left
 	}
 	if r.hasKids {
 		m := strings.TrimSpace(collapseMark(r.collapsed))
-		if r.collapsed && r.hidden > 0 {
-			m += fmt.Sprintf(" %d", r.hidden)
+		if n := subCount(r); n != "" {
+			m += " " + n
 		}
 		mark = base.Foreground(c(hexMuted)).Render(" " + m)
 	}
-	title = titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(mark)-lipgloss.Width(right)-1, base.Foreground(c(hexText)).Bold(true))
+	style := base.Foreground(c(hexText)).Bold(true)
+	if r.doneSub {
+		style = base.Foreground(c(hexMuted)).Strikethrough(true)
+	}
+	title = titleLine(r.task.Content, w-lipgloss.Width(left)-lipgloss.Width(mark)-lipgloss.Width(right)-1, style)
 	return left, title, mark, right
 }
 
@@ -497,10 +505,13 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 	}
 	var meta []item
 	if r.done { // a completed task shows only when it was completed
+		if r.upName != "" {
+			meta = append(meta, item{base.Foreground(c(hexMuted)).Render("↳ " + trunc(plain(r.upName), 20)), 4})
+		}
 		meta = append(meta, item{base.Foreground(c(hexMuted)).Render(completedLabel(t.CompletedAt, now)), 5})
 	} else {
-		if r.collapsed && r.hidden > 0 {
-			meta = append(meta, item{base.Foreground(c(hexMuted)).Render(fmt.Sprintf("%d", r.hidden)), 4})
+		if n := subCount(r); n != "" {
+			meta = append(meta, item{base.Foreground(c(hexMuted)).Render(n), 4})
 		}
 		dimS := base.Foreground(c(hexMuted))
 		for _, l := range t.Labels {
@@ -560,7 +571,11 @@ func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, no
 	if m.pendingIDs[t.ID] { // a queued change that only Todoist can finish
 		mark = base.Render(" ⏳")
 	}
-	content := titleLine(t.Content, contentW-lipgloss.Width(mark), base.Foreground(c(contentHex))) + mark
+	style := base.Foreground(c(contentHex)).Bold(r.hasKids || r.kids) // a task with sub-tasks is bold
+	if r.doneSub {
+		style = style.Strikethrough(true)
+	}
+	content := titleLine(t.Content, contentW-lipgloss.Width(mark), style) + mark
 	gap := w - lipgloss.Width(left) - lipgloss.Width(content) - lipgloss.Width(right)
 	return left + content + base.Render(strings.Repeat(" ", max(0, gap))) + right
 }
@@ -687,7 +702,7 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"j/k", "move"}, {"enter", "open"}, {"A", "new project"}, {"tab", "next pane"}, {"a", "add"}, {"f", "filter"}, {"r", "sync"}, {"q", "quit"}}
 	case m.headerSection() != nil:
 		keys = [][2]string{{"a", "add task here"}, {"A", "new section"}, {"e", "rename section"}, {"[", "move up"}, {"]", "move down"}, {"z", "collapse"}, {"del", "delete section"}}
-	case m.inCompleted():
+	case m.inCompleted(), m.focus == paneTasks && m.onDoneSub():
 		keys = [][2]string{{"x", "reopen"}, {"enter", "details"}, {"j/k", "move"}}
 	case len(m.selectedTasks()) > 0:
 		keys = [][2]string{{"x", "complete all"}, {"t", "due"}, {"1-4", "priority"}, {"m", "move"}, {"@", "labels"}, {"del", "delete all"}, {"s", "select"}, {"S", "range"}, {"esc", "clear"}}
@@ -871,6 +886,8 @@ func helpSections() [][]string {
 			k("a", "quick add: tomorrow 9am #proj @label p1"),
 			k("", "goes to the section under the cursor"),
 			k("x / space", "complete"),
+			k("", "a sub-task stays under its task,"),
+			k("", "struck through · x reopens it"),
 			k("ctrl+z", "undo the last completion"),
 			k("e", "edit name and description (#, /, @, p1–p4)"),
 			k("", "tab field · enter in description: new line"),

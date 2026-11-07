@@ -122,18 +122,28 @@ func (m Model) selectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 
 // bulkComplete completes the selected tasks. One ctrl+z reopens all one-time tasks of it.
 func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
-	var ids, once, recurring []string
+	selected := map[string]bool{}
+	for _, t := range sel {
+		selected[t.ID] = true
+	}
+	var ids, once, recurring, strike []string
 	var onceTasks []*todoist.Task
+	inPlace := map[string]bool{}
 	for _, t := range sel {
 		ids = append(ids, t.ID)
-		if t.Due == nil || !t.Due.IsRecurring {
+		switch {
+		case t.Due != nil && t.Due.IsRecurring:
+			recurring = append(recurring, t.ID)
+		case m.openParent(t) && !selected[t.Parent()]: // the sub-task stays under its task
+			strike = append(strike, t.ID)
+			inPlace[t.ID] = true
+			onceTasks = append(onceTasks, t)
+		default:
 			once = append(once, t.ID)
 			onceTasks = append(onceTasks, t)
-		} else {
-			recurring = append(recurring, t.ID)
 		}
 	}
-	m.pushClosed(onceTasks)
+	m.pushClosed(onceTasks, inPlace)
 	m.clearSelection()
 	label := plural(len(once), "task") // one task flies with its name
 	for _, t := range sel {
@@ -142,9 +152,10 @@ func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
 		}
 	}
 	fx := m.startFx(once, recurring, label)
+	m.strikeTasks(strike)
 	client := m.client
 	done := fmt.Sprintf("Completed %d task(s) · ctrl+z to undo", len(ids))
-	if len(once) == 0 {
+	if len(onceTasks) == 0 {
 		done = fmt.Sprintf("Completed %d occurrence(s)", len(ids))
 	}
 	return tea.Batch(fx, m.simpleWrite(done, func(ctx context.Context) error {
