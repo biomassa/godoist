@@ -42,7 +42,7 @@ func testModel(t testing.TB) Model {
 			{ID: "t3", ProjectID: "p1", SectionID: &sec, Content: "gamma", Priority: 1, ChildOrder: 1},
 		},
 	}
-	m := Model{client: todoist.New("test"), comCur: -1, md: newMDCache(),
+	m := Model{client: todoist.New("test"), comCur: -1, md: newMDCache(), fc: &frameCache{noHold: true},
 		ui: state.State{ProjectModes: map[string]string{}}}
 	m.width, m.height = 130, 30
 	m.applyState(st)

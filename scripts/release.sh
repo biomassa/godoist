@@ -8,6 +8,10 @@
 #
 # Before a release, move the [Unreleased] notes of CHANGELOG.md under "## [0.1.0] - date"
 # and commit.
+#
+# Before the build, the script runs go vet, the tests, and the tests with the race
+# detector. The tests run with a memory limit of 3 GB and no swap (systemd-run), so that a
+# leak fails the run and does not stop the computer.
 set -eu
 
 dry=false
@@ -37,8 +41,19 @@ if ! $dry; then
 fi
 grep -q "^## \[$ver\] - " CHANGELOG.md || fail "CHANGELOG.md has no section \"## [$ver] - date\""
 
+# capped runs a command with a memory limit of 3 GB and no swap, and a time limit.
+capped() {
+	if command -v systemd-run >/dev/null; then
+		systemd-run --user --scope -q -p MemoryMax=3G -p MemorySwapMax=0 timeout -k 5 1200 "$@"
+	else
+		echo "warning: no systemd-run, the command runs without a memory limit: $*" >&2
+		"$@"
+	fi
+}
+
 go vet ./...
-go test ./...
+capped go test ./...
+capped go test -race ./...
 
 rm -rf dist
 mkdir dist

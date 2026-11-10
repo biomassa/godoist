@@ -254,21 +254,30 @@ func (m Model) findBox(w int) string {
 	return box(st(fg(hexAccent)).Bold(true).Render(title), padLines(lines, inner, len(lines)), w, fg(hexAccent))
 }
 
-// matchStyle returns the style of a rune at row, col if it is in a match: a yellow
-// background, stronger for the current match. ok is false for other runes.
-func (e *noteEditor) matchStyle(row, col int) (lipgloss.Style, bool) {
+// matchAt reports whether the rune at row, col is in a find match: 1 in the current
+// match, 0 in another match, -1 in no match.
+func (e *noteEditor) matchAt(row, col int) int {
 	f := e.search
 	if f == nil {
-		return lipgloss.Style{}, false
+		return -1
 	}
 	for i, mt := range f.matches {
 		if mt.row == row && col >= mt.a && col < mt.b {
-			bg := mix("#E0B000", baseBg, 0.6)
 			if i == f.cur {
-				bg = "#E0B000"
+				return 1
 			}
-			return lipgloss.NewStyle().Background(c(bg)).Foreground(c(baseBg)).Bold(i == f.cur), true
+			return 0
 		}
 	}
-	return lipgloss.Style{}, false
+	return -1
+}
+
+// matchStyle is the style of a find match: a yellow background, stronger for the current
+// match.
+func matchStyle(current bool) lipgloss.Style {
+	bg := mix("#E0B000", baseBg, 0.6)
+	if current {
+		bg = "#E0B000"
+	}
+	return lipgloss.NewStyle().Background(c(bg)).Foreground(c(baseBg)).Bold(current)
 }

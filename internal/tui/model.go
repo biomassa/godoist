@@ -240,6 +240,7 @@ type Model struct {
 	pendingIDs map[string]bool         // tasks with a queued change that only Todoist can finish (⏳)
 
 	md *mdCache
+	fc *frameCache // the styled lines of the last frames and the wheel merge
 }
 
 // Settings are the saved settings that the TUI starts with, and the functions that save
@@ -256,7 +257,7 @@ type Settings struct {
 func New(client *todoist.Client, token string, set Settings) Model {
 	ti := newTextInput()
 	ti.CharLimit = 500
-	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(),
+	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(), fc: newFrameCache(),
 		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare,
 		animations: set.Animations}
 	applyTheme(set.Theme, true)
@@ -362,8 +363,28 @@ func (m *Model) simpleWrite(done string, f func(context.Context) error) tea.Cmd 
 
 func (m *Model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }
 
-// Update handles a message. If the task under the cursor changes, the details pane goes back to the top.
+// Update handles a message. A wheel event less than one frame after the last frame shares
+// the next frame with the events after it (see holdsWheel).
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	fc := m.fc
+	if fc == nil {
+		return m.updateAll(msg)
+	}
+	if _, ok := msg.(frameMsg); ok { // the frame of the held wheel events
+		fc.frameDue, fc.held = false, false
+		return m, nil
+	}
+	if fc.holdsWheel(msg) {
+		nm, cmd := m.updateAll(msg)
+		return nm, tea.Batch(cmd, fc.hold())
+	}
+	fc.held = false
+	return m.updateAll(msg)
+}
+
+// updateAll handles a message. If the task under the cursor changes, the details pane goes
+// back to the top.
+func (m Model) updateAll(msg tea.Msg) (tea.Model, tea.Cmd) {
 	prev := m.currentTaskID()
 	prevView := ""
 	if cur := m.currentNav(); cur != nil {
@@ -422,6 +443,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		setTheme(msg.IsDark())
 		r, g, b, _ := msg.RGBA()
 		baseBg = fmt.Sprintf("#%02X%02X%02X", r>>8, g>>8, b>>8)
+		themeGen++
 		m.md.reset()
 		if m.loaded {
 			m.buildNav()
@@ -2154,14 +2176,11 @@ func treeRows(ts []todoist.Task, addDone func(map[string][]*todoist.Task, []stri
 	var walk func(parent string, depth int)
 	walk = func(parent string, depth int) {
 		kids := children[parent]
-		sort.SliceStable(kids, func(i, j int) bool {
-			if depth == 0 { // the top level: dated tasks first (see dateBefore)
-				if before, ok := dateBefore(kids[i], kids[j], now); ok {
-					return before
-				}
-			}
-			return kids[i].ChildOrder < kids[j].ChildOrder
-		})
+		if depth == 0 {
+			sortByDate(kids, now)
+		} else {
+			sort.SliceStable(kids, func(i, j int) bool { return kids[i].ChildOrder < kids[j].ChildOrder })
+		}
 		for _, t := range kids {
 			r := row{task: t, depth: depth, hasKids: len(children[t.ID]) > 0, collapsed: t.IsCollapsed,
 				done: t.Checked, doneSub: t.Checked}
@@ -2181,36 +2200,67 @@ func treeRows(ts []todoist.Task, addDone func(map[string][]*todoist.Task, []stri
 	return out
 }
 
-// dateBefore orders two top-level tasks of a project view by their due dates. A task with
+// sortByDate orders the top-level tasks of a project view by their due dates. A task with
 // a date comes before a task without one. Tasks due today or earlier come first, the
 // closest to now first: today, then yesterday, then older dates. Future tasks follow, the
-// nearest first. Tasks on the same day go by time. ok is false if the dates do not decide
-// the order: then the manual order does.
-func dateBefore(a, b *todoist.Task, now time.Time) (before, ok bool) {
-	ta, _, okA := a.Due.Time()
-	tb, _, okB := b.Due.Time()
-	switch {
-	case okA != okB:
-		return okA, true
-	case !okA || ta.Equal(tb):
-		return false, false
+// nearest first. Tasks on the same day go by time. If the dates do not decide the order,
+// the manual order does.
+func sortByDate(ts []*todoist.Task, now time.Time) {
+	type dated struct {
+		t *todoist.Task
+		k nearKey
 	}
-	return nearBefore(ta, tb, now), true
+	today := dayOf(now)
+	ds := make([]dated, len(ts))
+	for i, t := range ts {
+		when, _, ok := t.Due.Time()
+		ds[i] = dated{t, newNearKey(when, ok, today)}
+	}
+	sort.SliceStable(ds, func(i, j int) bool {
+		a, b := ds[i].k, ds[j].k
+		switch {
+		case a.ok != b.ok:
+			return a.ok
+		case a.ok && !a.when.Equal(b.when):
+			return a.before(b)
+		}
+		return ds[i].t.ChildOrder < ds[j].t.ChildOrder
+	})
+	for i := range ds {
+		ts[i] = ds[i].t
+	}
 }
 
-// nearBefore reports whether due time a comes before due time b in a list that shows the
-// dates closest to now first: today, then the earlier days from the latest, then the
-// future days from the nearest. On the same day, the earlier time comes first.
-func nearBefore(a, b, now time.Time) bool {
-	da, db, today := dayOf(a), dayOf(b), dayOf(now)
-	pastA, pastB := !da.After(today), !db.After(today)
-	switch {
-	case pastA != pastB:
-		return pastA
-	case !da.Equal(db) && pastA: // today and earlier: the later day first
-		return da.After(db)
+// nearKey is a due time for a sort that shows the dates closest to now first. A sort finds
+// the keys once before it starts: to find the day in each comparison took most of the
+// sort time.
+type nearKey struct {
+	when, day time.Time
+	ok        bool // there is a due time
+	past      bool // the day is today or earlier
+}
+
+// newNearKey makes the key of due time when. ok is false if there is no due time.
+func newNearKey(when time.Time, ok bool, today time.Time) nearKey {
+	k := nearKey{when: when, ok: ok}
+	if ok {
+		k.day = dayOf(when)
+		k.past = !k.day.After(today)
 	}
-	return a.Before(b)
+	return k
+}
+
+// before reports whether k comes before o in a list that shows the dates closest to now
+// first: today, then the earlier days from the latest, then the future days from the
+// nearest. On the same day, the earlier time comes first. Both keys must have a due time.
+func (k nearKey) before(o nearKey) bool {
+	switch {
+	case k.past != o.past:
+		return k.past
+	case k.past && !k.day.Equal(o.day): // today and earlier: the later day first
+		return k.day.After(o.day)
+	}
+	return k.when.Before(o.when)
 }
 
 // countTree counts all tasks below id.

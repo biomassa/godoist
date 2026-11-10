@@ -24,8 +24,15 @@ import (
 	"github.com/biomassa/godoist/internal/version"
 )
 
+// stopProf stops the profiles of a prof build. It is nil in a normal build.
+var stopProf func()
+
 func main() {
-	if err := rootCmd().Execute(); err != nil {
+	err := rootCmd().Execute()
+	if stopProf != nil {
+		stopProf()
+	}
+	if err != nil {
 		os.Exit(1)
 	}
 }
@@ -105,7 +112,7 @@ func rootCmd() *cobra.Command {
 				return fmt.Errorf("unknown theme %q. The themes: %s", name, strings.Join(tui.ThemeNames(), ", "))
 			}
 			_, err = tea.NewProgram(tui.New(c, token, tui.Settings{Theme: name, ListShare: cfg.ListShare, Animations: cfg.AnimationsOn(),
-				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare})).Run()
+				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare}), tea.WithFPS(tui.FPS)).Run()
 			return err
 		},
 	}

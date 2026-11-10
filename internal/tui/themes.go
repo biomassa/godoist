@@ -80,6 +80,7 @@ func applyTheme(name string, termDark bool) {
 // Tomorrow, this week, p2, and p3 are mixes that keep their hue family where the palette
 // has none: orange from the error color and yellow, purple from the error and focus colors.
 func applyPalette(p palette) {
+	themeGen++
 	themeName, themeBg = p.name, p.bg
 	darkTheme = luminance(p.bg) < 0.5
 	baseBg = p.bg

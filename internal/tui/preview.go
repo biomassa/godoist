@@ -22,8 +22,11 @@ import (
 // line that it comes from, for a click. A marker that the preview adds (• or ☐) has the
 // position of the source marker. A table border or padding cell has src -1.
 type pcell struct {
-	r   rune
-	st  lipgloss.Style
+	r rune
+	// st is shared by the cells of a span: renderRow draws a run of cells with the same
+	// pointer in one call. A lipgloss.Style is about 650 bytes, so a copy in each cell
+	// also costs memory. Change a style through a new value. nil is plain text.
+	st  *lipgloss.Style
 	src int
 }
 
@@ -60,7 +63,7 @@ func inlineCells(s string, offset int, base lipgloss.Style) []pcell {
 	var out []pcell
 	part := func(a, b int, st lipgloss.Style) {
 		for i := a; i < b; i++ {
-			out = append(out, pcell{rs[i], st, offset + i})
+			out = append(out, pcell{rs[i], &st, offset + i})
 		}
 	}
 	inner := func(a, b int, st lipgloss.Style) {
@@ -114,7 +117,7 @@ func previewCells(src string) (cells []pcell, level int) {
 	lead := func(indent string) []pcell {
 		var out []pcell
 		for i, r := range indent {
-			out = append(out, pcell{r, text, i})
+			out = append(out, pcell{r, &text, i})
 		}
 		return out
 	}
@@ -122,10 +125,11 @@ func previewCells(src string) (cells []pcell, level int) {
 	if lv, h := headingLevel(src); lv > 0 {
 		st := headingStyle(lv)
 		off := runeAt(strings.Index(src, h))
-		return append([]pcell{{' ', st, 0}}, inlineCells(h, off, st)...), lv
+		return append([]pcell{{' ', &st, 0}}, inlineCells(h, off, st)...), lv
 	}
 	if ruleLine.MatchString(src) {
-		return []pcell{{'─', st(hexDim), 0}}, -1 // -1: a rule to the full width
+		rule := st(hexDim)
+		return []pcell{{'─', &rule, 0}}, -1 // -1: a rule to the full width
 	}
 	if sm := checkItem.FindStringSubmatchIndex(src); sm != nil {
 		box := '☐'
@@ -135,30 +139,31 @@ func previewCells(src string) (cells []pcell, level int) {
 		cells = lead(src[sm[2]:sm[3]])
 		if lit := src[sm[4]:sm[5]]; lit[0] >= '0' && lit[0] <= '9' { // a numbered item keeps its number
 			for i, r := range lit {
-				cells = append(cells, pcell{r, marker, runeAt(sm[4]) + i})
+				cells = append(cells, pcell{r, &marker, runeAt(sm[4]) + i})
 			}
-			cells = append(cells, pcell{' ', text, runeAt(sm[5])})
+			cells = append(cells, pcell{' ', &text, runeAt(sm[5])})
 		}
 		mark := runeAt(sm[6])
-		cells = append(cells, pcell{box, marker, mark}, pcell{' ', text, mark})
+		cells = append(cells, pcell{box, &marker, mark}, pcell{' ', &text, mark})
 		return append(cells, inlineCells(src[sm[8]:sm[9]], runeAt(sm[8]), text)...), 0
 	}
 	if sm := bulletItem.FindStringSubmatchIndex(src); sm != nil {
 		cells = lead(src[sm[2]:sm[3]])
-		cells = append(cells, pcell{'•', marker, runeAt(sm[3])}, pcell{' ', text, runeAt(sm[3])})
+		cells = append(cells, pcell{'•', &marker, runeAt(sm[3])}, pcell{' ', &text, runeAt(sm[3])})
 		return append(cells, inlineCells(src[sm[4]:sm[5]], runeAt(sm[4]), text)...), 0
 	}
 	if sm := numberItem.FindStringSubmatchIndex(src); sm != nil {
 		cells = lead(src[sm[2]:sm[3]])
 		for i, r := range src[sm[4]:sm[5]] {
-			cells = append(cells, pcell{r, marker, runeAt(sm[4]) + i})
+			cells = append(cells, pcell{r, &marker, runeAt(sm[4]) + i})
 		}
-		cells = append(cells, pcell{' ', text, runeAt(sm[5])})
+		cells = append(cells, pcell{' ', &text, runeAt(sm[5])})
 		return append(cells, inlineCells(src[sm[6]:sm[7]], runeAt(sm[6]), text)...), 0
 	}
 	if sm := quoteLine.FindStringSubmatchIndex(src); sm != nil {
 		q := kindStyle(skQuote)
-		cells = []pcell{{'│', st(hexMuted), 0}, {' ', q, 0}}
+		bar := st(hexMuted)
+		cells = []pcell{{'│', &bar, 0}, {' ', &q, 0}}
 		return append(cells, inlineCells(src[sm[2]:sm[3]], runeAt(sm[2]), q)...), 0
 	}
 	return inlineCells(src, 0, text), 0
@@ -272,18 +277,29 @@ func (e *noteEditor) sourceRows(i int, inFence bool, tw int) []edRow {
 			end = starts[k+1]
 		}
 		row := edRow{line: i, source: true, start: s}
+		// Cells with the same kind, find match, and selection share one style.
+		type look struct {
+			kind, match int
+			sel         bool
+		}
+		var prev look
+		var sp *lipgloss.Style
 		for j := s; j < end; j++ {
-			st := kindStyle(kinds[j])
-			if level > 0 && kinds[j] == skHeading { // headings have the style of their level
-				st = headingStyle(level)
+			lk := look{kinds[j], e.matchAt(i, j), e.inSel(i, j)}
+			if sp == nil || lk != prev {
+				st := kindStyle(lk.kind)
+				if level > 0 && lk.kind == skHeading { // headings have the style of their level
+					st = headingStyle(level)
+				}
+				if lk.match >= 0 { // find matches
+					st = matchStyle(lk.match == 1)
+				}
+				if lk.sel {
+					st = selectionStyle(st)
+				}
+				sp, prev = &st, lk
 			}
-			if ms, ok := e.matchStyle(i, j); ok { // find matches
-				st = ms
-			}
-			if e.inSel(i, j) {
-				st = selectionStyle(st)
-			}
-			row.cells = append(row.cells, pcell{l[j], st, j})
+			row.cells = append(row.cells, pcell{l[j], sp, j})
 		}
 		if level > 0 {
 			row.fill = level
@@ -460,8 +476,9 @@ func centerCells(cells []pcell, tw int) []pcell {
 	}
 	pad := max(1, (tw-ansi.StringWidth(sb.String()))/2)
 	out := make([]pcell, 0, pad+len(text))
+	bar := headingStyle(1)
 	for range pad {
-		out = append(out, pcell{' ', headingStyle(1), text[0].src})
+		out = append(out, pcell{' ', &bar, text[0].src})
 	}
 	return append(out, text...)
 }
@@ -493,21 +510,35 @@ func renderRow(r edRow, tw, cx int) string {
 	default:
 		lead += " "
 	}
+	// The cells of a run that share a style (the same pointer) and are not the cursor go
+	// to one Render call. A row of plain text is one call, not one call for each cell.
 	var b strings.Builder
-	for k := 0; k < len(r.cells); k++ {
-		cl := r.cells[k]
-		st := cl.st
-		if k == cx {
-			st = st.Reverse(true)
-		}
-		// A variation selector or a combining mark goes into the same styled text as the
-		// rune before it. An escape sequence between them breaks the glyph in the terminal.
-		text := []rune{cl.r}
-		for k+1 < len(r.cells) && joins(r.cells[k+1].r) {
+	var run []rune
+	for k := 0; k < len(r.cells); {
+		sp := r.cells[k].st
+		cur := k == cx
+		run = run[:0]
+		for k < len(r.cells) && r.cells[k].st == sp && (k == cx) == cur {
+			run = append(run, r.cells[k].r)
 			k++
-			text = append(text, r.cells[k].r)
+			// A variation selector or a combining mark goes into the same styled text as the
+			// rune before it. An escape sequence between them breaks the glyph in the terminal.
+			for k < len(r.cells) && joins(r.cells[k].r) {
+				run = append(run, r.cells[k].r)
+				k++
+			}
+			if cur {
+				break
+			}
 		}
-		b.WriteString(st.Render(string(text)))
+		var style lipgloss.Style // a cell without a style shows as plain text
+		if sp != nil {
+			style = *sp
+		}
+		if cur {
+			style = style.Reverse(true)
+		}
+		b.WriteString(style.Render(string(run)))
 	}
 	if cx >= 0 && cx >= len(r.cells) { // the cursor after the last rune
 		b.WriteString(lipgloss.NewStyle().Reverse(true).Render(" "))

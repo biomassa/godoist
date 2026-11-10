@@ -136,10 +136,10 @@ func buildTable(lines [][]rune, tw int) []edRow {
 		widths[i] = max(1, widths[i])
 	}
 	line := st(hexText)
-	bar := func(r rune) pcell { return pcell{r, line, -1} }
+	bar := func(r rune) pcell { return pcell{r, &line, -1} }
 	pad := func(k int) (out []pcell) {
 		for ; k > 0; k-- {
-			out = append(out, pcell{' ', text, -1})
+			out = append(out, pcell{' ', &text, -1})
 		}
 		return
 	}

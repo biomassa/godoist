@@ -651,7 +651,7 @@ func (m Model) menuBox() string {
 
 // overlays draws the dialog, the menu, and the drag label over the screen.
 func (m Model) overlays(screen string) string {
-	layers := []*lipgloss.Layer{lipgloss.NewLayer(screen)}
+	var layers []*lipgloss.Layer
 	if isDialog(m.inputMode) {
 		r := m.dialogRect()
 		layers = append(layers, lipgloss.NewLayer(m.dialogBox()).X(r.x).Y(r.y).Z(1))
@@ -689,8 +689,8 @@ func (m Model) overlays(screen string) string {
 			Render(" ⇢ " + trunc(m.drag.content, 30) + " ")
 		layers = append(layers, lipgloss.NewLayer(label).X(min(m.drag.x+2, max(0, m.width-lipgloss.Width(label)))).Y(m.drag.y).Z(3))
 	}
-	if len(layers) == 1 {
-		return screen
+	if len(layers) == 0 {
+		return screen // no overlay: the layer of the screen measures it, which costs time
 	}
-	return lipgloss.NewCompositor(layers...).Render()
+	return lipgloss.NewCompositor(append([]*lipgloss.Layer{lipgloss.NewLayer(screen)}, layers...)...).Render()
 }

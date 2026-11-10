@@ -195,16 +195,28 @@ func rootLess(a, b ovRoot) bool {
 	return a.task.Priority > b.task.Priority
 }
 
-// sortRootsNear is sortRoots with the dates closest to now first (see nearBefore), for
-// All tasks and the label views.
+// sortRootsNear is sortRoots with the dates closest to now first (see nearKey), for All
+// tasks and the label views.
 func sortRootsNear(rs []ovRoot, now time.Time) {
-	sort.SliceStable(rs, func(i, j int) bool {
-		a, b := rs[i], rs[j]
-		if a.hasWhen && b.hasWhen && !a.when.Equal(b.when) {
-			return nearBefore(a.when, b.when, now)
+	type dated struct {
+		r ovRoot
+		k nearKey
+	}
+	today := dayOf(now)
+	ds := make([]dated, len(rs))
+	for i, r := range rs {
+		ds[i] = dated{r, newNearKey(r.when, r.hasWhen, today)}
+	}
+	sort.SliceStable(ds, func(i, j int) bool {
+		a, b := ds[i], ds[j]
+		if a.k.ok && b.k.ok && !a.k.when.Equal(b.k.when) {
+			return a.k.before(b.k)
 		}
-		return rootLess(a, b)
+		return rootLess(a.r, b.r)
 	})
+	for i := range ds {
+		rs[i] = ds[i].r
+	}
 }
 
 // todayRows builds Overdue and Today.

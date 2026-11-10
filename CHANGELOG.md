@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- The screen updates at most 30 times each second, not 60. Thus godoist uses less CPU when it does nothing.
+
+### Fixed
+
+- Scrolling with the mouse wheel uses much less CPU. Before, each wheel event drew the full screen again, and each part of a row got its own style call. Fast scrolling used all of one CPU core, also with few tasks. Now godoist keeps the rows that did not change and measures each line one time. It draws one frame for the wheel events that come in the same frame.
+
 ## [1.2.0] - 2026-11-07
 
 ### Added

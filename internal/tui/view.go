@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,8 +53,23 @@ func (m *Model) fixScroll() {
 	m.clampDetail()
 }
 
-// View renders the full screen.
+// View renders the full screen. While wheel events are held (see holdsWheel), it gives
+// the last frame again.
 func (m Model) View() tea.View {
+	fc := m.fc
+	if fc != nil && fc.held {
+		return fc.last
+	}
+	v := m.view()
+	if fc != nil {
+		fc.last, fc.built = v, time.Now()
+	}
+	return v
+}
+
+// view builds a frame.
+func (m Model) view() tea.View {
+	m.fc.frame()
 	screen := m.render()
 	if m.width > 0 {
 		screen = m.overlays(screen)
@@ -87,41 +103,58 @@ func (m Model) render() string {
 		return hexBorder
 	}
 
-	nav := box(st(hexMuted).Bold(true).Render("godoist"), m.navLines(navW-2, h), navW, borderFor(paneNav))
+	nav := boxLines(st(hexMuted).Bold(true).Render("godoist"), m.navLines(navW-2, h), navW, borderFor(paneNav))
 
 	detailTitle := st(hexMuted).Bold(true).Render("Details")
 	if m.notesMode() {
 		detailTitle = st(hexMuted).Bold(true).Render("Reader")
 	}
 	// On narrow terminals the editor and the details replace the task list.
-	var mid string
+	var mid []string
 	switch {
 	case m.showHelp:
 		// The help spans the task list and the details pane.
 		helpW := midW + detW
-		return lipgloss.JoinHorizontal(lipgloss.Top, nav,
-			box(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
+		return joinPanes(nav,
+			boxLines(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
 			"\n" + m.bottomBar()
 	case m.note != nil && !m.wide():
-		mid = box(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
+		mid = boxLines(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
 	case m.pick != nil && !m.wide():
-		mid = m.pickerBox(midW, h)
+		mid = strings.Split(m.pickerBox(midW, h), "\n")
 	case m.detailOpen && !m.wide():
-		mid = box(detailTitle, m.detailLines(midW-2, h), midW, borderFor(paneDetail))
+		mid = boxLines(detailTitle, m.detailLines(midW-2, h), midW, borderFor(paneDetail))
 	default:
-		mid = box(m.taskTitle(), m.taskLines(midW-2, h), midW, borderFor(paneTasks))
+		mid = boxLines(m.taskTitle(), m.taskLines(midW-2, h), midW, borderFor(paneTasks))
 	}
 
-	panes := []string{nav, mid}
+	panes := [][]string{nav, mid}
 	switch {
 	case detW > 0 && m.note != nil:
-		panes = append(panes, box(m.noteTitle(), m.noteLines(detW-2, h), detW, fg(hexAccent)))
+		panes = append(panes, boxLines(m.noteTitle(), m.noteLines(detW-2, h), detW, fg(hexAccent)))
 	case detW > 0 && m.pick != nil:
-		panes = append(panes, m.pickerBox(detW, h))
+		panes = append(panes, strings.Split(m.pickerBox(detW, h), "\n"))
 	case detW > 0:
-		panes = append(panes, box(detailTitle, m.detailLines(detW-2, h), detW, borderFor(paneDetail)))
+		panes = append(panes, boxLines(detailTitle, m.detailLines(detW-2, h), detW, borderFor(paneDetail)))
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Top, panes...) + "\n" + m.bottomBar()
+	return joinPanes(panes...) + "\n" + m.bottomBar()
+}
+
+// joinPanes puts the panes side by side. All panes have the same number of lines, and the
+// lines of a pane have the same width, so the join does not measure them again.
+func joinPanes(panes ...[]string) string {
+	var sb strings.Builder
+	for i := range panes[0] {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
+		for _, p := range panes {
+			if i < len(p) {
+				sb.WriteString(p[i])
+			}
+		}
+	}
+	return sb.String()
 }
 
 // ---- helpers ----
@@ -190,26 +223,26 @@ func padLines(lines []string, w, h int) []string {
 
 // box draws a rounded border with the title embedded in the top edge.
 func box(title string, lines []string, w int, borderHex string) string {
+	return strings.Join(boxLines(title, lines, w, borderHex), "\n")
+}
+
+// boxLines is box as lines.
+func boxLines(title string, lines []string, w int, borderHex string) []string {
 	b := st(borderHex)
 	inner := w - 2
+	out := make([]string, 0, len(lines)+2)
 	if title == "" {
-		var sb strings.Builder
-		sb.WriteString(b.Render("╭" + strings.Repeat("─", inner) + "╮"))
-		for _, l := range lines {
-			sb.WriteString("\n" + b.Render("│") + l + b.Render("│"))
-		}
-		sb.WriteString("\n" + b.Render("╰"+strings.Repeat("─", inner)+"╯"))
-		return sb.String()
+		out = append(out, b.Render("╭"+strings.Repeat("─", inner)+"╮"))
+	} else {
+		title = trunc(title, max(0, inner-4))
+		fill := max(0, inner-3-lipgloss.Width(title))
+		out = append(out, b.Render("╭─ ")+title+b.Render(" "+strings.Repeat("─", fill)+"╮"))
 	}
-	title = trunc(title, max(0, inner-4))
-	fill := max(0, inner-3-lipgloss.Width(title))
-	var sb strings.Builder
-	sb.WriteString(b.Render("╭─ ") + title + b.Render(" "+strings.Repeat("─", fill)+"╮"))
+	side := b.Render("│")
 	for _, l := range lines {
-		sb.WriteString("\n" + b.Render("│") + l + b.Render("│"))
+		out = append(out, side+l+side)
 	}
-	sb.WriteString("\n" + b.Render("╰"+strings.Repeat("─", inner)+"╯"))
-	return sb.String()
+	return append(out, b.Render("╰"+strings.Repeat("─", inner)+"╯"))
 }
 
 var mdLink = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
@@ -228,49 +261,55 @@ func (m Model) navLines(w, h int) []string {
 	lines := make([]string, 0, h)
 	for i := m.navOff; i < len(m.nav) && len(lines) < h; i++ {
 		n := m.nav[i]
-		if n.header != "" {
-			if strings.TrimSpace(n.header) == "" {
-				lines = append(lines, strings.Repeat(" ", w))
-			} else {
-				lines = append(lines, pad(" "+st(hexMuted).Bold(true).Render(n.header), w, lipgloss.NewStyle()))
-			}
-			continue
-		}
-		base := lipgloss.NewStyle()
-		nameHex := hexText
-		if n.kind == vkLabelHint {
-			nameHex = hexDim
-		}
-		if i == m.navCur {
-			if m.focus == paneNav {
-				base = base.Background(c(tint(n.color)))
-			} else {
-				base = base.Background(c(hexSelBgDim))
-			}
-			nameHex = fg(n.color)
-		}
-		if m.fxGlowing(i) { // a completed or reopened task arrived
-			base = base.Background(c(mix(hexAccent, baseBg, 0.4)))
-			nameHex = hexText
-		}
-		count := ""
-		if n.count > 0 {
-			ch := n.countHex
-			if ch == "" {
-				ch = hexMuted
-			}
-			count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
-		}
-		left := base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
-			base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
-		name := base.Foreground(c(nameHex)).Render(navName(n, w))
-		if n.inTree && n.hasKids {
-			name += base.Foreground(c(hexMuted)).Render(" " + strings.TrimSpace(collapseMark(n.collapsed)))
-		}
-		gap := w - lipgloss.Width(left) - lipgloss.Width(name) - lipgloss.Width(count)
-		lines = append(lines, left+name+base.Render(strings.Repeat(" ", max(0, gap)))+count)
+		k := navLine{n: n, w: w, cur: i == m.navCur, focus: m.focus == paneNav, glow: m.fxGlowing(i), theme: themeGen}
+		lines = append(lines, m.fc.navRow(k))
 	}
-	return padLines(lines, w, h)
+	return m.fc.padLines(lines, w, h)
+}
+
+// navRow renders a sidebar row. The selected item gets a tint of its own color. The
+// sidebar cache keeps its result: a new input must also go into navLine.
+func navRow(k navLine) string {
+	n, w := k.n, k.w
+	if n.header != "" {
+		if strings.TrimSpace(n.header) == "" {
+			return strings.Repeat(" ", w)
+		}
+		return pad(" "+st(hexMuted).Bold(true).Render(n.header), w, lipgloss.NewStyle())
+	}
+	base := lipgloss.NewStyle()
+	nameHex := hexText
+	if n.kind == vkLabelHint {
+		nameHex = hexDim
+	}
+	if k.cur {
+		if k.focus {
+			base = base.Background(c(tint(n.color)))
+		} else {
+			base = base.Background(c(hexSelBgDim))
+		}
+		nameHex = fg(n.color)
+	}
+	if k.glow { // a completed or reopened task arrived
+		base = base.Background(c(mix(hexAccent, baseBg, 0.4)))
+		nameHex = hexText
+	}
+	count := ""
+	if n.count > 0 {
+		ch := n.countHex
+		if ch == "" {
+			ch = hexMuted
+		}
+		count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
+	}
+	left := base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
+		base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
+	name := base.Foreground(c(nameHex)).Render(navName(n, w))
+	if n.inTree && n.hasKids {
+		name += base.Foreground(c(hexMuted)).Render(" " + strings.TrimSpace(collapseMark(n.collapsed)))
+	}
+	gap := w - lipgloss.Width(left) - lipgloss.Width(name) - lipgloss.Width(count)
+	return left + name + base.Render(strings.Repeat(" ", max(0, gap))) + count
 }
 
 // navLeftWidth is the width of a sidebar row before the name: a space, the tree lines,
@@ -341,37 +380,38 @@ func (m Model) taskLines(w, h int) []string {
 	notes := m.notesMode()
 	now := time.Now()
 
+	minute := now.Unix() / 60
 	lines := make([]string, 0, h)
 	for i := m.rowOff; i < len(m.rows) && len(lines) < h; i++ {
 		r := m.rows[i]
 		base := lipgloss.NewStyle()
+		look := 0
 		// A preview line shares the highlight of the note above it.
 		if i == m.rowCur || (r.preview != "" && i-1 == m.rowCur) {
 			if m.focus == paneTasks {
 				base = base.Background(c(hexSelBg))
+				look = 1
 			} else {
 				base = base.Background(c(hexSelBgDim))
+				look = 2
 			}
 		}
+		// key is the cache key of a row that is not a task: the row has all that it shows.
+		key := rowKey{r: r, w: w, look: look, notes: notes, theme: themeGen}
 		switch {
 		case r.spacer:
 			lines = append(lines, "")
 		case r.task == nil:
-			lines = append(lines, headerLine(r, w, base))
+			lines = append(lines, m.fc.row(key, func() string { return headerLine(r, w, base) }))
 		case r.preview != "":
-			indent := "    " + strings.Repeat("  ", r.depth)
-			if notes { // under a note: its tree lines
-				indent = "   " + r.tree + " "
-			}
-			text := hexMuted
-			if r.doneSub { // under a completed note
-				text = hexDim
-			}
-			lines = append(lines, pad(base.Foreground(c(hexBorder)).Render(indent)+base.Foreground(c(text)).Render(trunc(r.preview, w-lipgloss.Width(indent)-1)), w, base))
+			key.r.task = nil
+			lines = append(lines, m.fc.row(key, func() string { return previewLine(r, w, base, notes) }))
 		case notes:
 			lines = append(lines, m.selectedLook(m.noteLine(r, w, base, i == m.rowCur), r, i, w))
 		default:
-			lines = append(lines, m.fxRow(r.task.ID, m.selectedLook(m.taskLine(r, w, base, crossProject, now), r, i, w), w))
+			key.r.task, key.task, key.cross, key.minute = nil, m.taskText(r, crossProject), crossProject, minute
+			line := m.fc.row(key, func() string { return m.taskLine(r, w, base, crossProject, now) })
+			lines = append(lines, m.fxRow(r.task.ID, m.selectedLook(line, r, i, w), w))
 		}
 	}
 	if len(m.rows) == 0 || (len(lines) == 0 && h > 1) {
@@ -391,7 +431,69 @@ func (m Model) taskLines(w, h int) []string {
 		}
 		lines = append(lines, "", "  "+st(hexMuted).Render(msg))
 	}
-	return padLines(lines, w, h)
+	return m.fc.padLines(lines, w, h)
+}
+
+// previewLine is the preview line under a note, or under a task in notebook view. The row
+// cache keeps its result: a new input must also go into rowKey.
+func previewLine(r row, w int, base lipgloss.Style, notes bool) string {
+	indent := "    " + strings.Repeat("  ", r.depth)
+	if notes { // under a note: its tree lines
+		indent = "   " + r.tree + " "
+	}
+	text := hexMuted
+	if r.doneSub { // under a completed note
+		text = hexDim
+	}
+	return pad(base.Foreground(c(hexBorder)).Render(indent)+base.Foreground(c(text)).Render(trunc(r.preview, w-lipgloss.Width(indent)-1)), w, base)
+}
+
+// taskText is the text of the task fields that taskLine shows, for the key of the row
+// cache. Some changes edit a task in place, so the pointer of the task is not a key.
+func (m Model) taskText(r row, crossProject bool) string {
+	t := r.task
+	var b strings.Builder
+	b.Grow(len(t.Content) + 64)
+	b.WriteString(t.Content)
+	b.WriteByte(0)
+	b.WriteString(strconv.Itoa(t.Priority))
+	for _, l := range t.Labels {
+		b.WriteByte(0)
+		b.WriteString(l)
+	}
+	b.WriteByte(1)
+	if strings.TrimSpace(t.Description) != "" {
+		b.WriteByte('d')
+	}
+	if m.pendingIDs[t.ID] {
+		b.WriteByte('p')
+	}
+	b.WriteString(strconv.Itoa(len(m.snap.Comments[t.ID])))
+	b.WriteByte(0)
+	if d := t.Due; d != nil {
+		b.WriteString(d.Date)
+		if d.IsRecurring {
+			b.WriteByte('r')
+		}
+		if d.Timezone != nil {
+			b.WriteString(*d.Timezone)
+		}
+	}
+	b.WriteByte(0)
+	b.WriteString(t.CompletedAt)
+	if crossProject && r.depth == 0 {
+		if p := m.projects[t.ProjectID]; p != nil {
+			b.WriteByte(0)
+			b.WriteString(p.Name)
+			b.WriteByte(0)
+			b.WriteString(p.Color)
+			if s := m.sections[t.Section()]; s != nil {
+				b.WriteByte(0)
+				b.WriteString(s.Name)
+			}
+		}
+	}
+	return b.String()
 }
 
 // noteLine is a note title in notebook view. It has no checkbox. A sub-note has tree
@@ -439,7 +541,6 @@ func (m Model) noteParts(r row, w int, base lipgloss.Style, selected bool) (left
 	return left, title, mark, right
 }
 
-// headerLine renders a section or day header with a count and a rule.
 // selectedLook draws a selected task row inverted (reverse video). On the cursor row it is
 // also bold and has a ▸ in the left margin.
 func (m Model) selectedLook(line string, r row, i, w int) string {
@@ -465,6 +566,8 @@ func collapseMark(collapsed bool) string {
 	return "▾ "
 }
 
+// headerLine renders a section or day header with a count and a rule. The row cache keeps
+// its result: a new input must also go into rowKey.
 func headerLine(r row, w int, base lipgloss.Style) string {
 	mark := ""
 	if r.hasKids {
@@ -485,6 +588,7 @@ func headerLine(r row, w int, base lipgloss.Style) string {
 }
 
 // taskLine renders a task: the priority circle, the content, and the meta items at the right.
+// The row cache keeps its result: a new input must also go into taskText or rowKey.
 func (m Model) taskLine(r row, w int, base lipgloss.Style, crossProject bool, now time.Time) string {
 	t := r.task
 	prio := t.UIPriority()
@@ -766,10 +870,7 @@ func (m Model) legendKeys() [][2]string {
 // Line 2 shows the find input or a y/n prompt instead of the last operation while they are open.
 func (m Model) bottomBarLayout() (string, []legendHit) {
 	keys := m.legendKeys()
-	parts := make([]string, len(keys))
-	for i, k := range keys {
-		parts[i] = st(fg(hexAccent)).Bold(true).Render(k[0]) + " " + st(hexMuted).Render(k[1])
-	}
+	parts := m.fc.legend(keys)
 	sep := st(hexDim).Render(" · ")
 	var hits []legendHit
 
