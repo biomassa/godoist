@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-10
+
 ### Changed
 
 - The screen updates at most 30 times each second, not 60. Thus godoist uses less CPU when it does nothing.
@@ -254,7 +256,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/biomassa/godoist/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/biomassa/godoist/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/biomassa/godoist/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/biomassa/godoist/compare/v0.11.0...v1.0.0
