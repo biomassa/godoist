@@ -26,7 +26,7 @@ See the [changelog](CHANGELOG.md) for more details.
 
 ## Requirements
 
-- Go 1.27 or later, only to build from the source. Release binaries do not need Go. See [Install Go](#install-go).
+- Go 1.27 or later, only to build from the source. Release binaries do not need Go. See [Download and install](https://go.dev/doc/install).
 - A Todoist account and its API token.
 - A terminal with true color and (optional) mouse support. Most modern terminals have both.
 
@@ -65,55 +65,6 @@ install godoist_1.2.1_linux_amd64/godoist ~/.local/bin/
 
 On macOS, a binary that you download with a browser can get a quarantine flag. If macOS refuses to start it, remove the flag with `xattr -d com.apple.quarantine ~/.local/bin/godoist`.
 
-### Install Go
-
-You need Go only for the options below. If you do not have Go, install it with the package manager of your system.
-
-macOS ([Homebrew](https://brew.sh)):
-
-```sh
-brew install go
-```
-
-Debian and Ubuntu:
-
-```sh
-sudo apt install golang-go
-```
-
-Fedora, RHEL, and CentOS Stream:
-
-```sh
-sudo dnf install golang
-```
-
-Arch Linux and Manjaro:
-
-```sh
-sudo pacman -S go
-```
-
-openSUSE:
-
-```sh
-sudo zypper install go
-```
-
-Any Linux, with the official archive from [go.dev](https://go.dev/dl/) (use `arm64` in place of `amd64` on ARM):
-
-```sh
-curl -LO https://go.dev/dl/go1.27.1.linux-amd64.tar.gz
-sudo rm -rf /usr/local/go
-sudo tar -C /usr/local -xzf go1.27.1.linux-amd64.tar.gz
-echo 'export PATH="$PATH:/usr/local/go/bin"' >> ~/.profile
-```
-
-Examine the version with `go version`. Some distributions have a Go version that is older than 1.27. Go 1.21 or later can download the necessary version itself. If `go install` fails because the version is too old, add `GOTOOLCHAIN=go1.27.1` before the command:
-
-```sh
-GOTOOLCHAIN=go1.27.1 go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest
-```
-
 ### Install with Go
 
 To install the latest release with Go:
@@ -123,6 +74,12 @@ go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@la
 ```
 
 The flags remove the debug data, as in the release binaries. The program is then about 7 MB smaller, and it works the same.
+
+Examine the version with `go version`. Some distributions have a Go version that is older than 1.27. Go 1.21 or later can download the necessary version itself. If `go install` fails because the version is too old, add `GOTOOLCHAIN=go1.27.1` before the command:
+
+```sh
+GOTOOLCHAIN=go1.27.1 go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest
+```
 
 Go puts the binary in `$(go env GOPATH)/bin`, usually `~/go/bin`. Make sure that this directory is in your `PATH`:
 
