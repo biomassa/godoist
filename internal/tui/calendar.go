@@ -58,6 +58,7 @@ type calDialog struct {
 	title     string
 	text      textinput.Model
 	origText  string
+	fresh     bool // the text field still holds the old due string: a typed key replaces it
 	timeIn    textinput.Model
 	focus     calFocus
 	source    calSource
@@ -152,6 +153,8 @@ func (m *Model) openCalendarWith(ts []*todoist.Task, text string) tea.Cmd {
 	c.text.SetWidth(calWidth - 6)
 	c.text.SetValue(text)
 	c.text.CursorEnd()
+	// Not for a repeat: one typed key would drop it.
+	c.fresh = text != "" && text != mixedDue && !c.recurring
 	c.timeIn = newTextInput()
 	c.timeIn.Prompt = ""
 	c.timeIn.Placeholder = "all day"
@@ -172,6 +175,7 @@ func (m *Model) openCalendarWith(ts []*todoist.Task, text string) tea.Cmd {
 // setCalFocus moves the keys to part f of the dialog.
 func (c *calDialog) setCalFocus(f calFocus) tea.Cmd {
 	c.focus = f
+	c.fresh = false
 	c.text.Blur()
 	c.timeIn.Blur()
 	switch f {
@@ -281,6 +285,12 @@ func (m Model) updateCalendar(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch c.focus {
 	case calText:
 		before := c.text.Value()
+		// The first typed character replaces the old due string, so "tod" gives "tod" and
+		// not "12 Novtod". Any other key first (an arrow, backspace) edits it instead.
+		if c.fresh && msg.Text != "" && key != "space" {
+			c.text.SetValue("")
+		}
+		c.fresh = false
 		// One backspace or delete removes all of mixedDue. Typed text replaces it.
 		erase := key == "backspace" || key == "delete"
 		if before == mixedDue && (erase || msg.Text != "") {

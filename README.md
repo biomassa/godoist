@@ -134,21 +134,21 @@ Start the TUI:
 godoist
 ```
 
-Push `?` to see all keys. The first bottom line shows the keys for the pane that has the focus. You can click a key there to run it. The second bottom line shows the last operation and the sync state.
+Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mouse wheel scroll the help, and `esc`, `?`, or `q` close it. The first bottom line shows the keys for the pane that has the focus. You can click a key there to run it. The second bottom line shows the last operation and the sync state.
 
 ### Main keys
 
 | Key | Action |
 |---|---|
 | `tab`, `h` / `l` | Go to the next or previous pane. |
-| `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. In the sidebar, `pgup` / `pgdown` also go to the top or the bottom. |
+| `j` / `k`, `g` / `G` | Move down or up, go to the top or the bottom. `ctrl+d` / `ctrl+u` move half a page. In the sidebar, `pgup` / `pgdown` also go to the top or the bottom. |
 | `enter` | Open the project, or open the details. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
 | `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
-| `p` | Postpone a task that has a date: by 1, 2, or 3 days, a week, or to a date from the date dialog (**Custom...**). The time stays. An overdue task counts from today. A recurring task moves only this date and keeps its repeat. |
+| `p` | Postpone a task: to today (`t`), by 1, 2, or 3 days, a week, or to a date from the date dialog (**Custom...**). The time stays. An overdue task or a task without a date counts from today. A recurring task moves only this date and keeps its repeat. |
 | `y` | Copy to the system clipboard: in the task list, the name of the task or note. In the details pane, the selected comment, or the description when no comment is selected. |
 | `o` | Open the first link of the task in the browser: a link of the name, or else a link of the description. |
 | `1`–`4` | Set the priority. |
@@ -160,7 +160,7 @@ Push `?` to see all keys. The first bottom line shows the keys for the pane that
 | `[` / `]` | Move a task without a due date up or down. At the edge of a section, the task goes into the next section. A sub-task moves with or without a date. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
 | `s` / `S` | Select the task, or select all tasks from the last selected task to the cursor. |
-| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. |
+| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. In the details pane, a selected comment is deleted instead (`d` also works there). |
 | `v` | Change the project between task view and notebook view. |
 | `/` | Find in the current view. |
 | `f` | Run a Todoist filter query. Plain words search the task names. |
@@ -216,7 +216,7 @@ godoist shows markdown in descriptions and comments in the details pane, and in 
 - Tables (GitHub Flavored Markdown) show with lines between the columns. A wide table wraps the text of its widest columns.
 - Body text starts one cell to the right of the heading bars, in line with the heading text.
 
-A description, a comment, or a note can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. In task view with no checkbox selected, `space` completes the task.
+A description, a comment, or a note can have checkboxes (`- [ ] item`). When the details pane has the focus, `tab` and `shift+tab` move between the checkboxes. `space` or a click changes a checkbox and saves it. With no checkbox selected, `space` selects the first checkbox. `x` completes the task.
 
 ### Markdown editor
 
@@ -255,7 +255,7 @@ The reader of a sub-note shows the path of notes above it. Click a part of the p
 
 The `t` key opens a dialog with three parts: a text field, a month calendar, and a time field.
 
-1. Type a date in the text field, for example `fri 9am` or `every mon`. Type `no date` to remove the date.
+1. Type a date in the text field, for example `fri 9am` or `every mon`. Type `no date` to remove the date. The first key you type replaces the old date. To edit the old date, push an arrow key first.
 2. Push `tab` to go to the calendar, or push `enter` to save the text. Todoist parses the text when godoist saves it.
 3. In the calendar, use the arrow keys, `PgUp` / `PgDn`, `Home`, or the quick picks `1`–`5`.
 4. Push `enter`. godoist saves the input that you changed last.
@@ -288,7 +288,7 @@ You can also drag a project onto another project to make it a sub-project, or on
 
 ### Multi-select
 
-Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `ctrl+z` opens again all one-time tasks of a bulk completion.
+Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `p`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `ctrl+z` opens again all one-time tasks of a bulk completion.
 
 In the label picker for several tasks, `[x]` shows a label that all tasks have, `[~]` a label that some tasks have, and `[ ]` a label that no task has. `space` changes the state. godoist changes only the labels that you changed.
 
@@ -327,7 +327,8 @@ These keys work in a project:
 
 | Key | Action |
 |---|---|
-| `A` | Add a section after the section under the cursor. |
+| `A` | Add a section after the section under the cursor (on a section header). |
+| `N` | Add a section after the section under the cursor, also on a task. Use it for the first section of a project. |
 | `e` | Rename the section under the cursor. |
 | `[` / `]` | Move the section up or down. |
 | `z` | Collapse or expand the section. |

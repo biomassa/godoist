@@ -116,7 +116,7 @@ func (m Model) render() string {
 		// The help spans the task list and the details pane.
 		helpW := midW + detW
 		return joinPanes(nav,
-			boxLines(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()), padLines(helpLines(helpW-2), helpW-2, h), helpW, hexAccent)) +
+			boxLines(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()+" · j/k scroll · esc close"), padLines(m.helpWindow(helpW-2, h), helpW-2, h), helpW, hexAccent)) +
 			"\n" + m.bottomBar()
 	case m.note != nil && !m.wide():
 		mid = boxLines(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
@@ -978,11 +978,12 @@ func helpSections() [][]string {
 	return [][]string{
 		{h("Navigation"),
 			k("tab", "next pane: sidebar → list → details"),
+			k("", "details with checkboxes or sub-notes: the next one"),
 			k("h / l", "previous / next pane"),
 			k("j / k", "move down / up"),
 			k("g / G", "top / bottom"),
 			k("ctrl+d/u", "half page down / up"),
-			k("enter", "open · details on narrow terminals")},
+			k("enter", "open the project · open the details")},
 		{h("Tasks"),
 			k("a", "quick add: tomorrow 9am #proj @label p1"),
 			k("", "goes to the section under the cursor"),
@@ -999,7 +1000,7 @@ func helpSections() [][]string {
 			k("", "the selected comment (details) to the clipboard"),
 			k("t", "due date: text, calendar, time"),
 			k("", "text: fri 9am · every mon · no date"),
-			k("p", "postpone: 1, 2, 3 days, a week, or a date"),
+			k("p", "postpone: today, 1, 2, 3 days, a week, or a date"),
 			k("1 – 4", "priority p1 – p4"),
 			k("@", "labels picker"),
 			k("m", "move to a project or section"),
@@ -1009,7 +1010,7 @@ func helpSections() [][]string {
 			k("[ / ]", "move up / down (crosses sections)"),
 			k("z", "collapse / expand sub-tasks"),
 			k("s / S", "select / select a range"),
-			k("", "then x t 1–4 m @ del act on all · esc clears"),
+			k("", "then x t p 1–4 m @ del act on all · esc clears"),
 			k("del", "delete the task (asks first)")},
 		{h("Labels (sidebar)"),
 			k("A", "new label"),
@@ -1027,7 +1028,8 @@ func helpSections() [][]string {
 			k("del", "delete or archive (asks)"),
 			k("right-click", "project menu")},
 		{h("Sections (cursor on a header)"),
-			k("A", "new section after the cursor's section"),
+			k("A / N", "new section after the cursor's section"),
+			k("", "N works on a task too"),
 			k("e", "rename the section"),
 			k("[ / ]", "move the section up / down"),
 			k("z", "collapse / expand the section"),
@@ -1047,7 +1049,9 @@ func helpSections() [][]string {
 			k("esc", "leave the editor")},
 		{h("Details pane"),
 			k("j / k", "select a comment"),
-			k("e / d", "edit / delete the selected comment"),
+			k("e / del", "edit / delete the selected comment (also d)"),
+			k("del", "no comment selected: delete the task"),
+			k("space", "select the first checkbox · x completes"),
 			k("", "no comment selected: e edits the name")},
 		{h("Editor and pickers"),
 			k("esc", "save the editor text and close"),
@@ -1062,10 +1066,11 @@ func helpSections() [][]string {
 			k("esc", "cancel")},
 		{h("Date dialog (t)"),
 			k("tab", "text → calendar → time"),
+			k("type", "replaces the old date · ← → edit it"),
 			k("arrows", "day / week · PgUp/PgDn month"),
 			k("Home", "today · 1–5 quick picks"),
 			k("enter", "save the input you changed last"),
-			k("o / r", "recurring: this occurrence / replace")},
+			k("o / w / r", "recurring: this occurrence / shift / replace")},
 		{h("Mouse"),
 			k("click", "select · click ○ to complete"),
 			k("dbl-click", "rename a task · edit a comment"),
@@ -1081,7 +1086,7 @@ func helpSections() [][]string {
 			k("r", "sync now (also every 60 s, on focus)"),
 			k("T", "theme: preview, enter keeps it"),
 			k("{ / }", "narrow / widen the task list"),
-			k("?", "this help"),
+			k("?", "this help · j/k scroll"),
 			k("q", "quit (waits for pending saves)")},
 	}
 }
@@ -1121,5 +1126,5 @@ func helpLines(w int) []string {
 		}
 		out = append(out, line)
 	}
-	return append(out, "", " "+st(hexDim).Render("press any key to close"))
+	return append(out, "", " "+st(hexDim).Render("j/k scroll · esc, ? or q close"))
 }

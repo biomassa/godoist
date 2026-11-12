@@ -42,7 +42,9 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 	if cur == nil || cur.kind != vkProject {
 		return m, nil, false
 	}
-	if key == "A" && m.currentTask() == nil { // A on a task adds a sub-task instead
+	// A on a task adds a sub-task instead. N adds a section from anywhere, also in a
+	// project that has no section header yet.
+	if key == "N" || key == "A" && m.currentTask() == nil {
 		next := m.openDialog(inputAddSection, "")
 		return m, next, true
 	}

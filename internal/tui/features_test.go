@@ -183,6 +183,14 @@ func TestCompletedView(t *testing.T) {
 	if !strings.Contains(m.status, "reopen the task first") {
 		t.Errorf("status = %q, want the reopen hint", m.status)
 	}
+	// In the details pane too, del and p on a completed task only show the hint.
+	d := m
+	d.focus = paneDetail
+	for _, k := range []string{"delete", "p"} {
+		if d2 := send(t, d, key(k)); d2.confirm != nil || !strings.Contains(d2.status, "reopen the task first") {
+			t.Errorf("details %s: confirm = %v status = %q", k, d2.confirm != nil, d2.status)
+		}
+	}
 	m = send(t, m, key("x"))
 	if m.pending != 1 || len(m.completed) != 0 {
 		t.Errorf("pending = %d completed = %d, want a reopen", m.pending, len(m.completed))
@@ -302,5 +310,21 @@ func TestProjectDateOrder(t *testing.T) {
 	m = send(t, m, key("]"))
 	if !strings.Contains(m.status, "sorted by date") || m.pending != 0 {
 		t.Errorf("] on a dated task: status = %q pending = %d", m.status, m.pending)
+	}
+}
+
+// ctrl+d and ctrl+u move the sidebar cursor too, as the help says.
+func TestNavHalfPage(t *testing.T) {
+	m := testModel(t)
+	m.focus = paneNav
+	start := m.navCur
+	m = send(t, m, key("ctrl+d"))
+	if m.navCur <= start {
+		t.Fatalf("ctrl+d: navCur %d, want more than %d", m.navCur, start)
+	}
+	mid := m.navCur
+	m = send(t, m, key("ctrl+u"))
+	if m.navCur >= mid {
+		t.Errorf("ctrl+u: navCur %d, want less than %d", m.navCur, mid)
 	}
 }

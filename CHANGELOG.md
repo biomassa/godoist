@@ -7,6 +7,21 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `p` has a **Today** button (`t`), and it works on tasks without a date: they count from today.
+- `p` postpones all selected tasks, like `t`, `m`, and `1`–`4`. The selection stays.
+- `N` in the task list adds a section, also with the cursor on a task. Before, a project without sections had no key for its first section.
+- The help scrolls with `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mouse wheel. Before, the end of the help did not show on most terminals.
+- `ctrl+d` / `ctrl+u` move half a page in the sidebar too.
+
+### Changed
+
+- In the date dialog, the first key you type replaces the old date. Before, "tod" went after the old date. An arrow key first lets you edit the old date.
+- In the details pane with checkboxes, `space` selects the first checkbox when none is selected. It no longer completes the task. `x` still does.
+- In the details pane, `Delete` / `Backspace` delete the selected comment, or the task when no comment is selected. `d` still deletes a comment.
+- `q` in the help closes the help. Before, it quit godoist. `ctrl+c` still quits.
+
 ## [1.2.3] - 2026-11-21
 
 ### Changed
