@@ -32,9 +32,42 @@ See the [changelog](CHANGELOG.md) for more details.
 
 ## Installation
 
+### Install a release binary
+
+Each [release](https://github.com/biomassa/godoist/releases) has binaries for Linux and macOS (amd64 and arm64). You do not need Go for them.
+
+The install script downloads the latest release for your system, checks its SHA256 digest, and installs `godoist` in `~/.local/bin`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/biomassa/godoist/main/install.sh | bash
+```
+
+To install in a different directory, set `INSTALL_DIR`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/biomassa/godoist/main/install.sh | INSTALL_DIR=/usr/local/bin bash
+```
+
+If you prefer to read the script before you run it, download it, read it, and run it:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/biomassa/godoist/main/install.sh
+less install.sh
+bash install.sh
+```
+
+To install without the script, download the archive for your system, then extract `godoist` to a directory in your `PATH`:
+
+```sh
+tar -xzf godoist_1.2.1_linux_amd64.tar.gz
+install godoist_1.2.1_linux_amd64/godoist ~/.local/bin/
+```
+
+On macOS, a binary that you download with a browser can get a quarantine flag. If macOS refuses to start it, remove the flag with `xattr -d com.apple.quarantine ~/.local/bin/godoist`.
+
 ### Install Go
 
-If you do not have Go, install it with the package manager of your system.
+You need Go only for the options below. If you do not have Go, install it with the package manager of your system.
 
 macOS ([Homebrew](https://brew.sh)):
 
@@ -81,18 +114,9 @@ Examine the version with `go version`. Some distributions have a Go version that
 GOTOOLCHAIN=go1.27.1 go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest
 ```
 
-### Install godoist
+### Install with Go
 
-Each [release](https://github.com/biomassa/godoist/releases) has binaries for Linux and macOS (amd64 and arm64). You do not need Go for them. Download the archive for your system, then extract `godoist` to a directory in your `PATH`:
-
-```sh
-tar -xzf godoist_0.1.0_linux_amd64.tar.gz
-install godoist_0.1.0_linux_amd64/godoist ~/.local/bin/
-```
-
-On macOS, a downloaded binary can get a quarantine flag. If macOS refuses to start it, remove the flag with `xattr -d com.apple.quarantine ~/.local/bin/godoist`.
-
-Or install the latest release with Go:
+To install the latest release with Go:
 
 ```sh
 go install -trimpath -ldflags="-s -w" github.com/biomassa/godoist/cmd/godoist@latest

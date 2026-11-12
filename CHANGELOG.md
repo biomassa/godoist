@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `install.sh` installs the latest release binary for Linux or macOS. You do not need Go. The script checks the SHA256 digest of the archive. To use it:
+  `curl -fsSL https://raw.githubusercontent.com/biomassa/godoist/main/install.sh | bash`
+
 ## [1.2.1] - 2026-11-10
 
 ### Changed
