@@ -7,6 +7,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-11-21
+
+### Changed
+
+- Tests for the cache, the state file and the Todoist client, and a CI workflow that runs gofmt, go vet, the build and the tests on each push and pull request. Thanks to @wlecki (#5).
+- internal/tui/model.go is split into smaller files, one for each job. The program works the same. Thanks to @wlecki (#6).
+
 ## [1.2.2] - 2026-11-12
 
 ### Added
@@ -263,7 +270,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/biomassa/godoist/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/biomassa/godoist/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/biomassa/godoist/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/biomassa/godoist/compare/v1.1.0...v1.2.0
