@@ -101,3 +101,27 @@ func (m *Model) moveNotesModes() tea.Cmd {
 	}
 	return tea.Batch(cmds...)
 }
+
+// notesMode reports whether the current project is in notebook view.
+func (m Model) notesMode() bool {
+	cur := m.currentNav()
+	return cur != nil && cur.kind == vkProject && m.projectNotes(cur.projectID)
+}
+
+// toggleNotes switches the current project between task view and notebook view and saves the choice.
+func (m Model) toggleNotes() (tea.Model, tea.Cmd) {
+	cur := m.currentNav()
+	if cur == nil || cur.kind != vkProject {
+		m.setStatus("notes mode applies to projects", false)
+		return m, nil
+	}
+	on := !m.projectNotes(cur.projectID)
+	next := m.setProjectNotes(cur.projectID, on)
+	if on {
+		m.setStatus("#"+cur.name+" · notebook view", false)
+	} else {
+		m.setStatus("#"+cur.name+" · tasks view", false)
+	}
+	m.buildRows(false)
+	return m, next
+}
