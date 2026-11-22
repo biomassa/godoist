@@ -35,6 +35,7 @@ type Model struct {
 	width, height int
 	focus         pane
 	showHelp      bool
+	helpOff       int  // the first line of the help on the screen
 	detailOpen    bool // narrow terminals: details replace the task list
 
 	nav            []navItem

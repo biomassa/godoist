@@ -229,3 +229,29 @@ func TestCalendarNoShiftForEveryDay(t *testing.T) {
 		t.Error("w did something on a rule without w")
 	}
 }
+
+// The first typed or pasted text replaces the old due string. After an arrow key,
+// typing edits the old string instead. A repeat is never replaced by one key.
+func TestCalendarTypingReplacesOldDate(t *testing.T) {
+	m := openCal(t, 0) // alpha: a one-time date
+	old := m.cal.text.Value()
+	if old == "" {
+		t.Fatal("alpha has no due string")
+	}
+	m = send(t, m, key("t"), key("o"), key("d"))
+	if v := m.cal.text.Value(); v != "tod" {
+		t.Errorf("after typing: %q, want %q", v, "tod")
+	}
+	m = send(t, openCal(t, 0), pasteMsg("tomorrow"), key("!"))
+	if v := m.cal.text.Value(); v != "tomorrow!" {
+		t.Errorf("after paste and !: %q, want %q", v, "tomorrow!")
+	}
+	m = send(t, openCal(t, 0), tea.KeyPressMsg{Code: tea.KeyEnd}, key("x"))
+	if v := m.cal.text.Value(); v != old+"x" {
+		t.Errorf("after end and x: %q, want %q", v, old+"x")
+	}
+	m = send(t, openCal(t, 1), key("x")) // beta: "every day"
+	if v := m.cal.text.Value(); v != "every dayx" {
+		t.Errorf("repeat after x: %q, want %q", v, "every dayx")
+	}
+}

@@ -30,9 +30,10 @@ func (m Model) paste(msg tea.PasteMsg) (tea.Model, tea.Cmd) {
 		switch c.focus {
 		case calText:
 			before := c.text.Value()
-			if before == mixedDue { // pasted text replaces "(mixed)", as typed text does
+			if before == mixedDue || c.fresh { // pasted text replaces "(mixed)" or the old date, as typed text does
 				c.text.SetValue("")
 			}
+			c.fresh = false
 			c.text, cmd = c.text.Update(line)
 			if c.text.Value() != before {
 				c.source = srcText

@@ -412,7 +412,9 @@ func (m Model) mouseWheel(ms tea.Mouse) (tea.Model, tea.Cmd) {
 		if m.calRect().has(ms.X, ms.Y) {
 			m.cal.month = m.cal.month.AddDate(0, d/3, 0) // the wheel changes the month
 		}
-	case m.menu != nil || isDialog(m.inputMode) || m.showHelp:
+	case m.showHelp:
+		m.helpOff = min(max(0, m.helpOff+d), m.helpMaxOff())
+	case m.menu != nil || isDialog(m.inputMode):
 	case m.pick != nil && m.sideRect().has(ms.X, ms.Y):
 		m.pick.cur = max(0, min(len(m.pick.visible())-1, m.pick.cur+d))
 	case l.nav.has(ms.X, ms.Y):

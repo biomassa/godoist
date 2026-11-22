@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// The postpone date counts from the due date, or from today for an overdue task. The
-// time of day stays.
+// The postpone date counts from the due date, or from today for an overdue task. 0 days
+// is today, also for a later due date. The time of day stays.
 func TestPostponeTo(t *testing.T) {
 	now := time.Date(2026, 11, 3, 15, 0, 0, 0, time.Local)
 	for _, c := range []struct {
@@ -19,6 +19,8 @@ func TestPostponeTo(t *testing.T) {
 		{time.Date(2026, 11, 3, 9, 30, 0, 0, time.Local), 2, time.Date(2026, 11, 5, 9, 30, 0, 0, time.Local)},
 		{time.Date(2026, 10, 20, 14, 0, 0, 0, time.Local), 7, time.Date(2026, 11, 10, 14, 0, 0, 0, time.Local)},
 		{time.Date(2026, 12, 31, 0, 0, 0, 0, time.Local), 3, time.Date(2027, 1, 3, 0, 0, 0, 0, time.Local)},
+		{time.Date(2026, 11, 20, 9, 0, 0, 0, time.Local), 0, time.Date(2026, 11, 3, 9, 0, 0, 0, time.Local)},
+		{time.Date(2026, 10, 1, 0, 0, 0, 0, time.Local), 0, time.Date(2026, 11, 3, 0, 0, 0, 0, time.Local)},
 	} {
 		if got := postponeTo(c.due, c.days, now); !got.Equal(c.want) {
 			t.Errorf("postponeTo(%v, %d) = %v, want %v", c.due, c.days, got, c.want)
@@ -26,29 +28,32 @@ func TestPostponeTo(t *testing.T) {
 	}
 }
 
-// p on a dated task opens the dialog: four day buttons in one row, and Custom... and
-// Cancel in a second row. A day button writes, and Custom... opens the date dialog.
+// p on a dated task opens the dialog: Today and four day buttons in one row, and
+// Custom... and Cancel in a second row. A day button writes, and Custom... opens the date dialog.
 func TestPostponeDialog(t *testing.T) {
 	m := send(t, onRow(t, 1), key("p")) // alpha, due Mon 31 Dec 2029
 	p := m.confirm
-	if p == nil || p.title != "Postpone" || len(p.buttons) != 6 || p.head != "“alpha”" || !strings.Contains(p.text, "due Mon 31 Dec") {
+	if p == nil || p.title != "Postpone" || len(p.buttons) != 7 || p.head != "“alpha”" || !strings.Contains(p.text, "due Mon 31 Dec") {
 		t.Fatalf("confirm = %+v", p)
 	}
 	var keys []string
 	for _, b := range p.buttons {
 		keys = append(keys, b.key)
 	}
-	if got := strings.Join(keys, " "); got != "1 2 3 7 c n" {
+	if got := strings.Join(keys, " "); got != "t 1 2 3 7 c n" {
 		t.Errorf("keys = %q", got)
 	}
 	_, hits := m.confirmLayout()
-	if hits[0].y != hits[3].y || hits[4].y <= hits[3].y || hits[4].y != hits[5].y {
+	if hits[0].y != hits[4].y || hits[5].y <= hits[4].y || hits[5].y != hits[6].y {
 		t.Errorf("rows: %v", hits)
 	}
 	for i, h := range hits {
 		if h.x+h.w > m.confirmWidth()-1 {
 			t.Errorf("button %d goes past the border: %v", i, h)
 		}
+	}
+	if p.sel != 1 {
+		t.Errorf("selected button %d, want 1 (1 day): enter must not move the task to today", p.sel)
 	}
 	if w := send(t, m, key("1")); w.confirm != nil || w.pending != 1 {
 		t.Errorf("1 day: confirm = %v pending = %d", w.confirm != nil, w.pending)
@@ -61,12 +66,33 @@ func TestPostponeDialog(t *testing.T) {
 	}
 }
 
-// p on a task without a date shows a status message only.
+// p on a task without a date opens the dialog too, and the days count from today.
 func TestPostponeUndated(t *testing.T) {
 	m := onRow(t, 1)
 	m.currentTask().Due = nil
 	m = send(t, m, key("p"))
-	if m.confirm != nil || m.status != "this task has no date" || m.statusErr {
-		t.Errorf("confirm = %v status = %q err = %v", m.confirm != nil, m.status, m.statusErr)
+	if m.confirm == nil || m.confirm.text != "no date" {
+		t.Fatalf("confirm = %+v", m.confirm)
+	}
+	m = send(t, m, key("t"))
+	if m.confirm != nil || m.pending != 1 {
+		t.Errorf("Today: confirm = %v pending = %d", m.confirm != nil, m.pending)
+	}
+}
+
+// With tasks selected, p postpones all of them in one write, and the selection stays.
+func TestPostponeSelected(t *testing.T) {
+	m := onRow(t, 1)
+	m = send(t, m, key("s"), key("j"), key("s"))
+	if n := len(m.selectedTasks()); n != 2 {
+		t.Fatalf("%d tasks selected, want 2", n)
+	}
+	m = send(t, m, key("p"))
+	if m.confirm == nil || m.confirm.text != "2 selected tasks" {
+		t.Fatalf("confirm = %+v", m.confirm)
+	}
+	m = send(t, m, key("1"))
+	if m.pending != 1 || len(m.selectedTasks()) != 2 {
+		t.Errorf("pending = %d selected = %d, want one write and the selection", m.pending, len(m.selectedTasks()))
 	}
 }

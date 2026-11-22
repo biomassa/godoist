@@ -29,6 +29,19 @@ func TestAddSection(t *testing.T) {
 	}
 }
 
+// N on a task opens the new section dialog. A on a task adds a sub-task, so a project
+// without a section header needs N.
+func TestAddSectionFromTask(t *testing.T) {
+	m := send(t, onRow(t, 1), key("N"))
+	if m.inputMode != inputAddSection {
+		t.Fatalf("inputMode = %d, want the new section dialog", m.inputMode)
+	}
+	m = send(t, onRow(t, 1), key("A"))
+	if m.inputMode == inputAddSection {
+		t.Error("A on a task opened the section dialog, want the sub-task dialog")
+	}
+}
+
 func TestRenameSection(t *testing.T) {
 	m := send(t, onHeader(t), key("e"))
 	if m.inputMode != inputRenameSection || m.dialogValue() != "urgent" || m.targetSection != "s1" {

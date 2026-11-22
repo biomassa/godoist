@@ -108,6 +108,8 @@ func (m Model) selectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 		next = m.bulkPriority(sel, int(key[0]-'0'))
 	case "t":
 		next = m.openCalendarFor(sel)
+	case "p":
+		next = m.openBulkPostpone(sel)
 	case "m":
 		next = m.openMovePickerFor(sel)
 	case "@":
