@@ -22,6 +22,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - In the details pane, `Delete` / `Backspace` delete the selected comment, or the task when no comment is selected. `d` still deletes a comment.
 - `q` in the help closes the help. Before, it quit godoist. `ctrl+c` still quits.
 
+### Fixed
+
+- In the Completed view, the details pane blocks the task keys, as the task list does: x reopens the task.
+
 ## [1.2.3] - 2026-11-21
 
 ### Changed
