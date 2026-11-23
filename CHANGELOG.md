@@ -7,6 +7,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Jump keys: `gt` Today, `gu` Upcoming, `gi` Inbox, and `gp` or `ctrl+k` for a list of the views, projects, and labels in the sidebar to go to.
+
+### Changed
+
+- `g` alone no longer goes to the top: use `gg` (or `Home`).
+
 ## [1.3.0] - 2026-11-22
 
 ### Added

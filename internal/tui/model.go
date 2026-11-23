@@ -36,6 +36,7 @@ type Model struct {
 	focus         pane
 	showHelp      bool
 	helpOff       int  // the first line of the help on the screen
+	gPrefix       bool // g was pushed: the next key is a jump key (goto.go)
 	detailOpen    bool // narrow terminals: details replace the task list
 
 	nav            []navItem
@@ -182,6 +183,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // updateAll handles a message. If the task under the cursor changes, the details pane goes
 // back to the top.
 func (m Model) updateAll(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if _, ok := msg.(tea.MouseMsg); ok && m.gPrefix { // a click between g and its key cancels g
+		m.cancelGoto()
+	}
 	prev := m.currentTaskID()
 	prevView := ""
 	if cur := m.currentNav(); cur != nil {

@@ -38,7 +38,25 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.showHelp {
 		return m.helpKeys(key)
 	}
+	if m.gPrefix && m.status != gotoHint {
+		// Something else took the status line since g, so the user can't see that g
+		// waits for a key. Drop the prefix instead of jumping by surprise.
+		m.gPrefix = false
+	}
+	if m.gPrefix {
+		if nm, cmd, ok := m.gotoKeys(key); ok {
+			return nm, cmd
+		}
+		m.cancelGoto() // not a jump key: it works as usual
+	}
 	switch key {
+	case "g":
+		m.gPrefix = true
+		m.setStatus(gotoHint, false)
+		return m, nil
+	case "ctrl+k":
+		next := m.openGotoPicker()
+		return m, next
 	case "ctrl+c", "q":
 		return m.quit()
 	case "?":
@@ -123,7 +141,7 @@ func (m Model) navKeys(key string) (tea.Model, tea.Cmd) {
 		m.moveNav(1)
 	case "k", "up":
 		m.moveNav(-1)
-	case "g", "home", "pgup":
+	case "home", "pgup": // g is the jump prefix (goto.go): gg comes here as home
 		m.moveNav(-len(m.nav))
 	case "G", "end", "pgdown":
 		m.moveNav(len(m.nav))
@@ -169,7 +187,7 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 		m.moveRow(1)
 	case "k", "up":
 		m.moveRow(-1)
-	case "g", "home":
+	case "home":
 		m.moveRow(-len(m.rows))
 	case "G", "end":
 		m.moveRow(len(m.rows))
@@ -296,7 +314,7 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		m.detOff += max(1, m.paneHeight()/2)
 	case "ctrl+u", "pgup":
 		m.detOff -= max(1, m.paneHeight()/2)
-	case "g", "home":
+	case "home":
 		m.detOff, m.comCur = 0, -1
 	case "G", "end":
 		m.detOff = 1 << 20

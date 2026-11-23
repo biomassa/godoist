@@ -790,6 +790,8 @@ func (m Model) legendKeys() [][2]string {
 		keys = [][2]string{{"enter", "save"}, {"esc", "cancel"}, {"←/→", "move cursor"}}
 	case m.pick != nil && m.pick.kind == pickLabels:
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"space", "check"}, {"enter", "save"}, {"esc", "cancel"}}
+	case m.pick != nil && m.pick.kind == pickGoto:
+		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"enter", "go"}, {"esc", "cancel"}}
 	case m.pick != nil:
 		keys = [][2]string{{"type", "filter"}, {"↑/↓", "select"}, {"enter", "move"}, {"esc", "cancel"}}
 	case m.focus == paneDetail && !m.notesMode() && m.noteChecks() > 0:
@@ -981,7 +983,9 @@ func helpSections() [][]string {
 			k("", "details with checkboxes or sub-notes: the next one"),
 			k("h / l", "previous / next pane"),
 			k("j / k", "move down / up"),
-			k("g / G", "top / bottom"),
+			k("gg / G", "top / bottom"),
+			k("gt gu gi", "go to Today / Upcoming / Inbox"),
+			k("gp ctrl+k", "go to a view, project, or label"),
 			k("ctrl+d/u", "half page down / up"),
 			k("enter", "open the project · open the details")},
 		{h("Tasks"),
