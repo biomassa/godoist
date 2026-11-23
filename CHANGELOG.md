@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-23
+
 ### Added
 
 - Jump keys: `gt` Today, `gu` Upcoming, `gi` Inbox, and `gp` or `ctrl+k` for a list of the views, projects, and labels in the sidebar to go to.
@@ -300,7 +302,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/biomassa/godoist/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/biomassa/godoist/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/biomassa/godoist/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/biomassa/godoist/compare/v1.2.1...v1.2.2
