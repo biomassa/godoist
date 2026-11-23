@@ -77,7 +77,10 @@ type Model struct {
 	inputMode  inputMode
 
 	note *noteEditor // the inline markdown editor: descriptions, notes, and comments
-	pick *picker
+	// discard is an editor that ctrl+q closed during an autosave: its old text goes back
+	// when the autosave ends (editdiscard.go).
+	discard *noteEditor
+	pick    *picker
 
 	confirm *confirmPrompt
 	cal     *calDialog // date dialog
