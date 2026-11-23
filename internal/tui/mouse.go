@@ -679,6 +679,10 @@ func (m Model) overlays(screen string) string {
 		r := m.menuRect()
 		layers = append(layers, lipgloss.NewLayer(m.menuBox()).X(r.x).Y(r.y).Z(2))
 	}
+	if m.gPopup {
+		r := m.gotoRect()
+		layers = append(layers, lipgloss.NewLayer(m.gotoBox()).X(r.x).Y(r.y).Z(2))
+	}
 	if m.themes != nil {
 		r := m.themeRect()
 		layers = append(layers, lipgloss.NewLayer(m.themeBox()).X(r.x).Y(r.y).Z(5))

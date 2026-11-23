@@ -10,6 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - Jump keys: `gt` Today, `gu` Upcoming, `gi` Inbox, and `gp` or `ctrl+k` for a list of the views, projects, and labels in the sidebar to go to.
+- After `g`, the status line shows `g…`. If the second key does not come in half a second, a box at the bottom right shows the jump keys.
 
 ### Changed
 

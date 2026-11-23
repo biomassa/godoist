@@ -143,7 +143,7 @@ Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mou
 | `tab`, `h` / `l` | Go to the next or previous pane. |
 | `j` / `k`, `gg` / `G` | Move down or up, go to the top or the bottom. `ctrl+d` / `ctrl+u` move half a page. In the sidebar, `pgup` / `pgdown` also go to the top or the bottom. |
 | `enter` | Open the project, or open the details. |
-| `gt` / `gu` / `gi` | Go to Today, Upcoming, or the Inbox. After `g`, a key that is not a jump key works as usual. |
+| `gt` / `gu` / `gi` | Go to Today, Upcoming, or the Inbox. After `g`, a key that is not a jump key works as usual. If the second key does not come in half a second, a box shows the jump keys. |
 | `gp` or `ctrl+k` | Go to a view, a project, or a label of the sidebar: type to filter the list, `enter` opens it. Projects under a collapsed project are not in the list. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
 | `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |

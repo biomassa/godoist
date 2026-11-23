@@ -1,6 +1,11 @@
 package tui
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+)
 
 // gg goes to the top, gt opens Today, and a key that is not a jump key works as usual.
 func TestGotoPrefix(t *testing.T) {
@@ -60,13 +65,71 @@ func TestGotoClearsFind(t *testing.T) {
 	}
 }
 
-// If another message takes the status line after g, the hint is gone, so g is dropped:
-// t then opens the date dialog and does not jump to Today.
+// A message on the status line after g, like the result of a write, does not cancel g:
+// t still jumps to Today.
 func TestGotoPrefixStatusChange(t *testing.T) {
 	m := send(t, onRow(t, 1), key("g"))
 	m.setStatus("Completed alpha", false) // like the result of a write that ends now
 	m = send(t, m, key("t"))
-	if m.gPrefix || m.cal == nil {
-		t.Errorf("prefix %v, date dialog open %v, want g dropped and the date dialog", m.gPrefix, m.cal != nil)
+	if cur := m.currentNav(); m.gPrefix || m.cal != nil || cur == nil || cur.kind != vkToday {
+		t.Errorf("prefix %v, date dialog open %v, nav %+v, want a jump to Today", m.gPrefix, m.cal != nil, cur)
+	}
+}
+
+// g shows "g…" at once and the box of the jump keys after gotoDelay. A quick second key
+// never shows the box, and the message of an older g does nothing.
+func TestGotoPopup(t *testing.T) {
+	m := send(t, onRow(t, 1), key("g"))
+	if m.status != gotoHint || m.gPopup {
+		t.Fatalf("after g: status %q popup %v, want the hint and no box yet", m.status, m.gPopup)
+	}
+	m = send(t, m, gotoPopupMsg{m.gSeq})
+	if !m.gPopup {
+		t.Fatal("no box after the delay")
+	}
+	r := m.gotoRect()
+	lines := strings.Split(stripANSI(m.View().Content), "\n")
+	if r.x+r.w > m.width-1 || r.y+r.h > m.paneHeight()+1 {
+		t.Errorf("box %+v is not inside the panes of a %dx%d screen", r, m.width, m.height)
+	}
+	if !strings.Contains(lines[r.y], "Go to") || !strings.Contains(lines[r.y+2], "t  Today") {
+		t.Errorf("box not on the screen:\n%s", strings.Join(lines[r.y:r.y+r.h], "\n"))
+	}
+	m = send(t, m, key("u"))
+	if cur := m.currentNav(); m.gPopup || m.gPrefix || m.status == gotoHint || cur == nil || cur.kind != vkUpcoming {
+		t.Errorf("after u: popup %v prefix %v status %q nav %+v, want Upcoming and no box", m.gPopup, m.gPrefix, m.status, cur)
+	}
+
+	// A quick gt: the delayed message comes after the jump and shows nothing.
+	m = send(t, onRow(t, 1), key("g"))
+	seq := m.gSeq
+	m = send(t, m, key("t"), gotoPopupMsg{seq})
+	if m.gPopup {
+		t.Error("the box shows after a quick gt")
+	}
+	// g, esc, g: the message of the first g does nothing.
+	m = send(t, m, key("g"), key("esc"), key("g"))
+	if m = send(t, m, gotoPopupMsg{m.gSeq - 1}); m.gPopup {
+		t.Error("the message of an older g showed the box")
+	}
+	if m = send(t, m, key("esc")); m.gPrefix || m.status == gotoHint {
+		t.Errorf("esc: prefix %v status %q, want g cancelled", m.gPrefix, m.status)
+	}
+}
+
+// A dialog that opens while g waits, like the retry dialog after a failed write, gets the
+// keys: g stops waiting, and the box does not show over the dialog.
+func TestGotoPopupDialog(t *testing.T) {
+	m := send(t, onRow(t, 1), key("g"))
+	m.confirm = yesNo("Retry", "Try again?", "Retry", func(*Model) tea.Cmd { return nil })
+	m = send(t, m, gotoPopupMsg{m.gSeq})
+	if m.gPopup || m.gPrefix {
+		t.Errorf("popup %v prefix %v with a dialog open, want g cancelled", m.gPopup, m.gPrefix)
+	}
+	m = send(t, onRow(t, 1), key("g"))
+	m.confirm = yesNo("Retry", "Try again?", "Retry", func(*Model) tea.Cmd { return nil })
+	m = send(t, m, key("n"))
+	if m.gPrefix {
+		t.Error("g still waits after a key that went to the dialog")
 	}
 }

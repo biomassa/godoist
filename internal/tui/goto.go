@@ -2,17 +2,77 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // Jump keys, so that a view or a project is one or two keys away from anywhere:
 // g is a prefix like in vim and Todoist. gg goes to the top, gt to Today, gu to
 // Upcoming, gi to the Inbox, and gp opens the go-to picker. ctrl+k opens the picker too.
 // A key after g that is not one of these cancels the prefix and works as usual.
+// If the second key does not come in gotoDelay, a small box shows the jump keys, so a
+// quick "gt" never shows it.
 
 // gotoHint is the status while g waits for the second key.
-const gotoHint = "g… · g top · t Today · u Upcoming · i Inbox · p go to…"
+const gotoHint = "g…"
+
+// gotoDelay is the time after g until the box of the jump keys shows.
+const gotoDelay = 500 * time.Millisecond
+
+// gotoPopupMsg shows the box of the jump keys if g number seq still waits.
+type gotoPopupMsg struct{ seq int }
+
+// gotoItems are the jump keys that the box shows.
+var gotoItems = [][2]string{{"g", "top"}, {"t", "Today"}, {"u", "Upcoming"}, {"i", "Inbox"}, {"p", "go to…"}}
+
+// startGoto starts to wait for the key after g. The returned command shows the box of
+// the jump keys after gotoDelay.
+func (m *Model) startGoto() tea.Cmd {
+	m.gPrefix, m.gPopup = true, false
+	m.gSeq++
+	seq := m.gSeq
+	m.setStatus(gotoHint, false)
+	return tea.Tick(gotoDelay, func(time.Time) tea.Msg { return gotoPopupMsg{seq} })
+}
+
+// gotoPopup shows the box of the jump keys if g still waits for its key. If a dialog
+// opened since g, g stops waiting.
+func (m *Model) gotoPopup(msg gotoPopupMsg) {
+	if msg.seq != m.gSeq || !m.gPrefix {
+		return
+	}
+	if m.keysTaken() {
+		m.cancelGoto()
+		return
+	}
+	m.gPopup = true
+}
+
+// keysTaken reports whether a dialog, a picker, or the editor gets the keys, so that
+// they do not go to the jump keys.
+func (m Model) keysTaken() bool {
+	return m.quitting || m.themes != nil || m.cal != nil || m.menu != nil || m.pick != nil ||
+		m.note != nil || m.confirm != nil || m.inputMode != inputNone
+}
+
+// gotoBox draws the box of the jump keys.
+func (m Model) gotoBox() string {
+	r := m.gotoRect()
+	lines := make([]string, len(gotoItems))
+	for i, it := range gotoItems {
+		lines[i] = pad(" "+st(fg(hexAccent)).Bold(true).Render(it[0])+"  "+st(hexText).Render(it[1]), r.w-2, lipgloss.NewStyle())
+	}
+	return box(st(hexText).Bold(true).Render("Go to"), lines, r.w, fg(hexAccent))
+}
+
+// gotoRect is the area of the box of the jump keys: at the bottom right, inside the
+// borders of the panes.
+func (m Model) gotoRect() rect {
+	w, h := 18, len(gotoItems)+2
+	return rect{max(0, m.width-2-w), max(0, m.paneHeight()+1-h), w, h}
+}
 
 // gotoKeys handles the key after g. ok is false if the key is not a jump key: it then
 // works as usual.
@@ -40,7 +100,7 @@ func (m Model) gotoKeys(key string) (tea.Model, tea.Cmd, bool) {
 
 // cancelGoto stops waiting for the key after g.
 func (m *Model) cancelGoto() {
-	m.gPrefix = false
+	m.gPrefix, m.gPopup = false, false
 	if m.status == gotoHint {
 		m.setStatus("", false)
 	}

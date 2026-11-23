@@ -38,11 +38,6 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.showHelp {
 		return m.helpKeys(key)
 	}
-	if m.gPrefix && m.status != gotoHint {
-		// Something else took the status line since g, so the user can't see that g
-		// waits for a key. Drop the prefix instead of jumping by surprise.
-		m.gPrefix = false
-	}
 	if m.gPrefix {
 		if nm, cmd, ok := m.gotoKeys(key); ok {
 			return nm, cmd
@@ -51,9 +46,8 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 	switch key {
 	case "g":
-		m.gPrefix = true
-		m.setStatus(gotoHint, false)
-		return m, nil
+		next := m.startGoto()
+		return m, next
 	case "ctrl+k":
 		next := m.openGotoPicker()
 		return m, next

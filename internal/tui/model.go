@@ -37,6 +37,8 @@ type Model struct {
 	showHelp      bool
 	helpOff       int  // the first line of the help on the screen
 	gPrefix       bool // g was pushed: the next key is a jump key (goto.go)
+	gPopup        bool // the box of the jump keys shows (goto.go)
+	gSeq          int  // counts the g keys: a gotoPopupMsg of an older g does nothing
 	detailOpen    bool // narrow terminals: details replace the task list
 
 	nav            []navItem
@@ -400,10 +402,17 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.MouseWheelMsg:
 		return m.mouseWheel(msg.Mouse())
 
+	case gotoPopupMsg:
+		m.gotoPopup(msg)
+		return m, nil
+
 	case fxTickMsg:
 		return m.fxFrameMsg(msg)
 	case tea.KeyPressMsg:
 		m.dropGhosts() // a key acts on the list without the rows of the flying tasks
+		if m.gPrefix && m.keysTaken() {
+			m.cancelGoto() // a dialog opened since g: the key is for the dialog
+		}
 		switch {
 		case m.quitting:
 			if msg.String() == "ctrl+c" { // second ctrl+c: quit without waiting
