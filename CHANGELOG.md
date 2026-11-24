@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-24
+
 ### Added
 
 - `O` opens the task in the Todoist web app, `Y` copies its link, `D` duplicates the task, and `ctrl+a` selects all tasks that the view shows.
@@ -311,7 +313,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/biomassa/godoist/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/biomassa/godoist/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/biomassa/godoist/compare/v1.2.3...v1.3.0
 [1.2.3]: https://github.com/biomassa/godoist/compare/v1.2.2...v1.2.3
