@@ -131,7 +131,7 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 	if descChanged {
 		newDesc = desc
 	}
-	st := m.st // ApplyName only reads the projects and the sections
+	st := m.withoutHidden(m.st) // ApplyName only reads the projects and the sections
 	cmd := m.write("", func(ctx context.Context) (string, error) {
 		p, fields, err := client.ApplyName(ctx, &st, cur, text, newDesc)
 		if err != nil {
@@ -214,20 +214,15 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	id, name, client := t.ID, plain(t.Content), m.client
-	text := "Delete “" + name + "”? This cannot be undone."
+	text := "Delete “" + name + "”? " + undoHint
 	if n := len(m.snap.Comments[id]); n > 0 {
-		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone.", name, n)
+		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? %s", name, n, undoHint)
 	}
-	subtree := m.subtreeIDs(id)
-	if n := len(subtree) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
-		text = fmt.Sprintf("Delete “%s” and its %s? This cannot be undone.", name, plural(n, "sub-note"))
+	if n := len(m.subtreeIDs(id)) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
+		text = fmt.Sprintf("Delete “%s” and its %s? %s", name, plural(n, "sub-note"), undoHint)
 	}
-	del := func(m *Model) tea.Cmd {
-		for _, x := range subtree[1:] { // Todoist deletes the sub-tasks with the task
-			m.removeTask(x)
-		}
-		m.removeTask(id)
-		return m.simpleWrite("Deleted “"+name+"”", func(ctx context.Context) error {
+	del := func(m *Model) tea.Cmd { // the sub-tasks hide with the task, as Todoist deletes them
+		return m.deleteLater("“"+name+"”", []hiddenItem{{hideTask, id}}, func(ctx context.Context) error {
 			return client.Delete(ctx, id)
 		})
 	}
@@ -240,7 +235,7 @@ func (m *Model) askDeleteTask() {
 	date := todoist.FormatDue(t.Due, time.Now())
 	if !todoist.CanSkip(t.Due.String) { // godoist cannot find the next date of this rule
 		m.confirm = &confirmPrompt{title: "Delete recurring task",
-			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? A deletion cannot be undone.",
+			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? "+undoHint,
 				name, t.Due.String),
 			buttons: []confirmButton{
 				{key: "d", label: "Delete all", danger: true, run: del},
@@ -249,7 +244,7 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	m.confirm = &confirmPrompt{title: "Delete recurring task",
-		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A deletion cannot be undone.",
+		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A delete: "+undoHint,
 			name, t.Due.String, date),
 		buttons: []confirmButton{
 			{key: "s", label: "Skip this date", run: func(m *Model) tea.Cmd { return m.skipDates([]todoist.Task{task}) }},
@@ -336,7 +331,12 @@ func (m Model) undo() (tea.Model, tea.Cmd) {
 	}
 	step := m.undos[len(m.undos)-1]
 	m.undos = m.undos[:len(m.undos)-1]
-	if step.kind != undoClose {
+	switch step.kind {
+	case undoDelete:
+		next := m.undoDelete(step.deleteN)
+		return m, next
+	case undoClose:
+	default:
 		next := m.undoChange(step)
 		return m, next
 	}

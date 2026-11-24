@@ -55,8 +55,12 @@ func TestDeleteSectionAsks(t *testing.T) {
 		t.Fatalf("confirm = %+v, want a prompt with the task count", m.confirm)
 	}
 	m = send(t, m, key("y"))
+	if m.sections["s1"] != nil || len(m.laterDeletes) != 1 {
+		t.Errorf("section still shown or no waiting delete (%d) after y", len(m.laterDeletes))
+	}
+	m = send(t, m, deleteNowMsg{n: m.laterN})
 	if m.pending != 1 {
-		t.Errorf("pending = %d after y, want 1", m.pending)
+		t.Errorf("pending = %d after the wait, want 1", m.pending)
 	}
 }
 
@@ -99,8 +103,8 @@ func TestDeleteTaskAsks(t *testing.T) {
 		t.Fatalf("n did not cancel: pending = %d", m.pending)
 	}
 	m = send(t, m, key("backspace"), key("y"))
-	if m.pending != 1 {
-		t.Errorf("pending = %d after y, want 1", m.pending)
+	if m.pending != 0 || len(m.laterDeletes) != 1 {
+		t.Errorf("pending = %d waiting = %d after y, want the delete to wait", m.pending, len(m.laterDeletes))
 	}
 	for _, task := range m.snap.Tasks {
 		if task.ID == "t1" {

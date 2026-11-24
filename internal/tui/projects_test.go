@@ -206,8 +206,8 @@ func TestConfirmKeys(t *testing.T) {
 		t.Error("esc did not close the dialog")
 	}
 	m = send(t, m, key("delete"), key("enter")) // the default is Delete
-	if m.pending != 2 {
-		t.Errorf("pending = %d, want enter to push Delete", m.pending)
+	if len(m.laterDeletes) != 1 {
+		t.Errorf("waiting deletes = %d, want enter to push Delete", len(m.laterDeletes))
 	}
 }
 

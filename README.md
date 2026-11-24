@@ -165,7 +165,7 @@ Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mou
 | `[` / `]` | Move a task without a due date up or down. At the edge of a section, the task goes into the next section. A sub-task moves with or without a date. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
 | `s` / `S` | Select the task, or select all tasks from the last selected task to the cursor. `ctrl+a` selects all tasks that the view shows (not those in a collapsed section or under a collapsed task), and again selects none. |
-| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. In the details pane, a selected comment is deleted instead (`d` also works there). |
+| `Delete` / `Backspace` | Delete the task. godoist asks first, and `enter` deletes. The task goes away at once, but godoist sends the delete to Todoist only after 10 seconds: `u` in that time brings it back. Quitting sends waiting deletes at once. Sections, projects, and comments delete the same way. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. In the details pane, a selected comment is deleted instead (`d` also works there). |
 | `v` | Change the project between task view and notebook view. |
 | `/` | Find in the current view. |
 | `f` | Run a Todoist filter query. Plain words search the task names. |
@@ -288,7 +288,7 @@ These keys work in the sidebar, with the cursor on a project:
 | `>` / `<` | Make the project a sub-project of the project above it, or move it one level up. |
 | `m` | Move the project under another project, or to the top level. |
 | `z` | Collapse or expand the sub-projects. |
-| `Delete` / `Backspace` | Delete or archive the project. A dialog asks which. |
+| `Delete` / `Backspace` | Delete or archive the project. A dialog asks which. `u` undoes a delete for 10 seconds. |
 
 You can also drag a project onto another project to make it a sub-project, or onto **My Projects** to make it a top-level project. A project moves with its sub-projects. You cannot change the Inbox. The Todoist free plan limits the number of projects. If Todoist refuses a new project, godoist shows the message from Todoist.
 

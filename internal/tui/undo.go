@@ -26,6 +26,7 @@ const (
 	undoDue
 	undoMove
 	undoLabels
+	undoDelete // a waiting delete (deletelater.go): undo cancels it
 )
 
 // taskWas holds the fields of a task before a change.
@@ -42,6 +43,8 @@ type undoStep struct {
 	kind undoKind
 	ids  []string  // undoClose: the tasks that undo reopens
 	was  []taskWas // other kinds: the tasks before the change
+
+	deleteN int // undoDelete: the number of the waiting delete
 }
 
 // pushUndo puts a step on the undo stack.

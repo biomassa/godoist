@@ -65,12 +65,12 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 			}
 		}
 		id, name, client := s.ID, s.Name, m.client
-		text := fmt.Sprintf("Delete section “%s”? It has no tasks.", name)
+		text := fmt.Sprintf("Delete section “%s”? It has no tasks. %s", name, undoHint)
 		if n > 0 {
-			text = fmt.Sprintf("Delete section “%s” and its %d task(s)? This cannot be undone.", name, n)
+			text = fmt.Sprintf("Delete section “%s” and its %d task(s)? %s", name, n, undoHint)
 		}
 		m.confirm = yesNo("Delete section", text, "Delete", func(m *Model) tea.Cmd {
-			return m.simpleWrite("Deleted section “"+name+"”", func(ctx context.Context) error {
+			return m.deleteLater("section “"+name+"”", []hiddenItem{{hideSection, id}}, func(ctx context.Context) error {
 				return client.DeleteSection(ctx, id)
 			})
 		})

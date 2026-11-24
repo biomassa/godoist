@@ -273,8 +273,8 @@ func TestDeleteRecurringAsks(t *testing.T) {
 		t.Errorf("skip: confirm = %v pending = %d, want a write and the task kept", m.confirm != nil, m.pending)
 	}
 	m = send(t, onRow(t, 2), key("delete"), key("d"))
-	if m.taskByID("t2") != nil || m.pending != 1 {
-		t.Errorf("delete all: the task is still there or no write (pending %d)", m.pending)
+	if m.taskByID("t2") != nil || len(m.laterDeletes) != 1 {
+		t.Errorf("delete all: the task is still there or no waiting delete (%d)", len(m.laterDeletes))
 	}
 }
 

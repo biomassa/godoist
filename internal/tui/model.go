@@ -93,10 +93,13 @@ type Model struct {
 	drag             *dragState      // task that the user drags with the mouse
 	lastClick        clickInfo
 
-	status     string
-	statusErr  bool
-	undos      []undoStep            // the undo stack, newest last
-	closedTask map[string]closedTask // the name and the project of each completed task that u can reopen
+	status    string
+	statusErr bool
+	undos     []undoStep // the undo stack, newest last
+
+	laterDeletes map[int]*laterDelete  // deletes that wait, so that u can undo them
+	laterN       int                   // the number of the last delete
+	closedTask   map[string]closedTask // the name and the project of each completed task that u can reopen
 
 	// The completed sub-tasks that show under their open tasks (see donesubs.go).
 	doneLocal   map[string]localDone       // completed in this session, not synced yet
@@ -291,6 +294,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.offline = false
 		m.stSeq = msg.seq
+		m.dropSentDeletes(msg.seq)
 		m.applyState(msg.st)
 		if errs := m.client.Queue().TakeErrors(); len(errs) > 0 {
 			m.setStatus("Todoist refused a change made offline: "+strings.Join(errs, " · "), true)
@@ -316,6 +320,7 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.filterQuery, m.filterTasks = msg.query, msg.tasks
+		m.hideDeleted() // Todoist still has the tasks of a waiting delete
 		m.buildNav()
 		if m.focusFilterNav {
 			if cur := m.currentNav(); cur != nil && cur.kind != vkFilter {
@@ -327,6 +332,11 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.buildRows(false)
 		return m, nil
+
+	case deleteNowMsg:
+		return m.deleteNow(msg)
+	case deleteSentMsg:
+		return m.deleteSent(msg)
 
 	case actionMsg:
 		m.pending = max(0, m.pending-1)
@@ -444,12 +454,13 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // quit stops the program. If writes are pending, it waits for them first.
 func (m Model) quit() (tea.Model, tea.Cmd) {
+	flush := m.flushDeletes() // deletes that wait for u go now
 	if m.pending == 0 {
 		return m.endQuit()
 	}
 	m.quitting = true
 	m.setStatus(fmt.Sprintf("saving %d change(s) before quitting… (ctrl+c to force)", m.pending), false)
-	return m, nil
+	return m, flush
 }
 
 // endQuit quits when no write runs. If changes wait in the offline queue, a dialog asks
