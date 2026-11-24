@@ -54,6 +54,7 @@ type noteState struct {
 type (
 	noteTickMsg  struct{ gen int }
 	noteSavedMsg struct {
+		e    *noteEditor // the editor that saved: it can be closed, or another one can be open
 		text string
 		err  error
 	}
@@ -185,16 +186,19 @@ func (m *Model) saveNote(e *noteEditor, done string) tea.Cmd {
 		if err == nil && done != "" {
 			return actionMsg{text: done} // the editor is closed: report like other writes
 		}
-		return noteSavedMsg{text: text, err: err}
+		return noteSavedMsg{e: e, text: text, err: err}
 	}
 }
 
 func (m Model) noteSaved(msg noteSavedMsg) (tea.Model, tea.Cmd) {
 	m.pending = max(0, m.pending-1)
-	if next, ok := m.discardAfterSave(); ok { // also after a failed autosave
+	if next, ok := m.discardAfterSave(msg.e); ok { // also after a failed autosave
 		return m, next
 	}
 	e := m.note
+	if e != msg.e { // the save of an editor that is closed now
+		e = nil
+	}
 	if msg.err != nil {
 		if e != nil {
 			e.saving, e.err = false, msg.err.Error()

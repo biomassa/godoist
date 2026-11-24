@@ -30,11 +30,12 @@ func (m Model) discardNoteEditor() (tea.Model, tea.Cmd) {
 // discardDone is the status after ctrl+q wrote the old text back.
 const discardDone = "Changes discarded · the old text is back"
 
-// discardAfterSave sends the old text of a discarded editor once its autosave ended. ok
-// is false if no discard waits.
-func (m *Model) discardAfterSave() (next tea.Cmd, ok bool) {
+// discardAfterSave sends the old text of a discarded editor once its autosave ended. saved
+// is the editor whose save ended. ok is false if no discard waits for that save: the save
+// of another editor must not start the discard while the autosave still runs.
+func (m *Model) discardAfterSave(saved *noteEditor) (next tea.Cmd, ok bool) {
 	e := m.discard
-	if e == nil {
+	if e == nil || e != saved {
 		return nil, false
 	}
 	m.discard = nil

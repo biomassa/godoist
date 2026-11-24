@@ -110,7 +110,7 @@ func TestNoteAutosaveAndClose(t *testing.T) {
 	if m.pending != 1 || !m.note.saving {
 		t.Fatalf("pending = %d saving = %v, want an autosave", m.pending, m.note.saving)
 	}
-	m = send(t, m, noteSavedMsg{text: m.note.text()})
+	m = send(t, m, noteSavedMsg{e: m.note, text: m.note.text()})
 	if m.note.dirty() || !strings.Contains(m.noteTitle(), "saved") {
 		t.Errorf("after save: dirty = %v title = %q", m.note.dirty(), m.noteTitle())
 	}

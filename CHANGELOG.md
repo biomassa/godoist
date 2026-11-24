@@ -12,6 +12,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - `O` opens the task in the Todoist web app, `Y` copies its link, `D` duplicates the task, and `ctrl+a` selects all tasks that the view shows.
 - `ctrl+q` in the markdown editor closes it and drops the changes.
 
+### Fixed
+
+- The result of a save of a closed markdown editor no longer changes the editor that is open now. Before, the open editor could show its text as saved when it was not.
+
 ## [1.4.0] - 2026-11-23
 
 ### Added
