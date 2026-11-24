@@ -759,7 +759,7 @@ func legendKey(label string) string {
 		return "ctrl+enter"
 	case "^e":
 		return "ctrl+e"
-	case "^b", "^i", "^k", "^t", "^y", "^f", "^r", "^a":
+	case "^b", "^i", "^k", "^t", "^y", "^f", "^r", "^a", "^q":
 		return "ctrl+" + label[1:]
 	case "enter", "esc", "tab", "space":
 		return label
@@ -781,7 +781,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.note != nil && m.note.search != nil:
 		keys = [][2]string{{"enter", "next"}, {"shift+enter", "previous"}, {"^r", "replace"}, {"^a", "replace all"}, {"tab", "next field"}, {"esc", "close"}}
 	case m.note != nil:
-		keys = [][2]string{{"esc", "done"}, {"^e", "$EDITOR"}, {"^f", "find"}, {"^b", "bold"}, {"^i", "italic"}, {"^k", "link"}, {"^t", "checkbox"}, {"^z", "undo"}, {"^y", "redo"}, {"alt+←/→", "word"}}
+		keys = [][2]string{{"esc", "done"}, {"^q", "discard"}, {"^e", "$EDITOR"}, {"^f", "find"}, {"^b", "bold"}, {"^i", "italic"}, {"^k", "link"}, {"^t", "checkbox"}, {"^z", "undo"}, {"^y", "redo"}, {"alt+←/→", "word"}}
 	case m.cal != nil:
 		keys = [][2]string{{"tab", "text / calendar / time"}, {"enter", "save"}, {"esc", "cancel"}}
 	case m.menu != nil:
@@ -1000,6 +1000,8 @@ func helpSections() [][]string {
 			k("", "ctrl+enter save"),
 			k("E", "edit the description / note body (markdown editor)"),
 			k("o", "open the first link of the task"),
+			k("O / Y", "open the task in Todoist / copy its link"),
+			k("D", "duplicate the task (not its sub-tasks)"),
 			k("y", "copy the name (task list), the description or"),
 			k("", "the selected comment (details) to the clipboard"),
 			k("t", "due date: text, calendar, time"),
@@ -1014,6 +1016,7 @@ func helpSections() [][]string {
 			k("[ / ]", "move up / down (crosses sections)"),
 			k("z", "collapse / expand sub-tasks"),
 			k("s / S", "select / select a range"),
+			k("ctrl+a", "select all shown tasks · again: none"),
 			k("", "then x t p 1–4 m @ del act on all · esc clears"),
 			k("del", "delete the task (asks first)")},
 		{h("Labels (sidebar)"),
@@ -1060,6 +1063,7 @@ func helpSections() [][]string {
 		{h("Editor and pickers"),
 			k("esc", "save the editor text and close"),
 			k("", "ctrl+enter and ctrl+s do the same"),
+			k("ctrl+q", "close and drop the changes"),
 			k("ctrl+e", "open the text in $EDITOR"),
 			k("shift+arrows", "select · ctrl+a select all · drag"),
 			k("ctrl+c/x/v", "copy / cut / paste (system clipboard)"),

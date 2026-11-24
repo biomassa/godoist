@@ -183,6 +183,10 @@ func TestCompletedView(t *testing.T) {
 	if !strings.Contains(m.status, "reopen the task first") {
 		t.Errorf("status = %q, want the reopen hint", m.status)
 	}
+	// O and Y do not change the task, so they work on a completed task too.
+	if y := send(t, m, key("Y")); strings.Contains(y.status, "reopen the task first") {
+		t.Errorf("Y in Completed: status = %q, want the link copied", y.status)
+	}
 	// In the details pane too, del and p on a completed task only show the hint.
 	d := m
 	d.focus = paneDetail

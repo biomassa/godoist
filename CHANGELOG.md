@@ -7,6 +7,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `O` opens the task in the Todoist web app, `Y` copies its link, `D` duplicates the task, and `ctrl+a` selects all tasks that the view shows.
+- `ctrl+q` in the markdown editor closes it and drops the changes.
+
 ## [1.4.0] - 2026-11-23
 
 ### Added
