@@ -300,7 +300,7 @@ func navRow(k navLine) string {
 		if ch == "" {
 			ch = hexMuted
 		}
-		count = base.Foreground(c(ch)).Render(fmt.Sprint(n.count)) + base.Render(" ")
+		count = base.Foreground(c(ch)).Render(n.countText()) + base.Render(" ")
 	}
 	left := base.Render(" ") + base.Foreground(c(hexMuted)).Render(n.tree) +
 		base.Foreground(c(fg(n.color))).Render(n.glyph) + base.Render(" ")
@@ -310,6 +310,14 @@ func navRow(k navLine) string {
 	}
 	gap := w - lipgloss.Width(left) - lipgloss.Width(name) - lipgloss.Width(count)
 	return left + name + base.Render(strings.Repeat(" ", max(0, gap))) + count
+}
+
+// countText is the count of a sidebar row: "41", or "3/41" for Upcoming.
+func (n navItem) countText() string {
+	if n.kind == vkUpcoming {
+		return fmt.Sprintf("%d/%d", n.countPre, n.count)
+	}
+	return fmt.Sprint(n.count)
 }
 
 // navLeftWidth is the width of a sidebar row before the name: a space, the tree lines,
@@ -323,7 +331,7 @@ func navLeftWidth(n navItem) int {
 func navName(n navItem, w int) string {
 	nameW := w - navLeftWidth(n) - 1
 	if n.count > 0 {
-		nameW -= lipgloss.Width(fmt.Sprint(n.count)) + 1
+		nameW -= lipgloss.Width(n.countText()) + 1
 	}
 	if n.inTree && n.hasKids {
 		nameW -= 2

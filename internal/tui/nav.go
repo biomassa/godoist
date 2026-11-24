@@ -33,6 +33,7 @@ type navItem struct {
 	color     string
 	count     int
 	countHex  string
+	countPre  int // Upcoming: the tasks of tomorrow, which show before count as "3/41"
 	depth     int
 	labelID   string // vkLabel
 	hasKids   bool   // a project with sub-projects
@@ -67,14 +68,19 @@ func (m *Model) buildNav() {
 	}
 	now := time.Now()
 	perProject := map[string]int{}
-	var today, overdue int
+	var today, overdue, tomorrow, upcoming int
 	for _, t := range m.snap.Tasks {
 		perProject[t.ProjectID]++
-		switch todoist.Classify(t.Due, now) {
-		case todoist.Overdue:
+		switch day := todoist.Classify(t.Due, now); {
+		case day == todoist.Overdue:
 			overdue++
-		case todoist.DueToday:
+		case day == todoist.DueToday:
 			today++
+		case day >= todoist.DueTomorrow: // the tasks of the Upcoming view (upcomingRows)
+			upcoming++
+			if day == todoist.DueTomorrow {
+				tomorrow++
+			}
 		}
 	}
 	todayHex := hexMuted
@@ -100,7 +106,8 @@ func (m *Model) buildNav() {
 	}
 	nav = append(nav, navItem{header: " "},
 		navItem{kind: vkToday, name: "Today", glyph: "◉", color: hexToday, count: today + overdue, countHex: todayHex},
-		navItem{kind: vkUpcoming, name: "Upcoming", glyph: "▦", color: hexWeek})
+		// Upcoming counts tomorrow / all: a recurring task counts once, by its next date.
+		navItem{kind: vkUpcoming, name: "Upcoming", glyph: "▦", color: hexWeek, count: upcoming, countPre: tomorrow})
 	if m.filterQuery != "" {
 		nav = append(nav, navItem{kind: vkFilter, name: m.filterQuery, glyph: "⌕", color: hexTomorrow, count: len(m.filterTasks)})
 	}

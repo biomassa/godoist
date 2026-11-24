@@ -7,6 +7,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Upcoming in the sidebar shows the tasks of tomorrow / all upcoming tasks.
+
 ## [1.5.0] - 2026-11-24
 
 ### Added
