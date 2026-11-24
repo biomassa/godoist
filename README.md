@@ -146,7 +146,8 @@ Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mou
 | `gt` / `gu` / `gi` | Go to Today, Upcoming, or the Inbox. After `g`, a key that is not a jump key works as usual. If the second key does not come in half a second, a box shows the jump keys. |
 | `gp` or `ctrl+k` | Go to a view, a project, or a label of the sidebar: type to filter the list, `enter` opens it. Projects under a collapsed project are not in the list. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
-| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
+| `u` | Undo the last change: a completion, a priority, a date, a move with `m` or the mouse, or labels. A moved task goes back to its project, section, or parent task, at the end. Changes that `e` makes from the name (`p1`, `#project`, `@label`), the order keys (`[`, `]`, `>`, `<`), and moving a note under another note have no undo. `ctrl+z` does the same. |
+| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `u` (or `ctrl+z`) undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
 | `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
@@ -293,7 +294,7 @@ You can also drag a project onto another project to make it a sub-project, or on
 
 ### Multi-select
 
-Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `p`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `ctrl+z` opens again all one-time tasks of a bulk completion.
+Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `p`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `u` opens again all one-time tasks of a bulk completion.
 
 In the label picker for several tasks, `[x]` shows a label that all tasks have, `[~]` a label that some tasks have, and `[ ]` a label that no task has. `space` changes the state. godoist changes only the labels that you changed.
 

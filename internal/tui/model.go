@@ -95,8 +95,8 @@ type Model struct {
 
 	status     string
 	statusErr  bool
-	closed     [][]string            // undo stack: each entry is the one-time tasks of one completion
-	closedTask map[string]closedTask // the name and the project of each task in closed
+	undos      []undoStep            // the undo stack, newest last
+	closedTask map[string]closedTask // the name and the project of each completed task that u can reopen
 
 	// The completed sub-tasks that show under their open tasks (see donesubs.go).
 	doneLocal   map[string]localDone       // completed in this session, not synced yet

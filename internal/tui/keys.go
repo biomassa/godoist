@@ -98,7 +98,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, next
 	case "v":
 		return m.toggleNotes()
-	case "ctrl+z":
+	case "u", "ctrl+z":
 		return m.undo()
 	}
 

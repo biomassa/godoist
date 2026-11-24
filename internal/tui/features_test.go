@@ -125,8 +125,10 @@ func TestSelectionAndBulk(t *testing.T) {
 		t.Error("the selection did not stay after a bulk priority")
 	}
 	m = send(t, m, key("x")) // alpha is one-time, beta repeats
-	if len(m.closed) != 1 || len(m.closed[0]) != 1 || m.closed[0][0] != "t1" {
-		t.Errorf("undo stack = %v, want [[t1]]", m.closed)
+	// The undo stack has the bulk priority and then the completion of the one-time task.
+	if len(m.undos) != 2 || m.undos[0].kind != undoPriority || m.undos[1].kind != undoClose ||
+		len(m.undos[1].ids) != 1 || m.undos[1].ids[0] != "t1" {
+		t.Errorf("undo stack = %+v, want the priority change and one completion of t1", m.undos)
 	}
 	if len(m.selectedTasks()) != 0 {
 		t.Error("the selection did not clear after a bulk complete")

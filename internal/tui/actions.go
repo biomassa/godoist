@@ -184,6 +184,7 @@ func (m *Model) setPriority(p int) tea.Cmd {
 		m.setStatus(fmt.Sprintf("already P%d", p), false)
 		return nil
 	}
+	m.rememberTasks(undoPriority, []*todoist.Task{t})
 	id, client := t.ID, m.client
 	t.Priority = 5 - p // show the new color at once. The sync confirms it.
 	return m.simpleWrite(fmt.Sprintf("Priority → P%d", p), func(ctx context.Context) error {
@@ -277,7 +278,7 @@ func (m *Model) skipDates(ts []todoist.Task) tea.Cmd {
 }
 
 // closedTask is the name and the project of a task on the undo stack, for the flight of
-// ctrl+z to the project. inPlace is true for a sub-task that stays under its open task.
+// u to the project. inPlace is true for a sub-task that stays under its open task.
 type closedTask struct {
 	name, projectID string
 	inPlace         bool
@@ -297,7 +298,7 @@ func (m *Model) pushClosed(ts []*todoist.Task, inPlace map[string]bool) {
 		ids[i] = t.ID
 		m.closedTask[t.ID] = closedTask{t.Content, t.ProjectID, inPlace[t.ID]}
 	}
-	m.closed = append(m.closed, ids)
+	m.pushUndo(undoStep{kind: undoClose, ids: ids})
 }
 
 // complete is completeTask for callers that hold a *Model, such as a confirm prompt.
@@ -321,7 +322,7 @@ func (m *Model) complete() tea.Cmd {
 	} else {
 		m.pushClosed([]*todoist.Task{t}, nil)
 		fx = m.startFx([]string{id}, nil, content)
-		text = "Completed “" + content + "” · ctrl+z to undo"
+		text = "Completed “" + content + "” · u to undo"
 	}
 	m.setStatus(text, false)
 	client := m.client
@@ -329,12 +330,17 @@ func (m *Model) complete() tea.Cmd {
 }
 
 func (m Model) undo() (tea.Model, tea.Cmd) {
-	if len(m.closed) == 0 {
+	if len(m.undos) == 0 {
 		m.setStatus("nothing to undo", false)
 		return m, nil
 	}
-	ids := m.closed[len(m.closed)-1]
-	m.closed = m.closed[:len(m.closed)-1]
+	step := m.undos[len(m.undos)-1]
+	m.undos = m.undos[:len(m.undos)-1]
+	if step.kind != undoClose {
+		next := m.undoChange(step)
+		return m, next
+	}
+	ids := step.ids
 	var fly []string // the tasks that went to Completed fly back. The others stay in place.
 	for _, id := range ids {
 		if m.closedTask[id].inPlace {

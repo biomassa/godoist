@@ -77,6 +77,7 @@ type (
 	calSavedMsg struct {
 		text string
 		err  error
+		undo *undoStep // the dates before the save, for u. Pushed only if the save worked.
 	}
 )
 
@@ -476,6 +477,10 @@ func dueByText(ctx context.Context, client *todoist.Client, id, text string) (st
 
 // calSave runs a save. The dialog stays open until the save succeeds.
 func (m Model) calSave(f func(context.Context) (string, error)) (tea.Model, tea.Cmd) {
+	var undo *undoStep
+	if s, ok := undoStepOf(undoDue, m.tasksByID(m.cal.taskIDs)); ok {
+		undo = &s
+	}
 	m.cal.saving = true
 	m.cal.note, m.cal.noteErr = "saving…", false
 	m.pending++
@@ -483,7 +488,7 @@ func (m Model) calSave(f func(context.Context) (string, error)) (tea.Model, tea.
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		text, err := f(ctx)
-		return calSavedMsg{text: text, err: err}
+		return calSavedMsg{text: text, err: err, undo: undo}
 	}
 }
 
@@ -495,6 +500,9 @@ func (m Model) calSaved(msg calSavedMsg) (tea.Model, tea.Cmd) {
 			m.cal.note, m.cal.noteErr = "save failed: "+msg.err.Error(), true
 		}
 		return m, nil
+	}
+	if msg.undo != nil {
+		m.pushUndo(*msg.undo)
 	}
 	m.cal = nil
 	m.setStatus(msg.text, false)

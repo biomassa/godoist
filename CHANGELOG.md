@@ -7,6 +7,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- `u` undoes the last change: a completion, as before, and now also a priority, a date (`t` or `p`), a move (`m` or the mouse), or a label change, also for selected tasks. `ctrl+z` still works.
+
 ## [1.6.0] - 2026-11-24
 
 ### Added

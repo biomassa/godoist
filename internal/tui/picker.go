@@ -361,6 +361,7 @@ func (m *Model) saveLabels() tea.Cmd {
 		m.setStatus("no label changes", false)
 		return nil
 	}
+	m.rememberIDs(undoLabels, p.taskIDs)
 	newLabels := map[string][]string{}
 	for _, id := range p.taskIDs {
 		t := m.taskByID(id)
@@ -423,6 +424,7 @@ func (m *Model) moveTo(it pickItem) tea.Cmd {
 	if s := m.sections[it.sectionID]; s != nil {
 		where += " / " + s.Name
 	}
+	m.rememberIDs(undoMove, ids)
 	client := m.client
 	return m.simpleWrite(fmt.Sprintf("Moved %d task(s) to %s", len(ids), where), func(ctx context.Context) error {
 		for _, id := range ids {

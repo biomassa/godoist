@@ -122,7 +122,7 @@ func (m Model) selectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 	return m, next, true
 }
 
-// bulkComplete completes the selected tasks. One ctrl+z reopens all one-time tasks of it.
+// bulkComplete completes the selected tasks. One u reopens all one-time tasks of it.
 func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
 	selected := map[string]bool{}
 	for _, t := range sel {
@@ -156,7 +156,7 @@ func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
 	fx := m.startFx(once, recurring, label)
 	m.strikeTasks(strike)
 	client := m.client
-	done := fmt.Sprintf("Completed %d task(s) · ctrl+z to undo", len(ids))
+	done := fmt.Sprintf("Completed %d task(s) · u to undo", len(ids))
 	if len(onceTasks) == 0 {
 		done = fmt.Sprintf("Completed %d occurrence(s)", len(ids))
 	}
@@ -172,6 +172,13 @@ func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
 
 // bulkPriority sets one priority on the selected tasks.
 func (m *Model) bulkPriority(sel []*todoist.Task, p int) tea.Cmd {
+	var changed []*todoist.Task // a task that has the priority already needs no undo
+	for _, t := range sel {
+		if t.UIPriority() != p {
+			changed = append(changed, t)
+		}
+	}
+	m.rememberTasks(undoPriority, changed)
 	var ids []string
 	for _, t := range sel {
 		t.Priority = 5 - p
