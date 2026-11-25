@@ -199,6 +199,8 @@ dimmed     = "#585b70" # secondary text
 error      = "#f38ba8" # overdue tasks, p1, errors
 ```
 
+For an example, copy [docs/themes/everforest-dark.toml](docs/themes/everforest-dark.toml) to `~/.config/godoist/themes/`.
+
 godoist makes the colors that you leave out from the other colors. Like the built-in themes, it moves colors that are too dark or too light so that you can read them. The name of a theme file can't be the name of a built-in theme. godoist reads the theme files when it starts. If a file has an error, the status line shows it.
 
 To read the theme files again while godoist runs, send it `SIGUSR2`, for example with `pkill -USR2 -x godoist`. godoist then shows the new colors of the theme in use, finds the files that you added, and goes back to your theme if its file was missing or broken at the start. A file with an error keeps the colors it had. So a program that makes color schemes from your wallpaper or your desktop can write the file from a template, send the signal after it, and godoist follows it.

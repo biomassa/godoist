@@ -1,0 +1,11 @@
+# An example godoist theme file: Everforest Dark. Copy it to ~/.config/godoist/themes/,
+# and select everforest-dark with T. See "Theme files" in the README.
+# The colors come from Everforest by sainnhe (MIT license): https://github.com/sainnhe/everforest
+background = "#2d353b" # required
+foreground = "#d3c6aa" # required: text
+accent     = "#a7c080" # required: focused borders, headings, the cursor in the theme picker
+border     = "#4f585e" # unfocused borders
+selection  = "#a7c080" # the selected row, mixed with the background
+success    = "#83c092" # today and completed tasks
+dimmed     = "#7a8478" # secondary text
+error      = "#e67e80" # overdue tasks, p1, errors

@@ -273,23 +273,14 @@ func (m Model) buildDetail(w int) detailDoc {
 	}
 
 	if len(comments) > 0 || m.focus == paneDetail {
-		d.lines = append(d.lines, "", " "+st(hexMuted).Bold(true).Render(fmt.Sprintf("Comments %d", len(comments))))
+		// As for the description: a dim rule, the label, and a blank line before the comments.
+		d.lines = append(d.lines, "", " "+st(hexDim).Render(strings.Repeat("─", max(0, w-2))),
+			" "+st(hexMuted).Bold(true).Render(fmt.Sprintf("Comments %d", len(comments))))
 	}
 	for _, cm := range comments {
+		d.lines = append(d.lines, "") // a blank line before each comment
 		start := len(d.lines)
-		stamp := " ── " + cm.Posted().Format("2 Jan 15:04") + " "
-		d.lines = append(d.lines, st(hexDim).Render(stamp+strings.Repeat("─", max(0, w-lipgloss.Width(stamp)-1))))
-		if body := strings.TrimSpace(cm.Content); body != "" {
-			d.addMarkdown(m.md.render(body, w))
-		}
-		if a := cm.FileAttachment; a != nil {
-			if a.URL != "" && strings.Contains(cm.Content, a.URL) {
-				a = &todoist.Attachment{FileName: a.FileName, Title: a.Title}
-			}
-			if line := attachmentLine(a); line != "" {
-				d.lines = append(d.lines, wrap(line, hexWeek, false)...)
-			}
-		}
+		m.commentLines(&d, cm, w)
 		d.comments = append(d.comments, [2]int{start, len(d.lines)})
 	}
 	if m.focus == paneDetail {
@@ -301,6 +292,49 @@ func (m Model) buildDetail(w int) detailDoc {
 	}
 	d.lines = append(d.lines, "", " "+st(hexDim).Render("id "+t.ID))
 	return d
+}
+
+// commentLines adds comment cm: its date, " - ", and the text, which wraps under its first
+// letter, so that the date stands alone in its column. An attachment follows the text.
+func (m Model) commentLines(d *detailDoc, cm todoist.Comment, w int) {
+	// The rendered text starts its lines two cells in. One cell is cut, so that one space
+	// follows the " -" of the date.
+	date := " " + cm.Posted().Format("2 Jan 15:04") + " -"
+	dw := lipgloss.Width(date)
+	tw := max(10, w-dw+1)
+	var lines []string
+	start := len(d.lines)
+	if body := strings.TrimSpace(cm.Content); body != "" {
+		t := m.md.render(body, tw)
+		for _, k := range t.checks {
+			d.checks = append(d.checks, start+k)
+		}
+		for _, l := range t.lines {
+			lines = append(lines, ansi.TruncateLeft(l, 1, ""))
+		}
+	}
+	if a := cm.FileAttachment; a != nil {
+		if a.URL != "" && strings.Contains(cm.Content, a.URL) {
+			a = &todoist.Attachment{FileName: a.FileName, Title: a.Title}
+		}
+		if line := attachmentLine(a); line != "" {
+			out := lipgloss.NewStyle().Width(max(1, tw-2)).Foreground(c(hexWeek)).Render(line)
+			for _, l := range strings.Split(out, "\n") {
+				lines = append(lines, " "+l)
+			}
+		}
+	}
+	if len(lines) == 0 {
+		lines = []string{""}
+	}
+	indent := strings.Repeat(" ", dw)
+	for i, l := range lines {
+		if i == 0 {
+			d.lines = append(d.lines, st(hexDim).Render(date)+l)
+		} else {
+			d.lines = append(d.lines, indent+l)
+		}
+	}
 }
 
 // crumbLine adds the path of note t above its title: the notes above it, from the top

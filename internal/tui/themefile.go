@@ -109,6 +109,12 @@ func errLine(err error) string {
 	return oneLine(err.Error())
 }
 
+// setThemeErr shows the theme file error err in the status line.
+func (m *Model) setThemeErr(err error) {
+	m.themeErr = errLine(err)
+	m.setStatus(m.themeErr, true)
+}
+
 // readThemeFile reads one theme file. The file name without ".toml" is the theme name.
 func readThemeFile(path string) (fileTheme, error) {
 	st, err := os.Stat(path)
@@ -199,6 +205,9 @@ type ThemeReloadMsg struct{}
 // picker gets the new list, and the theme under the cursor shows again.
 func (m Model) reloadTheme() (tea.Model, tea.Cmd) {
 	err := scanThemes()
+	if err == nil && m.statusErr && m.status == m.themeErr {
+		m.setStatus("", false) // the files are good now: the old error goes
+	}
 	names := themeNames()
 	// The theme in use: the one that the picker goes back to, or the one on the screen.
 	inUse := themeName
@@ -217,7 +226,7 @@ func (m Model) reloadTheme() (tea.Model, tea.Cmd) {
 		m.setStatus("theme "+want, false) // the wanted theme is back
 	}
 	if err != nil {
-		m.setStatus(errLine(err), true)
+		m.setThemeErr(err)
 	}
 	show := want
 	if p := m.themes; p != nil {

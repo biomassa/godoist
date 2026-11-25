@@ -7,6 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/biomassa/godoist/internal/todoist"
 )
 
 // withKeys draws the marked keys in the accent color and the rest in the base style. The
@@ -156,4 +158,56 @@ func TestDescriptionBlankLine(t *testing.T) {
 		}
 	}
 	t.Fatal("no Description label")
+}
+
+// Comments come after a dim rule, the label, and a blank line. Each comment starts with its
+// date and " - ", and its text wraps under its first letter. A blank line divides comments.
+func TestCommentLayout(t *testing.T) {
+	m := onRow(t, 1)
+	id := m.currentTask().ID
+	posted := time.Date(2026, 11, 25, 10, 53, 0, 0, time.Local).Format(time.RFC3339)
+	m.snap.Comments[id] = []todoist.Comment{
+		{ID: "c1", TaskID: id, PostedAt: posted, Content: "testing a comment that is long enough to wrap onto more lines of the pane"},
+		{ID: "c2", TaskID: id, PostedAt: posted, Content: "short one"},
+	}
+	lines := m.detailLines(50, 60)
+	plain := make([]string, len(lines))
+	for i, l := range lines {
+		plain[i] = strings.TrimRight(strings.TrimPrefix(ansi.Strip(l), " "), " ") // the pane has one cell of margin
+	}
+	at := -1
+	for i, l := range plain {
+		if strings.TrimSpace(l) == "Comments 2" {
+			at = i
+		}
+	}
+	if at < 2 || strings.Trim(strings.TrimSpace(plain[at-1]), "─") != "" || plain[at-1] == "" || plain[at-2] != "" || plain[at+1] != "" {
+		t.Fatalf("around the label: %q", plain[max(0, at-2):min(len(plain), at+2)])
+	}
+	first := plain[at+2]
+	const head = " 25 Nov 10:53 - testing"
+	if !strings.HasPrefix(first, head) {
+		t.Fatalf("first comment line = %q, want it to start with %q", first, head)
+	}
+	col := len(" 25 Nov 10:53 - ")
+	next := plain[at+3]
+	if strings.TrimSpace(next[:min(col, len(next))]) != "" || len(next) <= col || next[col] == ' ' {
+		t.Errorf("second line = %q, want its text to start under %q at column %d", next, "testing", col)
+	}
+	var blank, short = -1, -1
+	for i := at + 3; i < len(plain); i++ {
+		if strings.HasPrefix(plain[i], " 25 Nov 10:53 - short one") {
+			short = i
+			break
+		}
+		if plain[i] == "" && blank < 0 {
+			blank = i
+		}
+	}
+	if short < 0 || blank != short-1 {
+		t.Errorf("second comment on line %d, blank line on %d, want one blank line before it", short, blank)
+	}
+	if strings.Contains(strings.Join(plain, "\n"), "── 25 Nov") {
+		t.Error("the old date rule is still there")
+	}
 }

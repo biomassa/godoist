@@ -120,6 +120,7 @@ type Model struct {
 	termDark   bool                    // the terminal background is dark (for the "todoist" theme)
 	saveTheme  func(name string) error // saves a kept theme in the config file, or nil
 	wantTheme  string                  // the theme to start with or the last kept one; a reload brings it back if its file was missing
+	themeErr   string                  // the theme file error that the status shows, which a good reload clears
 	listShare  float64                 // the share of the task list next to the details (see panes.go)
 	shareGen   int                     // counts the border moves, for the pause before the save
 	saveShare  func(float64) error     // saves the share in the config file, or nil
@@ -155,7 +156,7 @@ func New(client *todoist.Client, token string, set Settings) Model {
 		m.setStatus("theme "+set.Theme+" not found, the theme is "+todoistTheme, true)
 	}
 	if themeLoadErr != nil {
-		m.setStatus(errLine(themeLoadErr), true)
+		m.setThemeErr(themeLoadErr)
 	}
 	m.ui, _ = state.Load()
 	m.syncing = 1      // Init starts the first sync

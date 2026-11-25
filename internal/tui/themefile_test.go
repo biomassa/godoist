@@ -119,6 +119,19 @@ func TestThemeFileReload(t *testing.T) {
 	if themeBg != "#f5f5f5" || !m.statusErr || !strings.Contains(m.status, "foreground is missing") {
 		t.Errorf("after a broken file: bg = %s status = %q", themeBg, m.status)
 	}
+	writeTheme(t, path, "background = \"#002000\"\nforeground = \"#e0e0e0\"\naccent = \"#ff8800\"\n")
+	m = send(t, m, ThemeReloadMsg{})
+	if themeBg != "#002000" || m.status != "" {
+		t.Errorf("after the fix: bg = %s status = %q, want the error gone", themeBg, m.status)
+	}
+	// A good reload leaves a status that is not the theme error.
+	writeTheme(t, path, "background = \"#000000\"\n")
+	m = send(t, m, ThemeReloadMsg{})
+	m.setStatus("Priority → P1", false)
+	writeTheme(t, path, "background = \"#002000\"\nforeground = \"#e0e0e0\"\naccent = \"#ff8800\"\n")
+	if m = send(t, m, ThemeReloadMsg{}); m.status != "Priority → P1" {
+		t.Errorf("status = %q, want the other status kept", m.status)
+	}
 }
 
 // With a built-in theme in use, a reload keeps the screen as it is, even when a theme
@@ -280,5 +293,22 @@ func TestNoctaliaTemplate(t *testing.T) {
 	writeTheme(t, filepath.Join(dir, "noctalia.toml"), body)
 	if err := LoadThemes(dir); err != nil || findFileTheme("noctalia") == nil {
 		t.Errorf("err = %v", err)
+	}
+}
+
+// The example theme file in docs/themes loads as it is.
+func TestExampleThemeFile(t *testing.T) {
+	resetFileThemes(t)
+	body, err := os.ReadFile("../../docs/themes/everforest-dark.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	writeTheme(t, filepath.Join(dir, "everforest-dark.toml"), string(body))
+	if err := LoadThemes(dir); err != nil || findFileTheme("everforest-dark") == nil {
+		t.Errorf("err = %v", err)
+	}
+	if !slices.Contains(themeNames(), "everforest-dark") {
+		t.Error("everforest-dark is not in the theme names")
 	}
 }
