@@ -10,7 +10,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 ### Added
 
 - `u` undoes the last change: a completion, as before, and now also a priority, a date (`t` or `p`), a move (`m` or the mouse), or a label change, also for selected tasks. `ctrl+z` still works.
-- `u` undoes a delete of a task, selected tasks, a section, a project, or a comment for 10 seconds. The item goes away at once, and the delete goes to Todoist after the 10 seconds, or at once when you quit. The dialogs still have Delete as the default button.
+- `u` undoes a delete of a task, selected tasks, a section, a project, or a comment for 10 seconds. The item goes away at once, and the delete goes to Todoist after the 10 seconds, or at once when you quit. The dialogs still have Delete as the default button. After the 10 seconds, `u` says that it is too late. A quick add into a project or section whose delete waits is refused.
 
 ## [1.6.0] - 2026-11-24
 

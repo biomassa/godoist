@@ -96,9 +96,9 @@ func TestDeleteSendsAfterWait(t *testing.T) {
 	if m.taskByID("t1") != nil {
 		t.Error("an old sync brought the deleted task back")
 	}
-	m = send(t, m, key("u")) // the delete step left the stack when the delete went
-	if m.status != "nothing to undo" {
-		t.Errorf("status = %q, want nothing to undo", m.status)
+	m = send(t, m, key("u")) // the delete went: u says so, and the step leaves the stack
+	if !strings.HasPrefix(m.status, "too late") || len(m.undos) != 0 {
+		t.Errorf("status = %q undos = %d, want too late and an empty stack", m.status, len(m.undos))
 	}
 	var fresh todoist.SyncState = old.Clone()
 	fresh.Tasks = fresh.Tasks[1:] // Todoist no longer has t1
@@ -118,6 +118,9 @@ func TestDeleteFailsShowsAgain(t *testing.T) {
 	m = send(t, nm.(Model), runCmd(t, cmd))
 	if m.taskByID("t1") == nil || !m.statusErr || !strings.Contains(m.status, "could not delete") {
 		t.Errorf("shown = %v status = %q, want the task back and an error", m.taskByID("t1") != nil, m.status)
+	}
+	if len(m.undos) != 0 { // the task is back, so u has nothing to undo for this delete
+		t.Errorf("undos = %d after a failed delete, want none", len(m.undos))
 	}
 }
 
@@ -191,6 +194,10 @@ func TestDeleteStepLeavesStack(t *testing.T) {
 	}
 	nm, cmd := m.Update(deleteNowMsg{n: m.laterN})
 	m = send(t, nm.(Model), runCmd(t, cmd))
+	m = send(t, m, key("u")) // a late u is for the delete: it must not undo the priority
+	if p := m.taskByID("t2").Priority; p == 1 || !strings.HasPrefix(m.status, "too late") {
+		t.Fatalf("priority = %d status = %q, want too late and the priority kept", p, m.status)
+	}
 	m = send(t, m, key("u"))
 	if p := m.taskByID("t2").Priority; p != 1 || len(m.undos) != 0 {
 		t.Errorf("priority = %d undos = %d, want the priority change undone", p, len(m.undos))
@@ -272,5 +279,45 @@ func TestDeleteProjectUndoReturns(t *testing.T) {
 	m = send(t, m, key("u"))
 	if cur := m.currentNav(); cur == nil || cur.projectID != "p1" {
 		t.Errorf("nav = %+v after u, want the work project", cur)
+	}
+}
+
+// A quick add that names a #project or a /section with a waiting delete is refused, and
+// the dialog stays open with the text: Todoist still has them and would put the task in
+// them. After u brings the project back, the same text goes.
+func TestQuickAddWaitingDelete(t *testing.T) {
+	m := openWork(t)
+	m.focus = paneNav
+	m.askDeleteProject(m.projects["p1"])
+	m = send(t, m, key("enter"))
+	m = send(t, m, key("g"), key("i"), key("a"))
+	m = typeText(t, m, "milk #work")
+	m = send(t, m, key("enter"))
+	if m.inputMode != inputAdd || m.pending != 0 || !m.statusErr || m.status != "#work is being deleted: pick another project" {
+		t.Fatalf("dialog %v pending %d status %q, want the add refused and the dialog open", m.inputMode, m.pending, m.status)
+	}
+	if !strings.Contains(m.dialogValue(), "milk #work") {
+		t.Errorf("dialog text %q, want the typed text kept", m.dialogValue())
+	}
+	m = send(t, m, key("esc"), key("u"), key("g"), key("i"), key("a"))
+	m = typeText(t, m, "#work milk") // the tag first: the autocomplete of #work is closed at enter
+	m = send(t, m, key("enter"))
+	if m.inputMode == inputAdd || m.pending != 1 {
+		t.Errorf("dialog %v pending %d after u, want the add sent", m.inputMode, m.pending)
+	}
+
+	// A /section of the open project with a waiting delete.
+	m = openWork(t)
+	m.deleteLater("section “urgent”", []hiddenItem{{hideSection, "s1"}}, nil)
+	if got := m.waitingDeleteIn("milk /urgent"); got != "/urgent" {
+		t.Errorf("waitingDeleteIn(/urgent) = %q", got)
+	}
+	m = send(t, m, key("a"))
+	m = typeText(t, m, "milk /urgent")
+	if m = send(t, m, key("enter")); m.inputMode != inputAdd || m.status != "/urgent is being deleted: pick another section" {
+		t.Errorf("dialog %v status %q, want the add refused for the section", m.inputMode, m.status)
+	}
+	if got := m.waitingDeleteIn("milk /later"); got != "" {
+		t.Errorf("waitingDeleteIn(/later) = %q, want nothing: the section stays", got)
 	}
 }

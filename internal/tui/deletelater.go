@@ -182,11 +182,13 @@ func (m *Model) sendDelete(n int) tea.Cmd {
 // deleteSent ends delete n and then handles its write like any other. If the delete
 // failed, the items show again. If it worked, they stay hidden until a sync that started
 // after it, so that an older sync does not bring them back for a moment.
+// The undo step of a sent delete stays on the stack: a late u then says that it is too
+// late, and does not undo an older change that the user did not mean.
 func (m Model) deleteSent(msg deleteSentMsg) (tea.Model, tea.Cmd) {
-	m.dropDeleteStep(msg.n) // u cannot stop this delete any more: older steps come first
 	if d := m.laterDeletes[msg.n]; d != nil {
 		switch {
 		case msg.act.err != nil:
+			m.dropDeleteStep(msg.n) // the items are back: nothing to undo
 			delete(m.laterDeletes, msg.n)
 			msg.act.err = fmt.Errorf("could not delete %s · %w", d.label, msg.act.err)
 			m.applyState(m.st)
@@ -228,7 +230,8 @@ func (m *Model) dropSentDeletes(seq int) {
 	}
 }
 
-// undoDelete brings the items of delete n back, if the delete did not go yet.
+// undoDelete brings the items of delete n back, if the delete did not go yet. Else it
+// says that it is too late.
 func (m *Model) undoDelete(n int) tea.Cmd {
 	d := m.laterDeletes[n]
 	if d == nil || d.send == nil {
@@ -253,4 +256,34 @@ func (m *Model) flushDeletes() tea.Cmd {
 		cmds = append(cmds, m.sendDelete(n))
 	}
 	return tea.Batch(cmds...)
+}
+
+// waitingDeleteIn returns the name of a #project or /section in a quick add text that a
+// waiting delete hides, or "". Todoist reads the text and still has them, so the new task
+// would go into them and be deleted with them.
+func (m Model) waitingDeleteIn(text string) string {
+	if len(m.laterDeletes) == 0 {
+		return ""
+	}
+	cur := ""
+	if n := m.currentNav(); n != nil && n.kind == vkProject {
+		cur = n.projectID
+	}
+	p := todoist.ParseName(text, m.st.Projects, m.st.Sections, cur)
+	hidden := m.hiddenSets()
+	if p.SectionID != "" && hidden[hideSection][p.SectionID] {
+		for _, s := range m.st.Sections {
+			if s.ID == p.SectionID {
+				return "/" + s.Name
+			}
+		}
+	}
+	if p.ProjectID != "" && p.ProjectID != cur && hidden[hideProject][p.ProjectID] {
+		for _, pr := range m.st.Projects {
+			if pr.ID == p.ProjectID {
+				return "#" + pr.Name
+			}
+		}
+	}
+	return ""
 }

@@ -88,6 +88,15 @@ func (m Model) submitInput() (tea.Model, tea.Cmd) {
 		desc = m.dialogDesc()
 	}
 	mode := m.inputMode
+	if name := m.waitingDeleteIn(val); mode == inputAdd && name != "" {
+		// The dialog stays open with the text, so nothing typed is lost.
+		what := "project"
+		if strings.HasPrefix(name, "/") {
+			what = "section"
+		}
+		m.setStatus(name+" is being deleted: pick another "+what, true)
+		return m, nil
+	}
 	m.closeInput()
 	switch mode {
 	case inputAdd:
