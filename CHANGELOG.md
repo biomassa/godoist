@@ -7,6 +7,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-25
+
 ### Added
 
 - `u` undoes the last change: a completion, as before, and now also a priority, a date (`t` or `p`), a move (`m` or the mouse), or a label change, also for selected tasks. `ctrl+z` still works.
@@ -324,7 +326,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/biomassa/godoist/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/biomassa/godoist/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/biomassa/godoist/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/biomassa/godoist/compare/v1.3.0...v1.4.0
