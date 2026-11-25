@@ -10,7 +10,7 @@ godoist is a terminal program for [Todoist](https://todoist.com) in Go. It has a
 
 ## Features
 
-- Todoist project colors, and 20 color themes with a live preview.
+- Todoist project colors, and 20 color themes with a live preview. You can add your own themes as files, and a desktop tool like Noctalia can keep them in sync.
 - Quick add with Todoist natural-language parsing (dates, `#project`, `/section`, `@label`, `p1`–`p4`), in a dialog with a name and a description. Edit reads `#project`, `/section`, `@label`, and `p1`–`p4`.
 - A date dialog with a text field, a month calendar, and a time field. Recurring tasks can move one occurrence.
 - Multi-select with bulk actions.
@@ -126,6 +126,8 @@ godoist writes these files:
 | `~/.cache/godoist/queue-*.json` | The task changes that wait for the network (owner-only permissions). |
 | `~/.local/state/godoist/state.toml` | The expanded tasks of each overview. |
 
+godoist reads your own themes from `~/.config/godoist/themes/` (see [Theme files](#theme-files)).
+
 ## TUI
 
 Start the TUI:
@@ -181,6 +183,36 @@ Push `T` to open the theme picker at the right of the screen. When you move thro
 The first theme, `todoist`, uses the colors of the Todoist app and the background of your terminal. The other themes set the terminal background while godoist runs: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato, nord, dracula, gruvbox-dark, gruvbox-light, tokyo-night, tokyo-night-day, rose-pine, rose-pine-moon, rose-pine-dawn, one-dark, magenta-geode, coral-sunset, lavender-fields-forever, vt100, and vt52. In each theme, overdue tasks and p1 use the error color of the theme, and tasks for today use its green. Project colors stay the Todoist colors, adjusted so that you can read them. The markdown colors also follow the theme: the headings use the accent of the theme (strongest for level 1, fainter for lower levels), and links, code, and code blocks use its colors.
 
 To use a theme for one run only, start godoist with `--theme NAME`. The theme palettes come from [tideui](https://github.com/allisonhere/tideui) by Allie Bayless (MIT license).
+
+#### Theme files
+
+You can add your own themes. Each file `~/.config/godoist/themes/NAME.toml` is the theme `NAME`. It shows at the end of the theme picker, and `--theme NAME` works too. A theme file has these colors, as `#RRGGBB`:
+
+```toml
+background = "#1e1e2e" # required
+foreground = "#cdd6f4" # required: text
+accent     = "#89b4fa" # required: focused borders, headings, the cursor in the theme picker
+border     = "#6c7086" # unfocused borders
+selection  = "#89b4fa" # the selected row, mixed with the background
+success    = "#a6e3a1" # today and completed tasks
+dimmed     = "#585b70" # secondary text
+error      = "#f38ba8" # overdue tasks, p1, errors
+```
+
+godoist makes the colors that you leave out from the other colors. Like the built-in themes, it moves colors that are too dark or too light so that you can read them. The name of a theme file can't be the name of a built-in theme. godoist reads the theme files when it starts, so restart it after you add one. If a file has an error, the status line shows it.
+
+To load the new colors of the theme file in use while godoist runs, send it `SIGUSR2`, for example with `pkill -USR2 -x godoist`. So a program that makes color schemes from your wallpaper or your desktop can write the file from a template, send the signal after it, and godoist follows it.
+
+For example, for [Noctalia](https://noctalia.dev), copy [docs/themes/noctalia.toml](docs/themes/noctalia.toml) to `~/.config/noctalia/templates/godoist.toml` and add a user template to the Noctalia config:
+
+```toml
+[theme.templates.user.godoist]
+input_path  = "templates/godoist.toml"
+output_path = "~/.config/godoist/themes/noctalia.toml"
+post_hook   = "pkill -USR2 -x godoist || true"
+```
+
+Then run `noctalia msg templates-apply` once, and select `noctalia` with `T`.
 
 ### Task order in a project
 

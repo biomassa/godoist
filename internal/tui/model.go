@@ -149,6 +149,13 @@ func New(client *todoist.Client, token string, set Settings) Model {
 		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare,
 		animations: set.Animations}
 	applyTheme(set.Theme, true)
+	if set.Theme != "" && themeName != set.Theme {
+		// The theme kept in the picker can be a theme file that is gone.
+		m.setStatus("theme "+set.Theme+" not found, the theme is "+todoistTheme, true)
+	}
+	if themeLoadErr != nil {
+		m.setStatus(themeLoadErr.Error(), true)
+	}
 	m.ui, _ = state.Load()
 	m.syncing = 1      // Init starts the first sync
 	client.TrackDone() // completed sub-tasks show under their open tasks
@@ -246,6 +253,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case themeSavedMsg:
 		return m.themeSaved(msg)
+	case ThemeReloadMsg:
+		return m.reloadTheme()
 	case shareSaveMsg:
 		return m.shareSave(msg)
 	case shareSavedMsg:

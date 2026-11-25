@@ -46,10 +46,10 @@ var palettes = []palette{
 	{"vt52", "#000000", "#ffcc66", "#6b4e14", "#ffb020", "#ffb020", "#ffe6a8", "#a67c2e", "#ff6666"},
 }
 
-// themeNames returns all theme names, "todoist" first.
+// themeNames returns all theme names, "todoist" first and the file themes last.
 func themeNames() []string {
 	names := []string{todoistTheme}
-	for _, p := range palettes {
+	for _, p := range allPalettes() {
 		names = append(names, p.name)
 	}
 	return names
@@ -65,7 +65,7 @@ var (
 // applyTheme sets the colors of theme name. termDark is the terminal background of the
 // last report, for the "todoist" theme. An unknown name gives the "todoist" theme.
 func applyTheme(name string, termDark bool) {
-	for _, p := range palettes {
+	for _, p := range allPalettes() {
 		if p.name == name {
 			applyPalette(p)
 			return
@@ -182,6 +182,9 @@ func readable(h, bg string, min float64) string {
 func themeLabel(name string) string {
 	if name == todoistTheme {
 		return fmt.Sprintf("%s (terminal colors)", name)
+	}
+	if findFileTheme(name) != nil {
+		return fmt.Sprintf("%s (file)", name)
 	}
 	return name
 }

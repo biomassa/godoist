@@ -102,22 +102,29 @@ func rootCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// The theme files add themes to the built-in ones. A broken file doesn't stop the
+			// start: the TUI shows the error.
+			if dir, err := config.ThemeDir(); err == nil {
+				_ = tui.LoadThemes(dir)
+			}
 			// The theme: --theme for this run, else the theme kept in the picker.
 			cfg, _ := config.Load()
 			name := cfg.Theme
 			if theme != "" {
 				name = theme
 			}
-			if name != "" && !slices.Contains(tui.ThemeNames(), name) {
-				return fmt.Errorf("unknown theme %q. The themes: %s", name, strings.Join(tui.ThemeNames(), ", "))
+			if theme != "" && !slices.Contains(tui.ThemeNames(), theme) {
+				return fmt.Errorf("unknown theme %q. The themes: %s", theme, strings.Join(tui.ThemeNames(), ", "))
 			}
-			_, err = tea.NewProgram(tui.New(c, token, tui.Settings{Theme: name, ListShare: cfg.ListShare, Animations: cfg.AnimationsOn(),
-				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare}), tea.WithFPS(tui.FPS)).Run()
+			p := tea.NewProgram(tui.New(c, token, tui.Settings{Theme: name, ListShare: cfg.ListShare, Animations: cfg.AnimationsOn(),
+				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare}), tea.WithFPS(tui.FPS))
+			reloadThemeOnSignal(p)
+			_, err = p.Run()
 			return err
 		},
 	}
 	root.Flags().StringVar(&theme, "theme", "", "color theme for this run: "+strings.Join(tui.ThemeNames(), ", ")+
-		" (T in the TUI keeps a theme for the next start)")
+		", or the name of a theme file (T in the TUI keeps a theme for the next start)")
 	root.SetVersionTemplate("godoist {{.Version}}\n") // the same line as "godoist version"
 	root.AddCommand(loginCmd(), projectsCmd(), lsCmd(), addCmd(), closeCmd("done", "Complete tasks by ID"),
 		closeCmd("reopen", "Reopen completed tasks by ID"), rmCmd(), versionCmd())
