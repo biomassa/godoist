@@ -1,4 +1,5 @@
-// Package config reads and writes the godoist settings: the API token and the color theme.
+// Package config reads and writes the godoist settings: the API token and the color theme,
+// and the path of the theme files.
 package config
 
 import (
@@ -31,6 +32,15 @@ func Path() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "godoist", "config.toml"), nil
+}
+
+// ThemeDir returns the directory of the theme files (~/.config/godoist/themes).
+func ThemeDir() (string, error) {
+	dir, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "godoist", "themes"), nil
 }
 
 // Load reads the config file. $TODOIST_TOKEN, if set, replaces the token of the file.

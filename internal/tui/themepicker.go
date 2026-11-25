@@ -82,6 +82,7 @@ func (m Model) updateThemePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m Model) keepTheme() (tea.Model, tea.Cmd) {
 	name := m.themes.names[m.themes.cur]
 	m.themes = nil
+	m.wantTheme = name
 	m.previewTheme(name)
 	save := m.saveTheme
 	if save == nil {

@@ -119,6 +119,7 @@ type Model struct {
 	themes     *themePicker            // the open theme picker (T), or nil
 	termDark   bool                    // the terminal background is dark (for the "todoist" theme)
 	saveTheme  func(name string) error // saves a kept theme in the config file, or nil
+	wantTheme  string                  // the theme to start with or the last kept one; a reload brings it back if its file was missing
 	listShare  float64                 // the share of the task list next to the details (see panes.go)
 	shareGen   int                     // counts the border moves, for the pause before the save
 	saveShare  func(float64) error     // saves the share in the config file, or nil
@@ -146,9 +147,16 @@ func New(client *todoist.Client, token string, set Settings) Model {
 	ti := newTextInput()
 	ti.CharLimit = 500
 	m := Model{client: client, token: token, input: &ti, comCur: -1, chkCur: -1, md: newMDCache(), fc: newFrameCache(),
-		termDark: true, saveTheme: set.SaveTheme, listShare: set.ListShare, saveShare: set.SaveListShare,
+		termDark: true, saveTheme: set.SaveTheme, wantTheme: set.Theme, listShare: set.ListShare, saveShare: set.SaveListShare,
 		animations: set.Animations}
 	applyTheme(set.Theme, true)
+	if set.Theme != "" && themeName != set.Theme {
+		// The theme kept in the picker can be a theme file that is gone.
+		m.setStatus("theme "+set.Theme+" not found, the theme is "+todoistTheme, true)
+	}
+	if themeLoadErr != nil {
+		m.setStatus(errLine(themeLoadErr), true)
+	}
 	m.ui, _ = state.Load()
 	m.syncing = 1      // Init starts the first sync
 	client.TrackDone() // completed sub-tasks show under their open tasks
@@ -246,6 +254,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case themeSavedMsg:
 		return m.themeSaved(msg)
+	case ThemeReloadMsg:
+		return m.reloadTheme()
 	case shareSaveMsg:
 		return m.shareSave(msg)
 	case shareSavedMsg:

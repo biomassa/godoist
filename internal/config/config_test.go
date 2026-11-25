@@ -44,3 +44,15 @@ func TestSaveKeepsOtherSettings(t *testing.T) {
 		t.Errorf("file mode = %v err = %v, want 0600", fi.Mode().Perm(), err)
 	}
 }
+
+// The theme files are in a themes directory next to the config file.
+func TestThemeDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("HOME", dir)
+	got, err := ThemeDir()
+	cfg, _ := Path()
+	if want := filepath.Join(filepath.Dir(cfg), "themes"); err != nil || got != want {
+		t.Errorf("ThemeDir() = %q, %v, want %q", got, err, want)
+	}
+}
