@@ -156,7 +156,7 @@ func (m *Model) bulkComplete(sel []*todoist.Task) tea.Cmd {
 	fx := m.startFx(once, recurring, label)
 	m.strikeTasks(strike)
 	client := m.client
-	done := fmt.Sprintf("Completed %d task(s) · u to undo", len(ids))
+	done := fmt.Sprintf(keyed("Completed %d task(s) · {u} to undo"), len(ids))
 	if len(onceTasks) == 0 {
 		done = fmt.Sprintf("Completed %d occurrence(s)", len(ids))
 	}
@@ -233,23 +233,24 @@ func (m *Model) askBulkDelete(sel []*todoist.Task) {
 		}
 	}
 	if len(recurring) > 0 && cannot > 0 {
-		text := fmt.Sprintf("%d of the %d tasks repeat with a rule that godoist cannot skip. Delete all %d with all their dates? %s",
-			cannot, len(ids), len(ids), undoHint)
-		m.confirm = &confirmPrompt{title: "Delete tasks", text: text, buttons: []confirmButton{
+		text := fmt.Sprintf("%d of the %d tasks repeat with a rule that godoist cannot skip. Delete all %d with all their dates?",
+			cannot, len(ids), len(ids))
+		m.confirm = &confirmPrompt{title: "Delete tasks", text: text, note: undoHint, buttons: []confirmButton{
 			{key: "d", label: "Delete all", danger: true, run: func(m *Model) tea.Cmd { return deleteIDs(m, ids) }},
 			{key: "n", label: "Cancel"},
 		}}
 		return
 	}
 	if len(recurring) == 0 {
-		text := fmt.Sprintf("Delete %d tasks? %s", len(ids), undoHint)
+		text := fmt.Sprintf("Delete %d tasks?", len(ids))
 		m.confirm = yesNo("Delete tasks", text, "Delete", func(m *Model) tea.Cmd { return deleteIDs(m, ids) })
+		m.confirm.note = undoHint
 		return
 	}
 	// Some tasks repeat: skip only their dates (and delete the others), or delete all.
-	text := fmt.Sprintf("%d of the %d tasks repeat. Skip only the current dates of these tasks and delete the other %d, or delete all %d with all their dates? A delete: %s",
-		len(recurring), len(ids), len(oneTime), len(ids), undoHint)
-	m.confirm = &confirmPrompt{title: "Delete tasks", text: text, buttons: []confirmButton{
+	text := fmt.Sprintf("%d of the %d tasks repeat. Skip only the current dates of these tasks and delete the other %d, or delete all %d with all their dates?",
+		len(recurring), len(ids), len(oneTime), len(ids))
+	m.confirm = &confirmPrompt{title: "Delete tasks", text: text, note: undoHintOr, buttons: []confirmButton{
 		{key: "s", label: "Skip dates", run: func(m *Model) tea.Cmd {
 			skip := m.skipDates(recurring)
 			if len(oneTime) == 0 {

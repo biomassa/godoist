@@ -65,15 +65,16 @@ func (m Model) sectionKeys(key string) (tea.Model, tea.Cmd, bool) {
 			}
 		}
 		id, name, client := s.ID, s.Name, m.client
-		text := fmt.Sprintf("Delete section “%s”? It has no tasks. %s", name, undoHint)
+		text := fmt.Sprintf("Delete section “%s”? It has no tasks.", name)
 		if n > 0 {
-			text = fmt.Sprintf("Delete section “%s” and its %d task(s)? %s", name, n, undoHint)
+			text = fmt.Sprintf("Delete section “%s” and its %d task(s)?", name, n)
 		}
 		m.confirm = yesNo("Delete section", text, "Delete", func(m *Model) tea.Cmd {
 			return m.deleteLater("section “"+name+"”", []hiddenItem{{hideSection, id}}, func(ctx context.Context) error {
 				return client.DeleteSection(ctx, id)
 			})
 		})
+		m.confirm.note = undoHint
 		return m, nil, true
 	case "[", "]":
 		d := -1

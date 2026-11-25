@@ -3,7 +3,9 @@ package tui
 import (
 	"context"
 	"fmt"
+	"math"
 	"slices"
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,8 +21,11 @@ import (
 // deleteDelay is how long u can undo a delete.
 const deleteDelay = 10 * time.Second
 
-// undoHint ends the text of each delete dialog.
-var undoHint = fmt.Sprintf("u undoes it for %d seconds.", int(deleteDelay.Seconds()))
+// undoHint is the paler line under the text of each delete dialog.
+var undoHint = fmt.Sprintf(keyed("{u} undoes it for %d seconds."), int(deleteDelay.Seconds()))
+
+// undoHintOr is undoHint for a dialog that can also do something else, such as skip a date.
+var undoHintOr = "A delete: " + undoHint
 
 // hiddenKind is the type of a hidden item.
 type hiddenKind int
@@ -50,10 +55,14 @@ type laterDelete struct {
 	// Where the cursor was, so that u puts it back.
 	navWas string
 	comCur int
+
+	at     time.Time // when the delete was made: the status counts down from it
+	status string    // the status that the delete shows, while no other status replaced it
 }
 
 type (
 	deleteNowMsg  struct{ n int } // the wait of delete n ended
+	deleteTickMsg struct{ n int } // one more second of the wait of delete n passed
 	deleteSentMsg struct {
 		n   int
 		act actionMsg // the result of the write
@@ -68,7 +77,7 @@ func (m *Model) deleteLater(label string, hide []hiddenItem, send func(context.C
 	}
 	m.laterN++
 	n := m.laterN
-	d := &laterDelete{label: label, hide: hide, send: send, comCur: m.comCur}
+	d := &laterDelete{label: label, hide: hide, send: send, comCur: m.comCur, at: time.Now()}
 	if cur := m.currentNav(); cur != nil {
 		d.navWas = navKey(*cur)
 	}
@@ -77,8 +86,50 @@ func (m *Model) deleteLater(label string, hide []hiddenItem, send func(context.C
 	m.hideDeleted()
 	m.buildNav()
 	m.buildRows(false)
-	m.setStatus(fmt.Sprintf("Deleted %s · u to undo (%d s)", label, int(deleteDelay.Seconds())), false)
-	return tea.Tick(deleteDelay, func(time.Time) tea.Msg { return deleteNowMsg{n: n} })
+	d.status = deleteStatus(label, deleteDelay)
+	m.setStatusKeep(d.status, deleteKeep(d.status, label))
+	return tea.Batch(tea.Tick(deleteDelay, func(time.Time) tea.Msg { return deleteNowMsg{n: n} }),
+		deleteTick(n, deleteDelay))
+}
+
+// deleteStatus is the status of a waiting delete with left time to undo it.
+func deleteStatus(label string, left time.Duration) string {
+	return fmt.Sprintf("Deleted %s · "+kbd("u")+" to undo (%d s)", label, int(math.Ceil(left.Seconds())))
+}
+
+// deleteKeep is the end of the status of a waiting delete that stays when the status is
+// cut: the count, and the closing quote of a name.
+func deleteKeep(status, label string) string {
+	keep := strings.TrimPrefix(status, "Deleted "+label)
+	if strings.HasSuffix(label, "”") {
+		keep = "”" + keep
+	}
+	return keep
+}
+
+// deleteTick asks for a deleteTickMsg when the seconds of left change, so that the status
+// counts down.
+func deleteTick(n int, left time.Duration) tea.Cmd {
+	next := left - (left - time.Nanosecond).Truncate(time.Second) // the time to the next whole second
+	return tea.Tick(next, func(time.Time) tea.Msg { return deleteTickMsg{n: n} })
+}
+
+// deleteCount counts the status of delete n down. Once another status replaced it, the
+// count stops showing, so that it does not hide a newer message.
+func (m Model) deleteCount(msg deleteTickMsg) (tea.Model, tea.Cmd) {
+	d := m.laterDeletes[msg.n]
+	if d == nil || d.send == nil {
+		return m, nil // u brought it back, or it went
+	}
+	left := deleteDelay - time.Since(d.at)
+	if left <= 0 {
+		return m, nil // deleteNowMsg sends it
+	}
+	if m.status == d.status {
+		d.status = deleteStatus(d.label, left)
+		m.setStatusKeep(d.status, deleteKeep(d.status, d.label))
+	}
+	return m, deleteTick(msg.n, left)
 }
 
 // hiddenSets returns the IDs that the waiting deletes hide, by kind. The sub-tasks of a

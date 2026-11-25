@@ -23,6 +23,7 @@ type confirmPrompt struct {
 	title   string
 	head    string // one line, cut to the width of the dialog; empty for no line
 	text    string
+	note    string // a paler line under text, such as how to undo; empty for no line
 	buttons []confirmButton
 	sel     int // selected button
 }
@@ -84,7 +85,10 @@ func (m Model) confirmLayout() (string, []rect) {
 	if p.head != "" {
 		lines = append(lines, " "+lipgloss.NewStyle().Foreground(c(hexText)).Render(trunc(p.head, inner-2)))
 	}
-	text := lipgloss.NewStyle().Width(inner - 2).Foreground(c(hexText)).Render(p.text)
+	text := lipgloss.NewStyle().Width(inner - 2).Render(withKeys(p.text, st(hexText)))
+	if p.note != "" {
+		text += "\n" + lipgloss.NewStyle().Width(inner-2).Render(withKeys(p.note, st(hexMuted)))
+	}
 	for _, l := range strings.Split(text, "\n") {
 		lines = append(lines, " "+l)
 	}
@@ -144,7 +148,7 @@ func (m Model) confirmLayout() (string, []rect) {
 		}
 		lines = append(lines, strings.Repeat(" ", left)+row, "")
 	}
-	hint := lipgloss.NewStyle().Width(inner - 2).Foreground(c(hexDim)).Render("←/→ select · enter push · esc close")
+	hint := lipgloss.NewStyle().Width(inner - 2).Render(withKeys(keyed("{←/→} select · {enter} push · {esc} close"), st(hexDim)))
 	lines = append(lines, " "+hint)
 	return box(st(fg(hexAccent)).Bold(true).Render(p.title), padLines(lines, inner, len(lines)), w, fg(hexAccent)), hits
 }

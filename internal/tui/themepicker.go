@@ -127,7 +127,7 @@ func (m Model) themeBox() string {
 		}
 		lines = append(lines, "   "+st(hexText).Render(label))
 	}
-	lines = append(lines, "", " "+st(hexDim).Render(trunc("↑/↓ preview · enter keep · esc back", inner-1)))
+	lines = append(lines, "", " "+trunc(withKeys(keyed("{↑/↓} preview · {enter} keep · {esc} back"), st(hexDim)), inner-1))
 	return box(st(fg(hexAccent)).Bold(true).Render("Theme"), padLines(lines, inner, r.h-2), r.w, fg(hexAccent))
 }
 

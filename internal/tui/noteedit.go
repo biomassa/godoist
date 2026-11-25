@@ -157,7 +157,7 @@ func (m Model) closeNoteEditor() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	if e.kind != editDescription && strings.TrimSpace(e.text()) == "" {
-		m.setStatus("the comment is empty, so it is not saved · d deletes a comment", false)
+		m.setStatus(keyed("the comment is empty, so it is not saved · {d} deletes a comment"), false)
 		return m, nil
 	}
 	next := m.saveNote(e, "Saved “"+e.title+"”")

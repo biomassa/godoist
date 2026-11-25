@@ -634,11 +634,11 @@ func (m Model) calBox() string {
 	var hint string
 	switch cd.focus {
 	case calText:
-		hint = "tab moves to the calendar · Todoist reads the text when you save · enter save · esc cancel"
+		hint = keyed("{tab} moves to the calendar · Todoist reads the text when you save · {enter} save · {esc} cancel")
 	case calGrid:
-		hint = "arrows day · PgUp/PgDn month · Home today · 1–5 picks · enter save"
+		hint = keyed("{arrows} day · {PgUp/PgDn} month · {Home} today · {1–5} picks · {enter} save")
 	case calTime:
-		hint = "HH:MM, empty = all day · enter save · tab next"
+		hint = keyed("HH:MM, empty = all day · {enter} save · {tab} next")
 	}
 	if cd.askRecur { // the question has its own lines, from the hint line down
 		for i, l := range m.recurQuestion(inner - 1) {
@@ -653,11 +653,11 @@ func (m Model) calBox() string {
 	}
 	switch {
 	case cd.source == srcText:
-		lines[calLineSave] = " " + st(hexMuted).Render("enter saves the text")
+		lines[calLineSave] = " " + withKeys(keyed("{enter} saves the text"), st(hexMuted))
 	case cd.cleared:
-		lines[calLineSave] = " " + st(hexMuted).Render("enter removes the date")
+		lines[calLineSave] = " " + withKeys(keyed("{enter} removes the date"), st(hexMuted))
 	case cd.source == srcCal:
-		lines[calLineSave] = " " + st(hexMuted).Render("enter saves the calendar day and time")
+		lines[calLineSave] = " " + withKeys(keyed("{enter} saves the calendar day and time"), st(hexMuted))
 	}
 	return box(st(fg(hexAccent)).Bold(true).Render(cd.title), padLines(lines, inner, len(lines)), r.w, fg(hexAccent))
 }

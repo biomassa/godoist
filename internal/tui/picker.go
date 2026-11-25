@@ -491,20 +491,20 @@ func (m Model) pickerBox(w, h int) string {
 	if len(vis) == 0 {
 		lines = append(lines, " "+st(hexMuted).Render("no match"))
 	}
-	hint := "↑/↓ select · space check · enter save · esc cancel"
+	hint := keyed("{↑/↓} select · {space} check · {enter} save · {esc} cancel")
 	switch {
 	case p.kind == pickMove:
-		hint = "↑/↓ select · enter move here · esc cancel"
+		hint = keyed("{↑/↓} select · {enter} move here · {esc} cancel")
 	case p.kind == pickParent:
-		hint = "↑/↓ select · enter move under it · esc cancel"
+		hint = keyed("{↑/↓} select · {enter} move under it · {esc} cancel")
 	case p.kind == pickNoteParent:
-		hint = "↑/↓ select · enter move here · esc cancel"
+		hint = keyed("{↑/↓} select · {enter} move here · {esc} cancel")
 	case p.kind == pickGoto:
-		hint = "↑/↓ select · enter go · esc cancel"
+		hint = keyed("{↑/↓} select · {enter} go · {esc} cancel")
 	case p.kind == pickColor && p.newName != "":
-		hint = "↑/↓ select · space sub-project on / off · enter create · esc cancel"
+		hint = keyed("{↑/↓} select · {space} sub-project on / off · {enter} create · {esc} cancel")
 	case p.kind == pickColor:
-		hint = "↑/↓ select · enter save the color · esc cancel"
+		hint = keyed("{↑/↓} select · {enter} save the color · {esc} cancel")
 	}
 	hintLines := wrapHint(hint, hexDim, inner-1)
 	all := padLines(lines, inner, h-len(hintLines))

@@ -65,7 +65,7 @@ func (m *Model) orderAllowed(t *todoist.Task, reorder bool) bool {
 	case cur == nil:
 		return false
 	case cur.kind == vkProject && reorder && t.Due != nil && t.Parent() == "":
-		m.setStatus("sorted by date · only tasks without a date move with [ ]", true)
+		m.setStatus(keyed("sorted by date · only tasks without a date move with {[} {]}"), true)
 		return false
 	case cur.kind == vkProject:
 		return true

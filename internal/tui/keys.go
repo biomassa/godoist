@@ -91,7 +91,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "/":
 		m.focus = paneTasks
 		m.detailOpen = false
-		next := m.openInput(inputFind, " / ", "find in this view · enter keep · esc clear", m.find)
+		next := m.openInput(inputFind, " / ", keyed("find in this view · {enter} keep · {esc} clear"), m.find)
 		return m, next
 	case "f":
 		next := m.openDialog(inputQuery, m.filterQuery)
@@ -170,7 +170,7 @@ func (m Model) taskKeys(key string) (tea.Model, tea.Cmd) {
 		return nm, cmd
 	}
 	if m.currentTask() == nil && taskKey(key) {
-		m.setStatus("no task under the cursor · move to a task with j/k", true)
+		m.setStatus(keyed("no task under the cursor · move to a task with {j/k}"), true)
 		return m, nil
 	}
 	if nm, cmd, ok := m.propertyKeys(key); ok {
@@ -272,7 +272,7 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 	if key == "space" && m.noteChecks() > 0 && m.chkCur < m.noteChecks() {
 		if m.chkCur < 0 {
 			m.moveCheck(1)
-			m.setStatus("space toggles the checkbox · tab next · x completes the task", false)
+			m.setStatus(keyed("{space} toggles the checkbox · {tab} next · {x} completes the task"), false)
 			return m, nil
 		}
 		next := m.toggleNoteCheck(m.chkCur)
@@ -371,7 +371,7 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		}
 		if t != nil && m.comCur >= 0 && m.comCur < len(comments) {
 			id, client := comments[m.comCur].ID, m.client
-			m.confirm = yesNo("Delete comment", "Delete this comment? "+undoHint, "Delete", func(m *Model) tea.Cmd {
+			m.confirm = yesNo("Delete comment", "Delete this comment?", "Delete", func(m *Model) tea.Cmd {
 				// deleteLater keeps comCur for u, so move the cursor up only after it.
 				next := m.deleteLater("the comment", []hiddenItem{{hideComment, id}}, func(ctx context.Context) error {
 					return client.DeleteComment(ctx, id)
@@ -379,6 +379,7 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 				m.comCur--
 				return next
 			})
+			m.confirm.note = undoHint
 		}
 	}
 	return m, nil

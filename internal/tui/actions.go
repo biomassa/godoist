@@ -214,12 +214,12 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	id, name, client := t.ID, plain(t.Content), m.client
-	text := "Delete “" + name + "”? " + undoHint
+	text := "Delete “" + name + "”?"
 	if n := len(m.snap.Comments[id]); n > 0 {
-		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? %s", name, n, undoHint)
+		text = fmt.Sprintf("Delete “%s” and its %d comment(s)?", name, n)
 	}
 	if n := len(m.subtreeIDs(id)) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
-		text = fmt.Sprintf("Delete “%s” and its %s? %s", name, plural(n, "sub-note"), undoHint)
+		text = fmt.Sprintf("Delete “%s” and its %s?", name, plural(n, "sub-note"))
 	}
 	del := func(m *Model) tea.Cmd { // the sub-tasks hide with the task, as Todoist deletes them
 		return m.deleteLater("“"+name+"”", []hiddenItem{{hideTask, id}}, func(ctx context.Context) error {
@@ -228,6 +228,7 @@ func (m *Model) askDeleteTask() {
 	}
 	if t.Due == nil || !t.Due.IsRecurring {
 		m.confirm = yesNo("Delete task", text, "Delete", del)
+		m.confirm.note = undoHint
 		return
 	}
 	// A recurring task: skip only this date, or delete the task with all its dates.
@@ -235,8 +236,9 @@ func (m *Model) askDeleteTask() {
 	date := todoist.FormatDue(t.Due, time.Now())
 	if !todoist.CanSkip(t.Due.String) { // godoist cannot find the next date of this rule
 		m.confirm = &confirmPrompt{title: "Delete recurring task",
-			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? "+undoHint,
+			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates?",
 				name, t.Due.String),
+			note: undoHint,
 			buttons: []confirmButton{
 				{key: "d", label: "Delete all", danger: true, run: del},
 				{key: "n", label: "Cancel"},
@@ -244,8 +246,9 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	m.confirm = &confirmPrompt{title: "Delete recurring task",
-		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A delete: "+undoHint,
+		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates?",
 			name, t.Due.String, date),
+		note: undoHintOr,
 		buttons: []confirmButton{
 			{key: "s", label: "Skip this date", run: func(m *Model) tea.Cmd { return m.skipDates([]todoist.Task{task}) }},
 			{key: "d", label: "Delete all", danger: true, run: del},
@@ -317,7 +320,7 @@ func (m *Model) complete() tea.Cmd {
 	} else {
 		m.pushClosed([]*todoist.Task{t}, nil)
 		fx = m.startFx([]string{id}, nil, content)
-		text = "Completed “" + content + "” · u to undo"
+		text = "Completed “" + content + "” · " + kbd("u") + " to undo"
 	}
 	m.setStatus(text, false)
 	client := m.client

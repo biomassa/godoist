@@ -109,7 +109,7 @@ func (m Model) selectKeys(e *noteEditor, msg tea.KeyPressMsg, w int) (tea.Model,
 	case "ctrl+c", "ctrl+x":
 		text := e.selectedText()
 		if text == "" {
-			m.setStatus("select text first: shift+arrows, ctrl+a, or a mouse drag", false)
+			m.setStatus(keyed("select text first: {shift+arrows}, {ctrl+a}, or a mouse drag"), false)
 			return m, nil, true
 		}
 		copyCmd := tea.SetClipboard(text)

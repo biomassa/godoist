@@ -74,6 +74,11 @@ func (m Model) view() tea.View {
 	if m.width > 0 {
 		screen = m.overlays(screen)
 	}
+	if strings.Contains(screen, keyOpen) || strings.Contains(screen, keyClose) {
+		// A key mark that no withKeys drew: the terminal must not get it, because these
+		// control characters switch the character set of some terminals.
+		screen = plainKeys(screen)
+	}
 	v := tea.NewView(screen)
 	v.MouseMode = tea.MouseModeCellMotion // clicks, wheel, and motion while a button is down
 	v.AltScreen = true
@@ -116,7 +121,7 @@ func (m Model) render() string {
 		// The help spans the task list and the details pane.
 		helpW := midW + detW
 		return joinPanes(nav,
-			boxLines(st(hexText).Bold(true).Render("Help")+st(hexMuted).Render(" · godoist "+version.String()+" · j/k scroll · esc close"), padLines(m.helpWindow(helpW-2, h), helpW-2, h), helpW, hexAccent)) +
+			boxLines(st(hexText).Bold(true).Render("Help")+withKeys(" · godoist "+version.String()+keyed(" · {j/k} scroll · {esc} close"), st(hexMuted)), padLines(m.helpWindow(helpW-2, h), helpW-2, h), helpW, hexAccent)) +
 			"\n" + m.bottomBar()
 	case m.note != nil && !m.wide():
 		mid = boxLines(m.noteTitle(), m.noteLines(midW-2, h), midW, fg(hexAccent))
@@ -157,6 +162,22 @@ func joinPanes(panes ...[]string) string {
 	return sb.String()
 }
 
+// cutStatus cuts the drawn status to w cells. If the status has an end to keep
+// (statusKeep), the text before it gets shorter, and the end stays.
+func (m Model) cutStatus(status string, w int) string {
+	if lipgloss.Width(status) <= w || m.statusErr || m.statusKeep == "" || !strings.HasSuffix(m.status, m.statusKeep) {
+		return trunc(status, w)
+	}
+	mark := st(hexToday).Render("✓ ")
+	keep := withKeys(m.statusKeep, st(hexText))
+	room := w - lipgloss.Width(mark) - lipgloss.Width(keep)
+	if room < 1 {
+		return trunc(status, w)
+	}
+	head := withKeys(strings.TrimSuffix(m.status, m.statusKeep), st(hexText))
+	return mark + trunc(head, room) + keep
+}
+
 // ---- helpers ----
 
 func st(hex string) lipgloss.Style { return lipgloss.NewStyle().Foreground(c(hex)) }
@@ -182,8 +203,8 @@ func wrapHint(text, hex string, w int) []string {
 	lines = append(lines, cur)
 	var out []string
 	for _, l := range lines {
-		for _, part := range strings.Split(lipgloss.NewStyle().Width(max(1, w-1)).Render(l), "\n") {
-			out = append(out, " "+st(hex).Render(part))
+		for _, part := range strings.Split(lipgloss.NewStyle().Width(max(1, w-1)).Render(withKeys(l, st(hex))), "\n") {
+			out = append(out, " "+part)
 		}
 	}
 	return out
@@ -378,9 +399,9 @@ func (m Model) taskLines(w, h int) []string {
 	if !m.loaded {
 		msg := "Loading…"
 		if m.statusErr {
-			msg = "Could not load tasks — press r to retry"
+			msg = keyed("Could not load tasks — press {r} to retry")
 		}
-		return padLines([]string{"", "  " + st(hexMuted).Render(msg)}, w, h)
+		return padLines([]string{"", "  " + withKeys(msg, st(hexMuted))}, w, h)
 	}
 	cur := m.currentNav()
 	// Views that group tasks by project have project headers, so rows need no project badge.
@@ -423,21 +444,21 @@ func (m Model) taskLines(w, h int) []string {
 		}
 	}
 	if len(m.rows) == 0 || (len(lines) == 0 && h > 1) {
-		msg := "Nothing here · a to add a task"
+		msg := keyed("Nothing here · {a} to add a task")
 		switch {
 		case m.notesMode():
-			msg = "No notes · a to add a note"
+			msg = keyed("No notes · {a} to add a note")
 		case cur != nil && cur.kind == vkLabelHint:
-			msg = "No labels yet · A in the sidebar adds one"
+			msg = keyed("No labels yet · {A} in the sidebar adds one")
 		case cur != nil && cur.kind == vkCompleted && m.completedLoading:
 			msg = "Loading completed tasks…"
 		case cur != nil && cur.kind == vkCompleted:
 			msg = fmt.Sprintf("No tasks completed in the last %d days", completedDays)
 		}
 		if m.find != "" {
-			msg = "No matches · esc to clear"
+			msg = keyed("No matches · {esc} to clear")
 		}
-		lines = append(lines, "", "  "+st(hexMuted).Render(msg))
+		lines = append(lines, "", "  "+withKeys(msg, st(hexMuted)))
 	}
 	return m.fc.padLines(lines, w, h)
 }
@@ -924,16 +945,20 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 	}
 	room := m.width - lipgloss.Width(sync) - 1
 	if m.inputMode == inputFind {
-		line2 := trunc(m.input.View(), room)
+		line2 := m.input.View()
+		if m.input.Value() == "" {
+			line2 += withKeys(m.inputHint, st(hexDim))
+		}
+		line2 = trunc(line2, room)
 		gap := m.width - lipgloss.Width(line2) - lipgloss.Width(sync)
 		return pad(line1, m.width, lipgloss.NewStyle()) + "\n" + line2 + strings.Repeat(" ", max(0, gap)) + sync, hits
 	}
 	var status string
 	switch {
 	case m.status != "" && m.statusErr:
-		status = st(hexOverdue).Render("✗ " + m.status)
+		status = withKeys("✗ "+m.status, st(hexOverdue))
 	case m.status != "":
-		status = st(hexToday).Render("✓ ") + st(hexText).Render(m.status)
+		status = st(hexToday).Render("✓ ") + withKeys(m.status, st(hexText))
 	}
 	// The status keeps some room after the keys: 30 cells, or 50 for an error.
 	reserve := 0
@@ -972,7 +997,7 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 		if rest != "" {
 			line2 += "   "
 		}
-		line2 += trunc(status, max(0, room-lipgloss.Width(line2)))
+		line2 += m.cutStatus(status, max(0, room-lipgloss.Width(line2)))
 	}
 	gap := m.width - lipgloss.Width(line2) - lipgloss.Width(sync)
 	line2 += strings.Repeat(" ", max(0, gap)) + sync
@@ -982,7 +1007,7 @@ func (m Model) bottomBarLayout() (string, []legendHit) {
 // helpSections is the content of the help overlay, one list of lines per section.
 func helpSections() [][]string {
 	k := func(key, desc string) string {
-		return "  " + st(fg(hexAccent)).Bold(true).Render(fmt.Sprintf("%-12s", key)) + st(hexText).Render(desc)
+		return "  " + st(fg(hexAccent)).Bold(true).Render(fmt.Sprintf("%-12s", key)) + withKeys(desc, st(hexText))
 	}
 	h := func(s string) string { return " " + st(hexMuted).Bold(true).Render(s) }
 	return [][]string{
@@ -1001,14 +1026,14 @@ func helpSections() [][]string {
 			k("", "goes to the section under the cursor"),
 			k("x / space", "complete"),
 			k("", "a sub-task stays under its task,"),
-			k("", "struck through · x reopens it"),
+			k("", keyed("struck through · {x} reopens it")),
 			k("u", "undo: completion, priority, date, labels,"),
-			k("", "move with m or the mouse, and a delete"),
+			k("", keyed("move with {m} or the mouse, and a delete")),
 			k("", "for 10 seconds"),
-			k("", "also ctrl+z"),
+			k("", keyed("also {ctrl+z}")),
 			k("e", "edit name and description (#, /, @, p1–p4)"),
-			k("", "tab field · enter in description: new line"),
-			k("", "ctrl+enter save"),
+			k("", keyed("{tab} field · {enter} in description: new line")),
+			k("", keyed("{ctrl+enter} save")),
 			k("E", "edit the description / note body (markdown editor)"),
 			k("o", "open the first link of the task"),
 			k("O / Y", "open the task in Todoist / copy its link"),
@@ -1028,7 +1053,7 @@ func helpSections() [][]string {
 			k("z", "collapse / expand sub-tasks"),
 			k("s / S", "select / select a range"),
 			k("ctrl+a", "select all shown tasks · again: none"),
-			k("", "then x t p 1–4 m @ del act on all · esc clears"),
+			k("", keyed("then {x} {t} {p} {1–4} {m} {@} {del} act on all · {esc} clears")),
 			k("del", "delete the task (asks first)")},
 		{h("Labels (sidebar)"),
 			k("A", "new label"),
@@ -1047,7 +1072,7 @@ func helpSections() [][]string {
 			k("right-click", "project menu")},
 		{h("Sections (cursor on a header)"),
 			k("A / N", "new section after the cursor's section"),
-			k("", "N works on a task too"),
+			k("", keyed("{N} works on a task too")),
 			k("e", "rename the section"),
 			k("[ / ]", "move the section up / down"),
 			k("z", "collapse / expand the section"),
@@ -1059,7 +1084,7 @@ func helpSections() [][]string {
 			k("^t", "checkbox on the line"),
 			k("^f", "find and replace"),
 			k("^z / ^y", "undo / redo in the editor"),
-			k("tab", "reader: next checkbox or sub-note · space toggles · enter opens"),
+			k("tab", keyed("reader: next checkbox or sub-note · {space} toggles · {enter} opens")),
 			k("A", "new sub-note under the note"),
 			k("> / <", "nest under the note above / move one level up"),
 			k("z", "fold or unfold the sub-notes"),
@@ -1067,16 +1092,16 @@ func helpSections() [][]string {
 			k("esc", "leave the editor")},
 		{h("Details pane"),
 			k("j / k", "select a comment"),
-			k("e / del", "edit / delete the selected comment (also d)"),
+			k("e / del", keyed("edit / delete the selected comment (also {d})")),
 			k("del", "no comment selected: delete the task"),
-			k("space", "select the first checkbox · x completes"),
-			k("", "no comment selected: e edits the name")},
+			k("space", keyed("select the first checkbox · {x} completes")),
+			k("", keyed("no comment selected: {e} edits the name"))},
 		{h("Editor and pickers"),
 			k("esc", "save the editor text and close"),
-			k("", "ctrl+enter and ctrl+s do the same"),
+			k("", keyed("{ctrl+enter} and {ctrl+s} do the same")),
 			k("ctrl+q", "close and drop the changes"),
 			k("ctrl+e", "open the text in $EDITOR"),
-			k("shift+arrows", "select · ctrl+a select all · drag"),
+			k("shift+arrows", keyed("select · {ctrl+a} select all · drag")),
 			k("ctrl+c/x/v", "copy / cut / paste (system clipboard)"),
 			k("type", "filter a picker list"),
 			k("↑ / ↓", "select in a picker"),
@@ -1085,9 +1110,9 @@ func helpSections() [][]string {
 			k("esc", "cancel")},
 		{h("Date dialog (t)"),
 			k("tab", "text → calendar → time"),
-			k("type", "replaces the old date · ← → edit it"),
-			k("arrows", "day / week · PgUp/PgDn month"),
-			k("Home", "today · 1–5 quick picks"),
+			k("type", keyed("replaces the old date · {←} {→} edit it")),
+			k("arrows", keyed("day / week · {PgUp/PgDn} month")),
+			k("Home", keyed("today · {1–5} quick picks")),
 			k("enter", "save the input you changed last"),
 			k("o / w / r", "recurring: this occurrence / shift / replace")},
 		{h("Mouse"),
@@ -1095,17 +1120,17 @@ func helpSections() [][]string {
 			k("dbl-click", "rename a task · edit a comment"),
 			k("right-click", "task menu"),
 			k("drag", "task to a project or section header"),
-			k("wheel", "scroll · shift+drag selects text"),
+			k("wheel", keyed("scroll · {shift}+drag selects text")),
 			k("legend", "click a key hint to run it")},
 		{h("Views"),
 			k("v", "project: tasks / notebook view"),
-			k("/", "find in this view (esc clears)"),
+			k("/", keyed("find in this view ({esc} clears)")),
 			k("f", "Todoist filter: today | overdue"),
 			k("esc", "clear the filter or the find"),
 			k("r", "sync now (also every 60 s, on focus)"),
-			k("T", "theme: preview, enter keeps it"),
+			k("T", keyed("theme: preview, {enter} keeps it")),
 			k("{ / }", "narrow / widen the task list"),
-			k("?", "this help · j/k scroll"),
+			k("?", keyed("this help · {j/k} scroll")),
 			k("q", "quit (waits for pending saves)")},
 	}
 }
@@ -1145,5 +1170,5 @@ func helpLines(w int) []string {
 		}
 		out = append(out, line)
 	}
-	return append(out, "", " "+st(hexDim).Render("j/k scroll · esc, ? or q close"))
+	return append(out, "", " "+withKeys(keyed("{j/k} scroll · {esc}, {?} or {q} close"), st(hexDim)))
 }

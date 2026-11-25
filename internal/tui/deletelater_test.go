@@ -49,11 +49,11 @@ func runCmd(t *testing.T, cmd tea.Cmd) tea.Msg {
 // and the end of the wait then sends nothing.
 func TestDeleteUndoInTime(t *testing.T) {
 	m := send(t, onRow(t, 1), key("delete"))
-	if m.confirm == nil || !strings.Contains(m.confirm.text, "u undoes it") {
+	if m.confirm == nil || plainKeys(m.confirm.note) != "u undoes it for 10 seconds." || strings.Contains(m.confirm.text, "undoes") {
 		t.Fatalf("confirm = %+v, want the undo hint", m.confirm)
 	}
 	m = send(t, m, key("enter")) // Delete stays the default button
-	if m.taskByID("t1") != nil || m.pending != 0 || !strings.Contains(m.status, "u to undo") {
+	if m.taskByID("t1") != nil || m.pending != 0 || !strings.Contains(plainKeys(m.status), "u to undo") {
 		t.Fatalf("task shown = %v pending = %d status = %q, want it hidden and no write yet", m.taskByID("t1") != nil, m.pending, m.status)
 	}
 	n := m.laterN

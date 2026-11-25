@@ -75,6 +75,7 @@ type Model struct {
 	compHide   int         // see updateCompletion
 	dlgField   int         // focused field of the task dialog: 0 name, 1 description
 	inputMode  inputMode
+	inputHint  string // the placeholder of the find input in the bottom bar, with marked keys
 
 	note *noteEditor // the inline markdown editor: descriptions, notes, and comments
 	// discard is an editor that ctrl+q closed during an autosave: its old text goes back
@@ -95,7 +96,10 @@ type Model struct {
 
 	status    string
 	statusErr bool
-	undos     []undoStep // the undo stack, newest last
+	// statusKeep is an end of status that a cut status still shows, such as the count of a
+	// waiting delete: the status gets shorter before it.
+	statusKeep string
+	undos      []undoStep // the undo stack, newest last
 
 	laterDeletes map[int]*laterDelete  // deletes that wait, so that u can undo them
 	laterN       int                   // the number of the last delete
@@ -167,7 +171,13 @@ func (m Model) Init() tea.Cmd {
 	return tea.Batch(m.syncCmd(1), tea.RequestBackgroundColor, autoSyncTick())
 }
 
-func (m *Model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }
+func (m *Model) setStatus(s string, isErr bool) { m.status, m.statusErr, m.statusKeep = s, isErr, "" }
+
+// setStatusKeep sets the status s, whose end keep stays on the screen if s is cut.
+func (m *Model) setStatusKeep(s, keep string) {
+	m.setStatus(s, false)
+	m.statusKeep = keep
+}
 
 // Update handles a message. A wheel event less than one frame after the last frame shares
 // the next frame with the events after it (see holdsWheel).
@@ -335,6 +345,8 @@ func (m Model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case deleteNowMsg:
 		return m.deleteNow(msg)
+	case deleteTickMsg:
+		return m.deleteCount(msg)
 	case deleteSentMsg:
 		return m.deleteSent(msg)
 
@@ -459,7 +471,7 @@ func (m Model) quit() (tea.Model, tea.Cmd) {
 		return m.endQuit()
 	}
 	m.quitting = true
-	m.setStatus(fmt.Sprintf("saving %d change(s) before quitting… (ctrl+c to force)", m.pending), false)
+	m.setStatus(fmt.Sprintf(keyed("saving %d change(s) before quitting… ({ctrl+c} to force)"), m.pending), false)
 	return m, flush
 }
 

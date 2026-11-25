@@ -20,36 +20,36 @@ type dialogSpec struct {
 // the bottom bar, because it filters the list while the user types.
 var dialogSpecs = map[inputMode]dialogSpec{
 	inputAdd: {"Add task", "Pay rent tomorrow 9am p1 #private @label",
-		"dates, #project, /section, @label and p1–p4 are parsed · enter add · esc cancel", 500},
+		keyed("dates, #project, /section, @label and p1–p4 are parsed · {enter} add · {esc} cancel"), 500},
 	inputAddNote: {"New note", "Note title",
-		"saved as typed · E writes the body later · enter add · esc cancel", 500},
+		keyed("saved as typed · {E} writes the body later · {enter} add · {esc} cancel"), 500},
 	inputAddSubnote: {"New sub-note", "Sub-note title",
-		"saved as typed · it goes under the note at the cursor · enter add · esc cancel", 500},
+		keyed("saved as typed · it goes under the note at the cursor · {enter} add · {esc} cancel"), 500},
 	inputRename: {"Rename", "New name",
-		"#project, /section, @label and p1–p4 change only those fields · dates: t · enter save · esc cancel", 500},
+		keyed("#project, /section, @label and p1–p4 change only those fields · dates: {t} · {enter} save · {esc} cancel"), 500},
 	inputAddSection: {"New section", "Section name",
-		"saved as typed · goes after the section under the cursor · enter add · esc cancel", 120},
-	inputRenameSection: {"Rename section", "Section name", "saved as typed · enter save · esc cancel", 120},
+		keyed("saved as typed · goes after the section under the cursor · {enter} add · {esc} cancel"), 120},
+	inputRenameSection: {"Rename section", "Section name", keyed("saved as typed · {enter} save · {esc} cancel"), 120},
 	inputAddProject: {"New project", "Project name",
-		"saved as typed · next: color and sub-project · enter next · esc cancel", 120},
-	inputRenameProject: {"Rename project", "Project name", "saved as typed · enter save · esc cancel", 120},
+		keyed("saved as typed · next: color and sub-project · {enter} next · {esc} cancel"), 120},
+	inputRenameProject: {"Rename project", "Project name", keyed("saved as typed · {enter} save · {esc} cancel"), 120},
 	inputAddSubtask: {"New sub-task", "Sub-task name",
-		"dates, @label and p1–p4 are parsed · it goes under the task at the cursor · enter add · esc cancel", 500},
-	inputAddLabel:    {"New label", "Label name", "saved as typed · enter add · esc cancel", 60},
-	inputRenameLabel: {"Rename label", "Label name", "saved as typed · its tasks get the new name · enter save · esc cancel", 60},
+		keyed("dates, @label and p1–p4 are parsed · it goes under the task at the cursor · {enter} add · {esc} cancel"), 500},
+	inputAddLabel:    {"New label", "Label name", keyed("saved as typed · {enter} add · {esc} cancel"), 60},
+	inputRenameLabel: {"Rename label", "Label name", keyed("saved as typed · its tasks get the new name · {enter} save · {esc} cancel"), 60},
 	inputQuery: {"Todoist filter", "today | overdue · @read · #private & p1 · search: backup",
-		"Todoist filter syntax. Plain words search the task names. An empty filter removes the view · enter run · esc cancel", 1024},
+		keyed("Todoist filter syntax. Plain words search the task names. An empty filter removes the view · {enter} run · {esc} cancel"), 1024},
 }
 
 // descHints are the hints of the task dialog, for the name field and for the
 // description field.
 var descHints = map[inputMode][2]string{
-	inputAdd: {"dates, #project, /section, @label and p1–p4 are parsed · tab description · enter add · esc cancel",
-		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},
-	inputRename: {"#project, /section, @label and p1–p4 change only those fields · dates: t · tab description · enter save · esc cancel",
-		"saved as typed · enter new line · ctrl+enter or ctrl+s save · tab name · esc cancel"},
-	inputAddSubtask: {"dates, @label and p1–p4 are parsed · it goes under the task at the cursor · tab description · enter add · esc cancel",
-		"saved as typed · enter new line · ctrl+enter or ctrl+s add · tab name · esc cancel"},
+	inputAdd: {keyed("dates, #project, /section, @label and p1–p4 are parsed · {tab} description · {enter} add · {esc} cancel"),
+		keyed("saved as typed · {enter} new line · {ctrl+enter} or {ctrl+s} add · {tab} name · {esc} cancel")},
+	inputRename: {keyed("#project, /section, @label and p1–p4 change only those fields · dates: {t} · {tab} description · {enter} save · {esc} cancel"),
+		keyed("saved as typed · {enter} new line · {ctrl+enter} or {ctrl+s} save · {tab} name · {esc} cancel")},
+	inputAddSubtask: {keyed("dates, @label and p1–p4 are parsed · it goes under the task at the cursor · {tab} description · {enter} add · {esc} cancel"),
+		keyed("saved as typed · {enter} new line · {ctrl+enter} or {ctrl+s} add · {tab} name · {esc} cancel")},
 }
 
 // hasDescField reports whether the dialog for mode has a description field under the
@@ -128,7 +128,7 @@ func (m Model) dialogClipboard(key string) (tea.Model, tea.Cmd) {
 		return m, tea.ReadClipboard // the text comes as a ClipboardMsg and goes to paste
 	}
 	if !f.HasSelection() {
-		m.setStatus("select text first: shift+arrows or ctrl+a", false)
+		m.setStatus(keyed("select text first: {shift+arrows} or {ctrl+a}"), false)
 		return m, nil
 	}
 	copyCmd := tea.SetClipboard(f.SelectedText())
@@ -176,14 +176,14 @@ func (m Model) dialogDesc() string { return strings.TrimSpace(m.dlgDesc.text()) 
 // dialogHint is the hint of the open dialog.
 func (m Model) dialogHint() string {
 	if m.comp != nil {
-		return "↑↓ choose · tab or enter insert · esc close the list"
+		return keyed("{↑↓} choose · {tab} or {enter} insert · {esc} close the list")
 	}
 	if m.hasDescField(m.inputMode) {
 		return descHints[m.inputMode][m.dlgField]
 	}
 	spec := dialogSpecs[m.inputMode]
 	if m.inputMode == inputRename && m.notesMode() {
-		return "note titles are saved as typed · enter save · esc cancel"
+		return keyed("note titles are saved as typed · {enter} save · {esc} cancel")
 	}
 	return spec.hint
 }
@@ -191,7 +191,7 @@ func (m Model) dialogHint() string {
 // dialogHintLines is the hint cut into lines of the dialog width.
 func (m Model) dialogHintLines() []string {
 	inner := m.dialogWidth() - 2
-	hint := lipgloss.NewStyle().Width(inner - 2).Foreground(c(hexDim)).Render(m.dialogHint())
+	hint := lipgloss.NewStyle().Width(inner - 2).Render(withKeys(m.dialogHint(), st(hexDim)))
 	return strings.Split(hint, "\n")
 }
 

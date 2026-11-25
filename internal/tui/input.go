@@ -173,7 +173,10 @@ func (m *Model) openInput(mode inputMode, prompt, placeholder, value string) tea
 	}
 	m.inputMode = mode
 	m.input.Prompt = prompt
-	m.input.Placeholder = placeholder
+	// The bottom bar draws the placeholder (inputHint), so that its keys get the accent
+	// color: the text input would show the key marks as they are.
+	m.input.Placeholder = ""
+	m.inputHint = placeholder
 	m.input.SetValue(value)
 	m.input.CursorEnd()
 	return m.input.Focus()

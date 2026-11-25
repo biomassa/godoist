@@ -45,7 +45,7 @@ func (m Model) completedKeys(key string) (tea.Model, tea.Cmd, bool) {
 		return m, nil, false
 	}
 	if key != "x" && key != "space" {
-		m.setStatus("reopen the task first (x)", true)
+		m.setStatus(keyed("reopen the task first ({x})"), true)
 		return m, nil, true
 	}
 	id, name, client := t.ID, plain(t.Content), m.client

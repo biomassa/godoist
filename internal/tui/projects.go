@@ -95,9 +95,9 @@ func (m *Model) askDeleteProject(p *todoist.Project) {
 	if subs > 0 {
 		what += fmt.Sprintf(" and %d sub-project(s)", subs)
 	}
-	text := fmt.Sprintf("Delete or archive “%s”?\n\nDelete removes the project with its %s. %s\nArchive hides the project and keeps everything.", p.Name, what, undoHint)
+	text := fmt.Sprintf("Delete or archive “%s”?\n\nDelete removes the project with its %s.\nArchive hides the project and keeps everything.", p.Name, what)
 	id, name, client := p.ID, p.Name, m.client
-	m.confirm = &confirmPrompt{title: "Delete or archive project", text: text, buttons: []confirmButton{
+	m.confirm = &confirmPrompt{title: "Delete or archive project", text: text, note: undoHintOr, buttons: []confirmButton{
 		{key: "d", label: "Delete", danger: true, run: func(m *Model) tea.Cmd {
 			return m.deleteLater("project “"+name+"”", []hiddenItem{{hideProject, id}}, func(ctx context.Context) error {
 				return client.DeleteProject(ctx, id)

@@ -24,9 +24,9 @@ const localTimeout = 2 * time.Minute
 // doneHint is the status on a key that would change a completed sub-task.
 func (m Model) doneHint() string {
 	if m.notesMode() {
-		return "reopen the sub-note first (x)"
+		return keyed("reopen the sub-note first ({x})")
 	}
-	return "reopen the sub-task first (x)"
+	return keyed("reopen the sub-task first ({x})")
 }
 
 // localDone is a task that this session completed or reopened. seq is the number of

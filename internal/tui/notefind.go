@@ -241,7 +241,7 @@ func (m Model) findBox(w int) string {
 	if f.repl.Value() == "" {
 		with = "nothing"
 	}
-	hint := "enter next · ^r replace with " + with + " · ^a replace all · tab field · esc close"
+	hint := keyed("{enter} next · {^r} replace with ") + with + keyed(" · {^a} replace all · {tab} field · {esc} close")
 	lines = append(lines, wrapHint(hint, hexDim, inner)...)
 	title := "Find"
 	switch {

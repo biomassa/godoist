@@ -100,7 +100,7 @@ func TestDoneSubKeysBlocked(t *testing.T) {
 	}
 	for _, k := range []string{"e", "t", "p", "1", "m", "delete", "s", ">", "A"} {
 		got := send(t, m, key(k))
-		if got.status != "reopen the sub-task first (x)" || got.inputMode != inputNone || got.confirm != nil || got.cal != nil || got.pending != 0 {
+		if plainKeys(got.status) != "reopen the sub-task first (x)" || got.inputMode != inputNone || got.confirm != nil || got.cal != nil || got.pending != 0 {
 			t.Errorf("%s: status = %q", k, got.status)
 		}
 	}
@@ -223,7 +223,7 @@ func TestDoneNoteReaderClick(t *testing.T) {
 	}
 	s := m.sideRect()
 	m = send(t, m, click(s.x+5, s.y+6), click(s.x+5, s.y+6)) // a double-click under the path line
-	if m.note != nil || m.status != "reopen the sub-note first (x)" {
+	if m.note != nil || plainKeys(m.status) != "reopen the sub-note first (x)" {
 		t.Errorf("editor = %v status = %q", m.note != nil, m.status)
 	}
 }

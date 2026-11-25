@@ -198,7 +198,7 @@ func (m Model) buildDetail(w int) detailDoc {
 		d.lines = append(d.lines, "", label("Items", fmt.Sprint(r.count)))
 		if r.sectionID != "" {
 			d.lines = append(d.lines, "")
-			d.lines = append(d.lines, wrapHint("a add a task here · A new section · e rename · [ ] move · del delete", hexMuted, w-1)...)
+			d.lines = append(d.lines, wrapHint(keyed("{a} add a task here · {A} new section · {e} rename · {[} {]} move · {del} delete"), hexMuted, w-1)...)
 		}
 		return d
 	}
@@ -233,9 +233,9 @@ func (m Model) buildDetail(w int) detailDoc {
 		}
 		d.lines = append(d.lines, " "+st(hexMuted).Render(strings.Join(meta, " · ")))
 		if t.Checked {
-			d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("x")+st(hexDim).Render(" · reopen this note"), "")
+			d.lines = append(d.lines, " "+withKeys(keyed("{x} · reopen this note"), st(hexDim)), "")
 		} else {
-			d.lines = append(d.lines, " "+st(fg(hexAccent)).Render("enter or E")+st(hexDim).Render(" · edit this note"), "")
+			d.lines = append(d.lines, " "+withKeys(keyed("{enter} or {E} · edit this note"), st(hexDim)), "")
 		}
 		d.editStart = len(d.lines)
 		if body := strings.TrimSpace(t.Description); body != "" {
@@ -264,7 +264,10 @@ func (m Model) buildDetail(w int) detailDoc {
 			d.lines = append(d.lines, label("Labels", st(hexTomorrow).Render("@"+strings.Join(t.Labels, " @"))))
 		}
 		if desc := strings.TrimSpace(t.Description); desc != "" {
-			d.lines = append(d.lines, "", " "+st(hexMuted).Render("Description"))
+			// A dim rule divides the fields from the description, and a blank line comes
+			// before the text.
+			d.lines = append(d.lines, "", " "+st(hexDim).Render(strings.Repeat("─", max(0, w-2))),
+				" "+st(hexMuted).Render("Description"), "")
 			d.addMarkdown(m.md.render(desc, w))
 		}
 	}
@@ -291,10 +294,10 @@ func (m Model) buildDetail(w int) detailDoc {
 	}
 	if m.focus == paneDetail {
 		d.lines = append(d.lines, "")
-		d.lines = append(d.lines, wrapHint("j/k select comment · c add · e edit · y copy · d delete", hexDim, w-1)...)
+		d.lines = append(d.lines, wrapHint(keyed("{j/k} select comment · {c} add · {e} edit · {y} copy · {d} delete"), hexDim, w-1)...)
 	} else {
 		d.lines = append(d.lines, "")
-		d.lines = append(d.lines, wrapHint("enter or l · comments and editing here", hexDim, w-1)...)
+		d.lines = append(d.lines, wrapHint(keyed("{enter} or {l} · comments and editing here"), hexDim, w-1)...)
 	}
 	d.lines = append(d.lines, "", " "+st(hexDim).Render("id "+t.ID))
 	return d
