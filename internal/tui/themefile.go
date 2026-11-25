@@ -44,39 +44,69 @@ var fileThemes []fileTheme
 // themeLoadErr is the error of LoadThemes. New shows it in the status line.
 var themeLoadErr error
 
+// themeDir is the directory of the theme files, from LoadThemes. A reload reads it again,
+// so that it finds the files that were added or fixed after the start.
+var themeDir string
+
 // LoadThemes reads the theme files (*.toml) in dir. A missing dir is no error. A file
 // that can't be read, or that has the name of a built-in theme, gives an error, and the
 // other files are still read. The TUI also shows the error when it starts.
 func LoadThemes(dir string) error {
-	fileThemes, themeLoadErr = nil, nil
-	entries, err := os.ReadDir(dir)
+	themeDir, fileThemes = dir, nil
+	themeLoadErr = scanThemes()
+	return themeLoadErr
+}
+
+// scanThemes reads the theme files in themeDir again. A file that can't be read keeps
+// the colors that it had: a tool may be in the middle of writing it. A file that is gone
+// drops its theme.
+func scanThemes() error {
+	if themeDir == "" {
+		return nil // LoadThemes was not called
+	}
+	entries, err := os.ReadDir(themeDir)
 	if errors.Is(err, fs.ErrNotExist) {
+		fileThemes = nil
 		return nil
 	}
 	if err != nil {
-		themeLoadErr = err
 		return err
 	}
+	var themes []fileTheme
 	var errs []error
 	for _, e := range entries {
 		// Editors keep lock and backup files next to the file, as ".#name.toml".
 		if !strings.HasSuffix(e.Name(), ".toml") || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		path := filepath.Join(dir, e.Name())
+		path := filepath.Join(themeDir, e.Name())
 		p, err := readThemeFile(path)
 		if err != nil {
 			errs = append(errs, err)
+			if old := findFileTheme(strings.TrimSuffix(e.Name(), ".toml")); old != nil {
+				themes = append(themes, *old)
+			}
 			continue
 		}
 		if p.name == todoistTheme || slices.ContainsFunc(palettes, func(b palette) bool { return b.name == p.name }) {
 			errs = append(errs, fmt.Errorf("theme file %s: %q is the name of a built-in theme", path, p.name))
 			continue
 		}
-		fileThemes = append(fileThemes, p)
+		themes = append(themes, p)
 	}
-	themeLoadErr = errors.Join(errs...)
-	return themeLoadErr
+	fileThemes = themes
+	return errors.Join(errs...)
+}
+
+// errLine makes err fit the status line: errors.Join puts each error on its own line,
+// and a second line breaks the layout of the screen.
+func errLine(err error) string {
+	if j, ok := err.(interface{ Unwrap() []error }); ok {
+		if errs := j.Unwrap(); len(errs) > 1 {
+			return fmt.Sprintf("%s (and %d more)", oneLine(errs[0].Error()), len(errs)-1)
+		}
+	}
+	return oneLine(err.Error())
 }
 
 // readThemeFile reads one theme file. The file name without ".toml" is the theme name.
@@ -158,24 +188,50 @@ func findFileTheme(name string) *fileTheme {
 	return nil
 }
 
-// ThemeReloadMsg asks the TUI to read the theme file in use again. godoist sends it on
-// SIGUSR2, so a tool that rewrites the file can tell godoist with
+// ThemeReloadMsg asks the TUI to read the theme files again. godoist sends it on
+// SIGUSR2, so a tool that writes a theme file can tell godoist with
 // "pkill -USR2 -x godoist".
 type ThemeReloadMsg struct{}
 
-// reloadTheme reads the theme file in use again and shows its colors. A built-in theme
-// has nothing to read. A file that can't be read keeps the colors on the screen.
+// reloadTheme reads the theme files again and shows the new colors. It also finds the
+// theme files that were added, so the wanted theme comes back when its file was missing
+// or broken at the start. A built-in theme stays as it is. With the picker open, the
+// picker gets the new list, and the theme under the cursor shows again.
 func (m Model) reloadTheme() (tea.Model, tea.Cmd) {
-	p := findFileTheme(themeName)
-	if p == nil {
-		return m, nil
+	err := scanThemes()
+	names := themeNames()
+	// The theme in use: the one that the picker goes back to, or the one on the screen.
+	inUse := themeName
+	if m.themes != nil {
+		inUse = m.themes.orig
 	}
-	np, err := readThemeFile(p.path)
+	want := inUse
+	if m.wantTheme != "" && slices.Contains(names, m.wantTheme) {
+		want = m.wantTheme
+	}
+	switch {
+	case !slices.Contains(names, want):
+		m.setStatus("theme "+want+" not found, the theme is "+todoistTheme, true)
+		want = todoistTheme
+	case want != inUse:
+		m.setStatus("theme "+want, false) // the wanted theme is back
+	}
 	if err != nil {
-		m.setStatus(err.Error(), true)
-		return m, nil
+		m.setStatus(errLine(err), true)
 	}
-	*p = np
-	m.previewTheme(themeName)
+	show := want
+	if p := m.themes; p != nil {
+		cur := p.names[p.cur]
+		p.names, p.orig = names, want
+		p.cur = slices.Index(names, cur)
+		if p.cur < 0 {
+			p.cur = slices.Index(names, want)
+		}
+		show = names[p.cur]
+	}
+	// A built-in theme has no new colors, so the screen stays.
+	if show != themeName || findFileTheme(show) != nil {
+		m.previewTheme(show)
+	}
 	return m, nil
 }

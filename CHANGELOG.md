@@ -9,7 +9,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- Theme files: each `~/.config/godoist/themes/NAME.toml` adds the theme `NAME`, with your own colors. `SIGUSR2` loads the theme file in use again, so a desktop tool can keep godoist in sync after it writes the file. `docs/themes/noctalia.toml` is a template for Noctalia.
+- Theme files: each `~/.config/godoist/themes/NAME.toml` adds the theme `NAME`, with your own colors. `SIGUSR2` reads the theme files again and finds new ones, so a desktop tool can keep godoist in sync after it writes the file. `docs/themes/noctalia.toml` is a template for Noctalia.
 
 ## [1.7.1] - 2026-11-25
 

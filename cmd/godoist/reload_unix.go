@@ -11,7 +11,7 @@ import (
 	"github.com/biomassa/godoist/internal/tui"
 )
 
-// reloadThemeOnSignal makes SIGUSR2 read the theme file in use again. A tool that
+// reloadThemeOnSignal makes SIGUSR2 read the theme files again. A tool that
 // writes the theme file, like a desktop shell after a wallpaper change, sends it with
 // "pkill -USR2 -x godoist". SIGUSR1 is taken by the prof build.
 func reloadThemeOnSignal(p *tea.Program) {

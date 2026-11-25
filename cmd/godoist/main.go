@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -104,8 +105,9 @@ func rootCmd() *cobra.Command {
 			}
 			// The theme files add themes to the built-in ones. A broken file doesn't stop the
 			// start: the TUI shows the error.
+			var themeErr error
 			if dir, err := config.ThemeDir(); err == nil {
-				_ = tui.LoadThemes(dir)
+				themeErr = tui.LoadThemes(dir)
 			}
 			// The theme: --theme for this run, else the theme kept in the picker.
 			cfg, _ := config.Load()
@@ -114,7 +116,9 @@ func rootCmd() *cobra.Command {
 				name = theme
 			}
 			if theme != "" && !slices.Contains(tui.ThemeNames(), theme) {
-				return fmt.Errorf("unknown theme %q. The themes: %s", theme, strings.Join(tui.ThemeNames(), ", "))
+				err := fmt.Errorf("unknown theme %q. The themes: %s", theme, strings.Join(tui.ThemeNames(), ", "))
+				// The file of the theme can be there but broken, so say why it didn't load.
+				return errors.Join(err, themeErr)
 			}
 			p := tea.NewProgram(tui.New(c, token, tui.Settings{Theme: name, ListShare: cfg.ListShare, Animations: cfg.AnimationsOn(),
 				SaveTheme: config.SaveTheme, SaveListShare: config.SaveListShare}), tea.WithFPS(tui.FPS))
