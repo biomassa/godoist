@@ -7,9 +7,19 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-25
+
 ### Added
 
-- Theme files: each `~/.config/godoist/themes/NAME.toml` adds the theme `NAME`, with your own colors. `SIGUSR2` reads the theme files again and finds new ones, so a desktop tool can keep godoist in sync after it writes the file. `docs/themes/noctalia.toml` is a template for Noctalia.
+- Theme files: each `~/.config/godoist/themes/NAME.toml` adds the theme `NAME`, with your own colors. `SIGUSR2` reads the theme files again and finds new ones, so a desktop tool can keep godoist in sync after it writes the file. `docs/themes/noctalia.toml` is a template for Noctalia, and `docs/themes/everforest-dark.toml` is an example theme.
+
+### Changed
+
+- In the details pane, a dim line and a blank line set the comments apart, as the description. Each comment starts with its date, and its text wraps under its first letter. A blank line divides the comments.
+
+### Fixed
+
+- After a reload that has no errors, the status line no longer shows the error of a theme file that you fixed.
 
 ## [1.7.1] - 2026-11-25
 
@@ -339,7 +349,8 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.7.1...HEAD
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/biomassa/godoist/compare/v1.7.1...v1.8.0
 [1.7.1]: https://github.com/biomassa/godoist/compare/f47f69e...v1.7.1
 [1.7.0]: https://github.com/biomassa/godoist/compare/v1.6.0...f47f69e
 [1.6.0]: https://github.com/biomassa/godoist/compare/v1.5.0...v1.6.0
