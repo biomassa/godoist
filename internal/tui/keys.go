@@ -98,7 +98,7 @@ func (m Model) updateKeys(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, next
 	case "v":
 		return m.toggleNotes()
-	case "ctrl+z":
+	case "u", "ctrl+z":
 		return m.undo()
 	}
 
@@ -371,9 +371,13 @@ func (m Model) detailKeys(key string) (tea.Model, tea.Cmd) {
 		}
 		if t != nil && m.comCur >= 0 && m.comCur < len(comments) {
 			id, client := comments[m.comCur].ID, m.client
-			m.confirm = yesNo("Delete comment", "Delete this comment? This cannot be undone.", "Delete", func(m *Model) tea.Cmd {
+			m.confirm = yesNo("Delete comment", "Delete this comment? "+undoHint, "Delete", func(m *Model) tea.Cmd {
+				// deleteLater keeps comCur for u, so move the cursor up only after it.
+				next := m.deleteLater("the comment", []hiddenItem{{hideComment, id}}, func(ctx context.Context) error {
+					return client.DeleteComment(ctx, id)
+				})
 				m.comCur--
-				return m.simpleWrite("Comment deleted", func(ctx context.Context) error { return client.DeleteComment(ctx, id) })
+				return next
 			})
 		}
 	}

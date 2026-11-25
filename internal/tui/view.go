@@ -833,7 +833,7 @@ func (m Model) legendKeys() [][2]string {
 	case m.notesMode():
 		keys = [][2]string{{"a", "new note"}, {"A", "sub-note"}, {"E", "edit inline"}, {"e", "rename"}, {">", "nest"}, {"<", "unnest"}, {"z", "fold"}, {"m", "move under"}, {"p", "postpone"}, {"[", "up"}, {"]", "down"}, {"c", "comment"}, {"y", "copy"}, {"v", "tasks view"}, {"/", "find"}}
 	default:
-		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"p", "postpone"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"^z", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
+		keys = [][2]string{{"a", "add"}, {"A", "sub-task"}, {"x", "done"}, {"e", "edit"}, {"o", "open link"}, {"y", "copy"}, {"t", "due"}, {"p", "postpone"}, {"1-4", "priority"}, {"@", "labels"}, {"m", "move"}, {"s", "select"}, {"[", "up"}, {"]", "down"}, {">", "indent"}, {"<", "outdent"}, {"z", "collapse"}, {"E", "description"}, {"c", "comment"}, {"del", "delete"}, {"u", "undo"}, {"v", "notes view"}, {"/", "find"}, {"f", "filter"}}
 	}
 	// In the task list and the sidebar, esc clears an active find or filter.
 	if m.inputMode == inputNone && m.cal == nil && m.menu == nil && m.pick == nil && m.note == nil && m.focus != paneDetail {
@@ -1002,7 +1002,10 @@ func helpSections() [][]string {
 			k("x / space", "complete"),
 			k("", "a sub-task stays under its task,"),
 			k("", "struck through · x reopens it"),
-			k("ctrl+z", "undo the last completion"),
+			k("u", "undo: completion, priority, date, labels,"),
+			k("", "move with m or the mouse, and a delete"),
+			k("", "for 10 seconds"),
+			k("", "also ctrl+z"),
 			k("e", "edit name and description (#, /, @, p1–p4)"),
 			k("", "tab field · enter in description: new line"),
 			k("", "ctrl+enter save"),

@@ -131,7 +131,7 @@ func (m *Model) rename(text string, desc *string) tea.Cmd {
 	if descChanged {
 		newDesc = desc
 	}
-	st := m.st // ApplyName only reads the projects and the sections
+	st := m.withoutHidden(m.st) // ApplyName only reads the projects and the sections
 	cmd := m.write("", func(ctx context.Context) (string, error) {
 		p, fields, err := client.ApplyName(ctx, &st, cur, text, newDesc)
 		if err != nil {
@@ -184,6 +184,7 @@ func (m *Model) setPriority(p int) tea.Cmd {
 		m.setStatus(fmt.Sprintf("already P%d", p), false)
 		return nil
 	}
+	m.rememberTasks(undoPriority, []*todoist.Task{t})
 	id, client := t.ID, m.client
 	t.Priority = 5 - p // show the new color at once. The sync confirms it.
 	return m.simpleWrite(fmt.Sprintf("Priority → P%d", p), func(ctx context.Context) error {
@@ -213,20 +214,15 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	id, name, client := t.ID, plain(t.Content), m.client
-	text := "Delete “" + name + "”? This cannot be undone."
+	text := "Delete “" + name + "”? " + undoHint
 	if n := len(m.snap.Comments[id]); n > 0 {
-		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? This cannot be undone.", name, n)
+		text = fmt.Sprintf("Delete “%s” and its %d comment(s)? %s", name, n, undoHint)
 	}
-	subtree := m.subtreeIDs(id)
-	if n := len(subtree) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
-		text = fmt.Sprintf("Delete “%s” and its %s? This cannot be undone.", name, plural(n, "sub-note"))
+	if n := len(m.subtreeIDs(id)) - 1; n > 0 && m.notesMode() { // Todoist deletes the sub-notes too
+		text = fmt.Sprintf("Delete “%s” and its %s? %s", name, plural(n, "sub-note"), undoHint)
 	}
-	del := func(m *Model) tea.Cmd {
-		for _, x := range subtree[1:] { // Todoist deletes the sub-tasks with the task
-			m.removeTask(x)
-		}
-		m.removeTask(id)
-		return m.simpleWrite("Deleted “"+name+"”", func(ctx context.Context) error {
+	del := func(m *Model) tea.Cmd { // the sub-tasks hide with the task, as Todoist deletes them
+		return m.deleteLater("“"+name+"”", []hiddenItem{{hideTask, id}}, func(ctx context.Context) error {
 			return client.Delete(ctx, id)
 		})
 	}
@@ -239,7 +235,7 @@ func (m *Model) askDeleteTask() {
 	date := todoist.FormatDue(t.Due, time.Now())
 	if !todoist.CanSkip(t.Due.String) { // godoist cannot find the next date of this rule
 		m.confirm = &confirmPrompt{title: "Delete recurring task",
-			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? A deletion cannot be undone.",
+			text: fmt.Sprintf("“%s” repeats %s. godoist cannot find the next date of this repeat, so it cannot skip only this date. Delete the task with all its dates? "+undoHint,
 				name, t.Due.String),
 			buttons: []confirmButton{
 				{key: "d", label: "Delete all", danger: true, run: del},
@@ -248,7 +244,7 @@ func (m *Model) askDeleteTask() {
 		return
 	}
 	m.confirm = &confirmPrompt{title: "Delete recurring task",
-		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A deletion cannot be undone.",
+		text: fmt.Sprintf("“%s” repeats %s. Skip only this date (%s), or delete the task with all its dates? A delete: "+undoHint,
 			name, t.Due.String, date),
 		buttons: []confirmButton{
 			{key: "s", label: "Skip this date", run: func(m *Model) tea.Cmd { return m.skipDates([]todoist.Task{task}) }},
@@ -277,7 +273,7 @@ func (m *Model) skipDates(ts []todoist.Task) tea.Cmd {
 }
 
 // closedTask is the name and the project of a task on the undo stack, for the flight of
-// ctrl+z to the project. inPlace is true for a sub-task that stays under its open task.
+// u to the project. inPlace is true for a sub-task that stays under its open task.
 type closedTask struct {
 	name, projectID string
 	inPlace         bool
@@ -297,7 +293,7 @@ func (m *Model) pushClosed(ts []*todoist.Task, inPlace map[string]bool) {
 		ids[i] = t.ID
 		m.closedTask[t.ID] = closedTask{t.Content, t.ProjectID, inPlace[t.ID]}
 	}
-	m.closed = append(m.closed, ids)
+	m.pushUndo(undoStep{kind: undoClose, ids: ids})
 }
 
 // complete is completeTask for callers that hold a *Model, such as a confirm prompt.
@@ -321,7 +317,7 @@ func (m *Model) complete() tea.Cmd {
 	} else {
 		m.pushClosed([]*todoist.Task{t}, nil)
 		fx = m.startFx([]string{id}, nil, content)
-		text = "Completed “" + content + "” · ctrl+z to undo"
+		text = "Completed “" + content + "” · u to undo"
 	}
 	m.setStatus(text, false)
 	client := m.client
@@ -329,12 +325,22 @@ func (m *Model) complete() tea.Cmd {
 }
 
 func (m Model) undo() (tea.Model, tea.Cmd) {
-	if len(m.closed) == 0 {
+	if len(m.undos) == 0 {
 		m.setStatus("nothing to undo", false)
 		return m, nil
 	}
-	ids := m.closed[len(m.closed)-1]
-	m.closed = m.closed[:len(m.closed)-1]
+	step := m.undos[len(m.undos)-1]
+	m.undos = m.undos[:len(m.undos)-1]
+	switch step.kind {
+	case undoDelete:
+		next := m.undoDelete(step.deleteN)
+		return m, next
+	case undoClose:
+	default:
+		next := m.undoChange(step)
+		return m, next
+	}
+	ids := step.ids
 	var fly []string // the tasks that went to Completed fly back. The others stay in place.
 	for _, id := range ids {
 		if m.closedTask[id].inPlace {

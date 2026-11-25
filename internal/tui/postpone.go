@@ -63,7 +63,10 @@ func (m *Model) openPostpone() tea.Cmd {
 	m.confirm = &confirmPrompt{title: "Postpone", sel: 1, // enter is 1 day, as before Today came
 		head: "“" + plain(t.Content) + "”",
 		text: text,
-		buttons: postponeButtons(func(m *Model, days int) tea.Cmd { return m.postpone(id, days) },
+		buttons: postponeButtons(func(m *Model, days int) tea.Cmd {
+			m.rememberIDs(undoDue, []string{id})
+			return m.postpone(id, days)
+		},
 			func(m *Model) tea.Cmd {
 				if t := m.taskByID(id); t != nil {
 					s := ""
@@ -101,6 +104,7 @@ func (m *Model) openBulkPostpone(ts []*todoist.Task) tea.Cmd {
 	m.confirm = &confirmPrompt{title: "Postpone", sel: 1,
 		text: fmt.Sprintf("%d selected tasks", len(ts)),
 		buttons: postponeButtons(func(m *Model, days int) tea.Cmd {
+			m.rememberIDs(undoDue, ids)
 			var sends []func(context.Context) error
 			for _, id := range ids {
 				if _, send := m.postponeWrite(id, days); send != nil {

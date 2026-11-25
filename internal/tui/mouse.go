@@ -534,6 +534,7 @@ func (m *Model) moveTask(taskID, projectID, sectionID string) tea.Cmd {
 		where += " / " + s.Name
 	}
 	m.setStatus("moving to "+where+"…", false)
+	m.rememberIDs(undoMove, []string{taskID})
 	client := m.client
 	return m.simpleWrite("Moved to "+where, func(ctx context.Context) error {
 		return client.Move(ctx, taskID, projectID, sectionID)

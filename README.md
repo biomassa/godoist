@@ -146,7 +146,8 @@ Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mou
 | `gt` / `gu` / `gi` | Go to Today, Upcoming, or the Inbox. After `g`, a key that is not a jump key works as usual. If the second key does not come in half a second, a box shows the jump keys. |
 | `gp` or `ctrl+k` | Go to a view, a project, or a label of the sidebar: type to filter the list, `enter` opens it. Projects under a collapsed project are not in the list. |
 | `a` | Add a task. The dialog has a name, which Todoist parses, and a description. |
-| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `ctrl+z` undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
+| `u` | Undo the last change: a completion, a priority, a date, a move with `m` or the mouse, or labels. A moved task goes back to its project, section, or parent task, at the end. Changes that `e` makes from the name (`p1`, `#project`, `@label`), the order keys (`[`, `]`, `>`, `<`), and moving a note under another note have no undo. `ctrl+z` does the same. |
+| `x` or `space` | Complete the task. The name flies to **✓ Completed** in the sidebar. A recurring task blinks in its place. `u` (or `ctrl+z`) undoes the last completion of a one-time task, and the name flies back to its project. A sub-task of an open task stays under its task, struck through. `x` on it reopens it. |
 | `e` | Edit the name and the description. `#project`, `/section`, `@label`, and `p1`–`p4` in the name change only those fields. Dates in the name are not read: use `t`. |
 | `E` | Edit the description in the [markdown editor](#markdown-editor). |
 | `t` | Open the date dialog. |
@@ -164,7 +165,7 @@ Push `?` to see all keys. `j` / `k`, `ctrl+d` / `ctrl+u`, `g` / `G`, and the mou
 | `[` / `]` | Move a task without a due date up or down. At the edge of a section, the task goes into the next section. A sub-task moves with or without a date. |
 | `z` | Collapse or expand the sub-tasks. On a section header, collapse or expand the section. |
 | `s` / `S` | Select the task, or select all tasks from the last selected task to the cursor. `ctrl+a` selects all tasks that the view shows (not those in a collapsed section or under a collapsed task), and again selects none. |
-| `Delete` / `Backspace` | Delete the task. godoist asks first, because a deletion cannot be undone. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. In the details pane, a selected comment is deleted instead (`d` also works there). |
+| `Delete` / `Backspace` | Delete the task. godoist asks first, and `enter` deletes. The task goes away at once, but godoist sends the delete to Todoist only after 10 seconds: `u` in that time brings it back. Quitting sends waiting deletes at once. Sections, projects, and comments delete the same way. For a recurring task, the dialog can also skip only the current date: the task moves to its next date and keeps its repeat, and Todoist records no completion. In the details pane, a selected comment is deleted instead (`d` also works there). |
 | `v` | Change the project between task view and notebook view. |
 | `/` | Find in the current view. |
 | `f` | Run a Todoist filter query. Plain words search the task names. |
@@ -287,13 +288,13 @@ These keys work in the sidebar, with the cursor on a project:
 | `>` / `<` | Make the project a sub-project of the project above it, or move it one level up. |
 | `m` | Move the project under another project, or to the top level. |
 | `z` | Collapse or expand the sub-projects. |
-| `Delete` / `Backspace` | Delete or archive the project. A dialog asks which. |
+| `Delete` / `Backspace` | Delete or archive the project. A dialog asks which. `u` undoes a delete for 10 seconds. |
 
 You can also drag a project onto another project to make it a sub-project, or onto **My Projects** to make it a top-level project. A project moves with its sub-projects. You cannot change the Inbox. The Todoist free plan limits the number of projects. If Todoist refuses a new project, godoist shows the message from Todoist.
 
 ### Multi-select
 
-Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `p`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `ctrl+z` opens again all one-time tasks of a bulk completion.
+Push `s` to select a task, or `S` to select a range. `ctrl`+click and `shift`+click also select. The title shows the number of selected tasks. With tasks selected, these keys act on all of them: `x`, `t`, `p`, `1`–`4`, `m`, `@`, and `Delete`. The selection stays after a change, so you can do more changes. `esc` clears the selection. One `u` opens again all one-time tasks of a bulk completion.
 
 In the label picker for several tasks, `[x]` shows a label that all tasks have, `[~]` a label that some tasks have, and `[ ]` a label that no task has. `space` changes the state. godoist changes only the labels that you changed.
 

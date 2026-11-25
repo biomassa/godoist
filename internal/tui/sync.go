@@ -141,6 +141,7 @@ func (m *Model) applyState(st todoist.SyncState) {
 	for i := range m.snap.Sections {
 		m.sections[m.snap.Sections[i].ID] = &m.snap.Sections[i]
 	}
+	m.hideDeleted() // deletes that wait for u are not in Todoist yet
 	m.buildNav()
 	m.buildRows(false)
 }
