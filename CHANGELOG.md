@@ -7,6 +7,15 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-11-25
+
+### Changed
+
+- Keys in hints, dialogs, status messages, and the help show in the accent color, as in the legend.
+- The delete dialogs show how to undo on a second, paler line.
+- The status after a delete counts the seconds down. A long name gets shorter, so that the count stays visible.
+- In the details pane, a dim line and a blank line set the description apart from the fields.
+
 ## [1.7.0] - 2026-11-25
 
 ### Added
@@ -326,8 +335,9 @@ License:
 
 - MIT license.
 
-[Unreleased]: https://github.com/biomassa/godoist/compare/v1.7.0...HEAD
-[1.7.0]: https://github.com/biomassa/godoist/compare/v1.6.0...v1.7.0
+[Unreleased]: https://github.com/biomassa/godoist/compare/v1.7.1...HEAD
+[1.7.1]: https://github.com/biomassa/godoist/compare/f47f69e...v1.7.1
+[1.7.0]: https://github.com/biomassa/godoist/compare/v1.6.0...f47f69e
 [1.6.0]: https://github.com/biomassa/godoist/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/biomassa/godoist/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/biomassa/godoist/compare/v1.3.0...v1.4.0
